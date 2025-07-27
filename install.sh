@@ -55,6 +55,7 @@ source $OMARCHY_INSTALL/development/firewall.sh
 show_logo slice 60
 show_subtext "Installing desktop tools [3/5]"
 source $OMARCHY_INSTALL/desktop/desktop.sh
+source $OMARCHY_INSTALL/desktop/brightness.sh
 source $OMARCHY_INSTALL/desktop/hyprlandia.sh
 source $OMARCHY_INSTALL/desktop/theme.sh
 source $OMARCHY_INSTALL/desktop/bluetooth.sh
