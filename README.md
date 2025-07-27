@@ -2,7 +2,7 @@
 
 This is a fork of the [Omarchy](https://omarchy.org) project, specifically modified to provide a fully-configured, beautiful, and modern web development system based on Hyprland for Apple Silicon MacBooks running **Asahi Arch Linux Minimal**.
 
-Our goal is to ensure a seamless and optimized experience on this platform, addressing hardware-specific considerations.
+Our goal is to ensure a seamless and optimized experience on this platform, addressing hardware-specific considerations. We have thoroughly reviewed and adjusted the package selection to ensure compatibility and a smooth, interactive setup on aarch64 architectures.
 
 ## Key Modifications for Apple Silicon
 
