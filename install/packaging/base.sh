@@ -5,7 +5,7 @@ core_packages=()
 optional_packages=()
 in_optional=0
 while IFS= read -r line; do
-	[[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+	  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
 	if [[ "$line" == "OPTIONAL:" ]]; then
 		in_optional=1
 		continue
