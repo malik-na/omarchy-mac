@@ -3,7 +3,7 @@
 abort() {
   echo -e "\e[31m[Omarchy] Requirement not met: $1\e[0m"
   echo
-  gum confirm "Proceed anyway? (Not recommended. You may encounter issues and support may not be available.)" || {
+  gum_confirm "Proceed anyway? (Not recommended. You may encounter issues and support may not be available.)" || {
     echo -e "\e[33m[Omarchy] Installation aborted. Please review the requirement above.\e[0m"
     echo -e "For help, contact @tiredkebab on X (Twitter)."
     exit 1

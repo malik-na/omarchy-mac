@@ -35,7 +35,7 @@ show_log_tail() {
         local truncated_line="$line"
       fi
 
-      gum style "$truncated_line"
+      gum_style "$truncated_line"
     done
 
     echo
@@ -45,7 +45,7 @@ show_log_tail() {
 # Display the failed command or script name
 show_failed_script_or_command() {
   if [[ -n ${CURRENT_SCRIPT:-} ]]; then
-    gum style "Failed script: $CURRENT_SCRIPT"
+    gum_style "Failed script: $CURRENT_SCRIPT"
   else
     # Truncate long command lines to fit the display
     local cmd="$BASH_COMMAND"
@@ -55,7 +55,7 @@ show_failed_script_or_command() {
       cmd="${cmd:0:$max_cmd_width}..."
     fi
 
-    gum style "$cmd"
+    gum_style "$cmd"
   fi
 }
 
@@ -91,17 +91,17 @@ catch_errors() {
   show_cursor
 
 
-  gum style --foreground 1 --padding "1 0 1 $PADDING_LEFT" "Omarchy installation stopped!"
+  gum_style --foreground 1 --padding "1 0 1 $PADDING_LEFT" "Omarchy installation stopped!"
   show_log_tail
 
-  gum style "This command halted with exit code $exit_code:"
+  gum_style "This command halted with exit code $exit_code:"
   show_failed_script_or_command
 
-  gum style "$QR_CODE"
+  gum_style "$QR_CODE"
   echo
-  gum style "Get help from the community via QR code, at https://discord.gg/tXFUdasqhY, or contact @tiredkebab on X (Twitter)."
+  gum_style "Get help from the community via QR code, at https://discord.gg/tXFUdasqhY, or contact @tiredkebab on X (Twitter)."
   echo
-  gum confirm "Would you like to continue the installation anyway? (Not recommended)" && {
+  gum_confirm "Would you like to continue the installation anyway? (Not recommended)" && {
     echo -e "\e[33m[Omarchy] Continuing at your own risk...\e[0m"
     ERROR_HANDLING=false
     return
@@ -125,7 +125,7 @@ catch_errors() {
     options+=("View full log")
   options+=("Exit (recommended)")
 
-    choice=$(gum choose "${options[@]}" --header "What would you like to do?" --height 6 --padding "1 $PADDING_LEFT")
+    choice=$(gum_choose "${options[@]}" --header "What would you like to do?" --height 6 --padding "1 $PADDING_LEFT")
 
     case "$choice" in
     "Retry installation")
