@@ -83,6 +83,10 @@ In case you end up in a Boot Loop, here's the solution:
 
 ---
 
+## Theme switching
+
+Run `omarchy-theme-set <theme>` to apply one of the bundled styles (for example `tokyo-night`, `catppuccin`, or `everforest`). On Apple Silicon (aarch64) installs the Walker launcher now receives the same palette automatically—the installer links the Walker theme bundle and theme switching restarts Walker so its UI refreshes without manual steps.
+
 New updates coming soon...
 
 (Find me on X/Twitter here - [https://x.com/tiredkebab](https://x.com/tiredkebab) )

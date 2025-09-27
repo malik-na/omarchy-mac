@@ -22,6 +22,15 @@ ln -snf ~/.config/omarchy/current/theme/mako.ini ~/.config/mako/config
 
 mkdir -p ~/.config/eza
 ln -snf ~/.config/omarchy/current/theme/eza.yml ~/.config/eza/theme.yml
+# Ensure Walker themes are available from the default bundle
+if [[ -d ~/.local/share/omarchy/default/walker/themes ]]; then
+	mkdir -p ~/.config/walker/themes
+	for walker_theme in ~/.local/share/omarchy/default/walker/themes/*; do
+		if [[ -f "$walker_theme" ]]; then
+			ln -snf "$walker_theme" ~/.config/walker/themes/$(basename "$walker_theme")
+		fi
+	done
+fi
 
 # Add managed policy directories for Chromium and Brave for theme changes
 sudo mkdir -p /etc/chromium/policies/managed
