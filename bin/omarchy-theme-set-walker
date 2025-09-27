@@ -1,0 +1,27 @@
+#!/bin/bash
+
+DEFAULT_WALKER_THEME_DIR="$HOME/.local/share/omarchy/default/walker/themes"
+CONFIG_WALKER_THEME_DIR="$HOME/.config/walker/themes"
+CURRENT_THEME_CSS="$HOME/.config/omarchy/current/theme/walker.css"
+
+if [[ -d "$DEFAULT_WALKER_THEME_DIR" ]]; then
+  mkdir -p "$CONFIG_WALKER_THEME_DIR"
+  for walker_theme in "$DEFAULT_WALKER_THEME_DIR"/*; do
+    if [[ -f "$walker_theme" ]]; then
+      ln -nsf "$walker_theme" "$CONFIG_WALKER_THEME_DIR/$(basename "$walker_theme")"
+    fi
+  done
+
+  # Touch the default walker theme to trigger reloads in watcher-based setups
+  if [[ -f "$DEFAULT_WALKER_THEME_DIR"/omarchy-default.css ]]; then
+    touch "$DEFAULT_WALKER_THEME_DIR"/omarchy-default.css
+  fi
+fi
+
+if [[ -f "$CURRENT_THEME_CSS" ]]; then
+  touch "$CURRENT_THEME_CSS"
+fi
+
+if command -v walker >/dev/null 2>&1; then
+  omarchy-restart-walker
+fi

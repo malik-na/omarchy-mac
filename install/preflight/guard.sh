@@ -20,7 +20,7 @@ fi
 # Must not be an Arch derivative distro
 for marker in /etc/cachyos-release /etc/eos-release /etc/garuda-release /etc/manjaro-release; do
   if [[ -f "$marker" ]]; then
-    abort "Vanilla Arch (derivative detected: $(basename $marker))"
+    abort "Vanilla Arch (derivative detected: $(basename "$marker"))"
   fi
 done
 
