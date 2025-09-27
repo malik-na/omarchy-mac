@@ -29,7 +29,7 @@ if [[ -d ~/.local/share/omarchy/default/walker/themes ]]; then
 		if [[ -f "$walker_theme" ]]; then
 			ln -snf "$walker_theme" ~/.config/walker/themes/"$(basename "$walker_theme")"
 		fi
-	done
+ 	done
 fi
 
 # Add managed policy directories for Chromium and Brave for theme changes
