@@ -1,0 +1,31 @@
+docker-test:
+  name: Dry-run install in Arch Linux (aarch64)
+  runs-on: ubuntu-latest
+  needs: shellcheck
+
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU for aarch64
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: linux/arm64
+
+    - name: Pull Arch Linux aarch64 image
+      run: docker pull --platform linux/arm64 archlinux:latest
+
+    - name: Prepare installer directory
+      run: |
+        mkdir ci-test && cp install.sh fix-mirrors.sh ci-test/
+      shell: bash
+
+    - name: Run install.sh in Docker (dry-run) on aarch64
+      run: |
+        docker run --rm \
+          --platform linux/arm64 \
+          -v "${{ github.workspace }}/ci-test:/omarchy" \
+          -w /omarchy \
+          archlinux:latest \
+          bash -x install.sh --dry-run
+      shell: bash
