@@ -1,0 +1,15 @@
+# Test directories
+test-ci/
+ci-test/
+
+# Temporary files
+*.tmp
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
