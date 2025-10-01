@@ -12,7 +12,14 @@
 #    .-|:"""":""""""'''"""":|-.
 #   :  |'----'-------------'|  :
 #   :  |                    |  :
-#   :  |                    |  :
+show_update_hardware_menu() {
+  case "$(menu "Restart" $'  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth')" in
+  *Audio*) present_terminal omarchy-restart-pipewire ;;
+  *Wi-Fi*) present_terminal omarchy-restart-wifi ;;
+  *Bluetooth*) present_terminal omarchy-restart-bluetooth ;;
+  *) show_update_menu ;;
+  esac
+}                |  :
 #   :  |               mga  |  :
 #   :  | .----------------. |  case "$(menu "Restart" $'  Hypridle\n  Hyprsunset\n  Swayosd\n  Fuzzel\n󰍜  Waybar')" in :
 #   :    case "$(menu "Use default config" $'  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Fuzzel\n󰍜  Waybar')" in[ zip:          [i]]|  :
@@ -487,7 +494,12 @@ show_update_config_menu() {
 }
 
 show_update_hardware_menu() {
+<<<<<<< HEAD
   case "$(menu "Restart" $'󱚾  Wi-Fi\n󰂯  Bluetooth')" in
+=======
+  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  *Audio*) present_terminal omarchy-restart-pipewire ;;
+>>>>>>> upstream/master
   *Wi-Fi*) present_terminal omarchy-restart-wifi ;;
   *Bluetooth*) present_terminal omarchy-restart-bluetooth ;;
   *) show_update_menu ;;
