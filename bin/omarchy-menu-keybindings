@@ -89,4 +89,4 @@ menu_height=$((monitor_height * 40 / 100))
 dynamic_bindings |
   sort -u |
   parse_bindings |
-  fuzzel --dmenu --prompt '>' --placeholder "‎ ‎ keybind" --width 80
+  fuzzel --dmenu --placeholder "Keybindings" --width 80

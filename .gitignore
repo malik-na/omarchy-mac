@@ -9,7 +9,7 @@ ci-test/
 # Build artifacts
 dist/
 build/
-
+bin.bak/
 # OS files
 .DS_Store
 Thumbs.db

@@ -8,14 +8,14 @@
 #   For usage instead of walker, which
 #   functional is cropped for aarch64
 
-#   TayoW  case "$(menu "Setup" $'  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n  Fuzzel\n󰍜  Waybar\n󰞅  XCompose')" inld
+#   TayoWrld
 #    .-|:"""":""""""'''"""":|-.
 #   :  |'----'-------------'|  :
 #   :  |                    |  :
 #   :  |                    |  :
 #   :  |               mga  |  :
-#   :  | .----------------. |  case "$(menu "Restart" $'  Hypridle\n  Hyprsunset\n  Swayosd\n  Fuzzel\n󰍜  Waybar')" in :
-#   :    case "$(menu "Use default config" $'  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Fuzzel\n󰍜  Waybar')" in[ zip:          [i]]|  :
+#   :  | .----------------. |  :
+#   :  |[ zip:          [i]]|  :
 #   :  |[------------------]|  :
 #   :  |[                  ]|  :
 #   :  |[                  ]|  :
@@ -77,11 +77,7 @@ menu() {
   # --dmenu — get from stdin and selected to stdout
   # --prompt — request header
   # --width - window's width (if empty, fuzzel would set default)
-  local args=(--dmenu --prompt ">‎‎")
-  [[ -n "$width" ]] && args+=(--width "$width")
-
-  # placeholder
-  args+=(--placeholder "‎‎  Pick the pack")
+  local args=(--dmenu --width 20 --placeholder "Go...")
 
   # Start. Fuzzel returns empty stroke on esc/cancel
   local choice
@@ -221,10 +217,19 @@ show_font_menu() {
 }
 
 show_setup_menu() {
-  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n󰍹  Monitors"
-  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options"$'\n'"  Keybindings"
-  [[ -f ~/.config/hypr/input.conf ]] && options="$options"$'\n'"  Input"
-  options="$options"$'\n'"  Defaults\n󰱔  DNS\n  Security\n  Config"
+  local options="  Audio"
+  options+=$'\n'"  Wifi"
+  options+=$'\n'"󰂯  Bluetooth"
+  options+=$'\n'"󱐋  Power Profile"
+  options+=$'\n'"󰍹  Monitors"
+
+  [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
+
+  options+=$'\n'"  Defaults"
+  options+=$'\n'"󰱔  DNS"
+  options+=$'\n'"  Security"
+  options+=$'\n'"  Config"
 
   case "$(menu "Setup" "$options")" in
   *Audio*) $TERMINAL --class=Wiremix -e wiremix ;;
@@ -265,7 +270,7 @@ show_setup_config_menu() {
   *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
   *Hyprsunset*) open_in_editor ~/.config/hypr/hyprsunset.conf && omarchy-restart-hyprsunset ;;
   *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && omarchy-restart-swayosd ;;
-  *Fuzzel*) open_in_editor ~/.config/fuzzel/fuzzel.ini && omarchy-restart-walker ;;
+  *Walker*) open_in_editor ~/.config/walker/config.toml && omarchy-restart-walker ;;
   *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && omarchy-restart-waybar ;;
   *XCompose*) open_in_editor ~/.XCompose && omarchy-restart-xcompose ;;
   *) show_main_menu ;;
@@ -441,21 +446,15 @@ show_update_menu() {
   *Themes*) present_terminal omarchy-theme-update ;;
   *Process*) show_update_process_menu ;;
   *Hardware*) show_update_hardware_menu ;;
-  *Timezone*) 
-    case "$(menu "Timezone" $'  Auto-detect\n  Manual Selection\n  Show Current')" in
-      *Auto-detect*) omarchy-cmd-tzupdate-enhanced ;;
-      *Manual*) omarchy-cmd-tzupdate-enhanced manual ;;
-      *Show*) omarchy-cmd-tzupdate-enhanced show ;;
-    esac
-    ;;
+  *Timezone*) omarchy-cmd-tzupdate ;;
   *Password*) show_update_password_menu ;;
   *) show_main_menu ;;
   esac
 }
 
 show_update_branch_menu() {
-  case "$(menu "Branch" $'main\ndev' "" "$(omarchy-version-branch)")" in
-  *main*) present_terminal "omarchy-update-branch main" ;;
+  case "$(menu "Branch" $'master\ndev' "" "$(omarchy-version-branch)")" in
+  *master*) present_terminal "omarchy-update-branch master" ;;
   *dev*) present_terminal "omarchy-update-branch dev" ;;
   *) show_update_menu ;;
   esac
@@ -466,7 +465,7 @@ show_update_process_menu() {
   *Hypridle*) omarchy-restart-hypridle ;;
   *Hyprsunset*) omarchy-restart-hyprsunset ;;
   *Swayosd*) omarchy-restart-swayosd ;;
-  *Fuzzel*) omarchy-restart-walker ;;
+  *Walker*) omarchy-restart-walker ;;
   *Waybar*) omarchy-restart-waybar ;;
   *) show_update_menu ;;
   esac
@@ -480,7 +479,7 @@ show_update_config_menu() {
   *Hyprsunset*) present_terminal omarchy-refresh-hyprsunset ;;
   *Plymouth*) present_terminal omarchy-refresh-plymouth ;;
   *Swayosd*) present_terminal omarchy-refresh-swayosd ;;
-  *Fuzzel*) present_terminal omarchy-refresh-walker ;;
+  *Walker*) present_terminal omarchy-refresh-walker ;;
   *Waybar*) present_terminal omarchy-refresh-waybar ;;
   *) show_update_menu ;;
   esac
