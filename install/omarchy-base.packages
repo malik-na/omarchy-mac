@@ -76,6 +76,9 @@ kvantum-qt5
 lazydocker
 lazygit
 less
+libsecret
+libyaml
+libqalculate
 libreoffice
 llvm
 localsend
@@ -104,7 +107,8 @@ python-terminaltexteffects
 ripgrep
 rsync
 satty
-#signal-desktop
+sddm
+signal-desktop-beta
 slurp
 #spotify
 starship
