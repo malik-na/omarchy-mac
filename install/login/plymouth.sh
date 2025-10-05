@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 #!/bin/bash
+=======
+>>>>>>> cab70bb (Revert "Login and UKI updates (#1860)")
 # Hyprland launched via UWSM and login directly as user, rely on disk encryption + hyprlock for security
 
 # ==============================================================================
@@ -99,7 +102,11 @@ if [ ! -f /etc/systemd/system/omarchy-seamless-login.service ]; then
   cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
 [Unit]
 Description=Omarchy Seamless Auto-Login
+<<<<<<< HEAD
 Documentation=https://github.com/malik-na/omarchy-mac
+=======
+Documentation=https://github.com/basecamp/omarchy
+>>>>>>> cab70bb (Revert "Login and UKI updates (#1860)")
 Conflicts=getty@tty1.service
 After=systemd-user-sessions.service getty@tty1.service plymouth-quit.service systemd-logind.service
 PartOf=graphical.target

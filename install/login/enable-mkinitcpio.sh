@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 #!/bin/bash
+=======
+>>>>>>> cab70bb (Revert "Login and UKI updates (#1860)")
 echo "Re-enabling mkinitcpio hooks..."
 
 # Restore the specific mkinitcpio pacman hooks
