@@ -36,6 +36,9 @@ if [[ "$ARCH" != "x86_64" && "$ARCH" != "aarch64" ]]; then
   abort "x86_64 or ARM64 (aarch64) CPU (detected: $ARCH)"
 fi
 
+# Must have secure boot disabled
+bootctl status 2>/dev/null | grep -q 'Secure Boot: disabled' || abort "Secure Boot disabled"
+
 # Must not have Gnome or KDE already install
 if pacman -Qe gnome-shell &>/dev/null; then
   abort "Gnome is already installed. Omarchy requires a fresh, vanilla Arch install."
