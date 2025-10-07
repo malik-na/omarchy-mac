@@ -37,7 +37,7 @@ if [[ "$ARCH" != "x86_64" && "$ARCH" != "aarch64" ]]; then
 fi
 
 # Must have secure boot disabled
-bootctl status 2>/dev/null | grep -q 'Secure Boot: disabled' || abort "Secure Boot disabled"
+bootctl status 2>/dev/null | grep -q 'Secure Boot: enabled' && abort "Secure Boot disabled"
 
 # Must not have Gnome or KDE already install
 if pacman -Qe gnome-shell &>/dev/null; then
