@@ -18,6 +18,7 @@ nvme-cli
 grub
 efibootmgr
 alacritty
+asdcontrol
 avahi
 bash-completion
 bat
