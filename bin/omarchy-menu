@@ -113,8 +113,61 @@ back_to() {
   fi
 }
 
-# ---- Menu list (no changes, brootha, why you still read it? DHH really knows it better, we got no need to dive there.
-# You can literally just star this repo and stop spending your time reading code. Don't be like me, go touch the grass ) -----
+menu() {
+  local prompt="$1"
+  local options="$2"
+  local extra="$3"
+  local preselect="$4"
+
+  read -r -a args <<<"$extra"
+
+  if [[ -n "$preselect" ]]; then
+    local index
+    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
+    if [[ -n "$index" ]]; then
+      args+=("-c" "$index")
+    fi
+  fi
+
+  echo -e "$options" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" "${args[@]}" 2>/dev/null
+}
+
+terminal() {
+  alacritty --class=Omarchy -e "$@"
+}
+
+present_terminal() {
+  omarchy-launch-floating-terminal-with-presentation $1
+}
+
+open_in_editor() {
+  notify-send "Editing config file" "$1"
+  omarchy-launch-editor "$1"
+}
+
+install() {
+  present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm $2"
+}
+
+install_and_launch() {
+  present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm $2 && setsid gtk-launch $3"
+}
+
+install_font() {
+  present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm --needed $2 && sleep 2 && omarchy-font-set '$3'"
+}
+
+install_terminal() {
+  present_terminal "omarchy-install-terminal $1"
+}
+
+aur_install() {
+  present_terminal "echo 'Installing $1 from AUR...'; yay -S --noconfirm $2"
+}
+
+aur_install_and_launch() {
+  present_terminal "echo 'Installing $1 from AUR...'; yay -S --noconfirm $2 && setsid gtk-launch $3"
+}
 
 show_learn_menu() {
   case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash')" in

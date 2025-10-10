@@ -52,49 +52,95 @@ name = "Calculator"
 icon = ""
 min_chars = 3
 prefix = "="
+provider = "calc"
 
-[builtins.windows]
-switcher_only = true
-hidden = true
+[[providers.prefixes]]
+prefix = "@"
+provider = "websearch"
 
-[builtins.clipboard]
-hidden = true
+[[providers.prefixes]]
+prefix = "$"
+provider = "clipboard"
 
-[builtins.commands]
-hidden = true
+[providers.actions]
+dmenu = [{ action = "select", default = true, bind = "Return" }]
 
-[builtins.custom_commands]
-hidden = true
+providerlist = [
+  { action = "activate", default = true, bind = "Return", after = "ClearReload" },
+]
 
-[builtins.emojis]
-name = "Emojis"
-icon = ""
-prefix = ":"
+bluetooth = [
+  { action = "find", global = true, bind = "ctrl f", after = "AsyncClearReload" },
+  { action = "trust", bind = "ctrl t", after = "AsyncReload" },
+  { action = "untrust", bind = "ctrl t", after = "AsyncReload" },
+  { action = "pair", bind = "Return", after = "AsyncReload" },
+  { action = "remove", bind = "ctrl d", after = "AsyncReload" },
+  { action = "connect", bind = "Return", after = "AsyncReload" },
+  { action = "disconnect", bind = "Return", after = "AsyncReload" },
+]
 
-[builtins.symbols]
-after_copy = ""
-hidden = true
+archlinuxpkgs = [
+  { action = "install", bind = "Return", default = true },
+  { action = "remove", bind = "Return" },
+]
 
-[builtins.finder]
-use_fd = true
-cmd_alt = "xdg-open $(dirname ~/%RESULT%)"
-icon = "file"
-name = "Finder"
-preview_images = true
-hidden = false
-prefix = "."
+calc = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "delete", bind = "ctrl d", after = "AsyncReload" },
+  { action = "save", bind = "ctrl s", after = "AsyncClearReload" },
+]
 
-[builtins.runner]
-shell_config = ""
-switcher_only = true
-hidden = true
+websearch = [
+  { action = "search", default = true, bind = "Return" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "Reload" },
+]
 
-[builtins.ssh]
-hidden = true
+desktopapplications = [
+  { action = "start", default = true, bind = "Return" },
+  { action = "start", label = "open+next", bind = "shift Return", after = "KeepOpen" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "AsyncReload" },
+  { action = "pin", bind = "ctrl p", after = "AsyncReload" },
+  { action = "unpin", bind = "ctrl p", after = "AsyncReload" },
+  { action = "pinup", bind = "ctrl n", after = "AsyncReload" },
+  { action = "pindown", bind = "ctrl m", after = "AsyncReload" },
+]
 
-[builtins.websearch]
-switcher_only = true
-hidden = true
+files = [
+  { action = "open", default = true, bind = "Return" },
+  { action = "opendir", label = "open dir", bind = "ctrl Return" },
+  { action = "copypath", label = "copy path", bind = "ctrl shift c" },
+  { action = "copyfile", label = "copy file", bind = "ctrl c" },
+]
 
-[builtins.translation]
-hidden = true
+todo = [
+  { action = "save", default = true, bind = "Return", after = "ClearReload" },
+  { action = "delete", bind = "ctrl d", after = "ClearReload" },
+  { action = "active", bind = "Return", after = "ClearReload" },
+  { action = "inactive", bind = "Return", after = "ClearReload" },
+  { action = "done", bind = "ctrl f", after = "ClearReload" },
+  { action = "clear", bind = "ctrl x", after = "ClearReload", global = true },
+]
+
+runner = [
+  { action = "run", default = true, bind = "Return" },
+  { action = "runterminal", label = "run in terminal", bind = "shift Return" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "Reload" },
+]
+
+symbols = [
+  { action = "run_cmd", label = "select", default = true, bind = "Return" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "Reload" },
+]
+
+unicode = [
+  { action = "run_cmd", label = "select", default = true, bind = "Return" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "Reload" },
+]
+
+clipboard = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "remove", bind = "ctrl d", after = "ClearReload" },
+  { action = "remove_all", global = true, label = "clear", bind = "ctrl shift d", after = "ClearReload" },
+  { action = "toggle_images", global = true, label = "toggle images", bind = "ctrl i", after = "ClearReload" },
+  { action = "edit", bind = "ctrl o" },
+]
