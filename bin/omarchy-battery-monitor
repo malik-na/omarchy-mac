@@ -1,36 +1,44 @@
 #!/bin/bash
 
-# Designed to be run by systemd timer every 30 seconds and alerts if battery is low
+# tayowrld for omarchy-mac
+# value is approximate, but close to real one.
+# Sometimes differs from the waybar's value, because of using upower
+# -3 from upower value is to get closer to waybar value
+# due to fast discharging treshold was set to 15%
+#
+# changed:
+# - using upower -b instead of previous logic, gave empty results
+# - added echo on else to test when running command from terminal
+# - exec-once on hyprland instead of systemd timer, then while true cycle
 
-BATTERY_THRESHOLD=10
+BATTERY_THRESHOLD=15
+
 NOTIFICATION_FLAG="/run/user/$UID/omarchy_battery_notified"
 
 get_battery_percentage() {
-  upower -i "$(upower -e | grep 'BAT')" \
-  | awk -F: '/percentage/ {
-      gsub(/[%[:space:]]/, "", $2);
-      val=$2;
-      printf("%d\n", (val+0.5))
-      exit
-    }'
+  upower -b | grep 'percentage' | awk -F: '{gsub(/[%[:space:]]/, "", $2); printf("%d\n", $2+0.5)}'
 }
 
 get_battery_state() {
-  upower -i $(upower -e | grep 'BAT') | grep -E "state" | awk '{print $2}'
+  upower -b | grep 'state' | awk -F':[[:space:]]*' '/state/ {print $2; exit}'
 }
 
 send_notification() {
   notify-send -u critical "󱐋 Time to recharge!" "Battery is down to ${1}%" -i battery-caution -t 30000
 }
+while true; do
+  BATTERY_LEVEL=$(($(get_battery_percentage) - 3))
+  BATTERY_STATE=$(get_battery_state)
 
-BATTERY_LEVEL=$(get_battery_percentage)
-BATTERY_STATE=$(get_battery_state)
-
-if [[ "$BATTERY_STATE" == "discharging" && "$BATTERY_LEVEL" -le "$BATTERY_THRESHOLD" ]]; then
-  if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
-    send_notification "$BATTERY_LEVEL"
-    touch "$NOTIFICATION_FLAG"
+  if [[ "$BATTERY_STATE" == "discharging" && "$BATTERY_LEVEL" -le "$BATTERY_THRESHOLD" ]]; then
+    if [[ ! -f "$NOTIFICATION_FLAG" ]]; then
+      send_notification "$BATTERY_LEVEL"
+      touch "$NOTIFICATION_FLAG"
+    fi
+  else
+    rm -f "$NOTIFICATION_FLAG"
+    echo "Currently $BATTERY_STATE at $BATTERY_LEVEL%. The threshold to notify is $BATTERY_THRESHOLD% and this utility would notify only on *discharging*"
   fi
-else
-  rm -f "$NOTIFICATION_FLAG"
-fi
+
+  sleep 30
+done
