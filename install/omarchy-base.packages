@@ -99,7 +99,9 @@ noto-fonts-emoji
 noto-fonts-extra
 nss-mdns
 obs-studio
-#obsidian
+obsidian
+omarchy-chromium
+omarchy-nvim
 pamixer
 pinta
 playerctl
