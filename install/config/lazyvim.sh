@@ -1,2 +1,1 @@
-#!/bin/bash
-omarchy-lazyvim-setup
+omarchy-nvim-setup
