@@ -17,6 +17,7 @@ fwupd
 nvme-cli
 grub
 efibootmgr
+aether
 alacritty
 asdcontrol
 avahi
