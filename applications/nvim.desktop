@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=NeoVim
+Name=Neovim
 GenericName=Text Editor
 Comment=Edit text files
 Exec=omarchy-launch-editor
