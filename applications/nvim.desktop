@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=Neovim
+Name=NeoVim
 GenericName=Text Editor
 Comment=Edit text files
-Exec=$TERMINAL --class=nvim --title=nvim -e nvim -- %F
+Exec=omarchy-launch-editor
 Terminal=false
 Type=Application
 Keywords=Text;editor;
