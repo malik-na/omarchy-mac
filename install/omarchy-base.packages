@@ -52,6 +52,7 @@ docker-buildx
 docker-compose
 dust
 evince
+expac
 eza
 fastfetch
 fd
@@ -77,6 +78,7 @@ imagemagick
 impala
 imv
 inetutils
+inxi
 jq
 kdenlive
 kvantum-qt5
