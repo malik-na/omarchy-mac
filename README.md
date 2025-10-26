@@ -51,17 +51,10 @@ As your new user, set up the AUR helper and install Omarchy:
    makepkg -si
    ```
 
-2. **Create directories**:
+2. **Clone and setup Omarchy**:
    ```bash
-   mkdir -p ~/.local/share
-   cd ~/.local/share
-   ```
-
-3. **Clone and setup Omarchy**:
-   ```bash
-   git clone https://github.com/malik-na/omarchy-mac.git
-   mv omarchy-mac omarchy
-   cd omarchy
+   git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
+   cd ~/.local/share/omarchy
    bash install.sh
    ```
 

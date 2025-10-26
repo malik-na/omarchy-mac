@@ -1,0 +1,110 @@
+#!/bin/bash
+echo -e "\e[32mLet's install a very useful appimage, that you can start with omarchy-mac-menu.\n\e[0m"
+echo -e "\e[32mINSERT AN ABSOLUTE PATH, or ENTER for default:\n\e[0m"
+GUM_DIR=$(gum input --prompt "Path> " --placeholder "/home/${USER}/Downloads/ (default)")
+GUM_DIR="${GUM_DIR:-$HOME/Downloads/}"
+
+if gum confirm "You will now be able to pick an AppImage file from the ${GUM_DIR}"; then
+  :
+else
+  exit
+fi
+
+if [ "$#" -lt 2 ]; then
+  APP_URL=$(gum file $GUM_DIR --file)
+  CUSTOM_EXEC=""
+  MIME_TYPES=""
+  INTERACTIVE_MODE=true
+else
+  APP_URL="$1"
+  CUSTOM_EXEC="$2" # Optional custom exec command
+  MIME_TYPES="$3"  # Optional mime types
+  INTERACTIVE_MODE=false
+fi
+
+# Ensure valid execution
+if [[ -z "$APP_URL" ]]; then
+  echo "You must set app path! Why not?"
+  exit 1
+fi
+
+# Install appimage to the new path (if there is no directory, than create)
+# picked as default: ~/.local/share/applications/appimages
+# Setup and exec command for an installed appimage
+
+APPS_DIR="$HOME/.local/share/applications/appimages"
+
+if [[ ! -d "$APPS_DIR" ]]; then
+  echo "Did not found default directory for appimages"
+  mkdir -p "$APPS_DIR"
+  echo "Successfully created the appimages directory"
+fi
+
+TARGET_APP="$APPS_DIR/$(basename "$APP_URL")"
+mv -f "$APP_URL" "$TARGET_APP"
+chmod +x "$TARGET_APP"
+
+# extract the appimage file to /tmp/appimage/<current>
+# extract the desktop file and icon
+# add desktop to applications and icon to applications/icons
+# default applications path: $DESKTOPS_DIR
+DESKTOPS_DIR="$HOME/.local/share/applications"
+TMP_DIR="$(mktemp -d -t appimage-XXXXXXXX)"
+(cd "$TMP_DIR" && "$TARGET_APP" --appimage-extract)
+
+DESKTOP_SRC="$(find "$TMP_DIR/squashfs-root" -maxdepth 2 -type f -name "*.desktop" | head -n1)"
+
+APP_NAME=""
+if [[ -n "$DESKTOP_SRC" ]]; then
+  APP_NAME="$(grep -m1 '^Name=' "$DESKTOP_SRC" | cut -d= -f2-)"
+  [[ -z "$MIME_TYPES" ]] && MIME_TYPES="$(grep -m1 '^MimeType=' "$DESKTOP_SRC" | cut -d= -f2-)"
+fi
+if [[ -z "$APP_NAME" ]]; then
+  APP_NAME="$(basename "$TARGET_APP" | sed 's/\.[Aa][Pp][Pp][Ii][Mm][Aa][Gg][Ee]$//')"
+fi
+
+APP_ID="$(echo "$APP_NAME" | tr ' ' '-' | tr -cd '[:alnum:]-_')"
+
+ICON_PATH=""
+ICON_CANDIDATE="$(find "$TMP_DIR/squashfs-root" -type f \( -iname "*.png" -o -iname "*.svg" \) | sort -r | head -n1)"
+if [[ -n "$ICON_CANDIDATE" ]]; then
+  ICONS_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"
+  mkdir -p "$ICONS_DIR"
+  ICON_EXT="${ICON_CANDIDATE##*.}"
+  ICON_PATH="$ICONS_DIR/$APP_ID.$ICON_EXT"
+  cp -f "$ICON_CANDIDATE" "$ICON_PATH"
+fi
+
+if [[ -n "$CUSTOM_EXEC" ]]; then
+  EXEC_COMMAND="$CUSTOM_EXEC"
+else
+  EXEC_COMMAND="\"$TARGET_APP\" %U"
+fi
+
+DESKTOP_FILE="$HOME/.local/share/applications/$APP_ID.desktop"
+
+cat >"$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Version=1.0
+Name=$APP_NAME
+Comment=$APP_NAME
+Exec=$EXEC_COMMAND
+Terminal=false
+Type=Application
+Icon=${ICON_PATH:-$APP_ID}
+StartupNotify=true
+EOF
+
+# delete the extration after processing
+rm -rf "$TMP_DIR"
+
+# Add mime types if provided
+if [[ -n $MIME_TYPES ]]; then
+  echo "MimeType=$MIME_TYPES" >>"$DESKTOP_FILE"
+fi
+
+chmod +x "$DESKTOP_FILE"
+
+if [[ $INTERACTIVE_MODE == true ]]; then
+  echo -e "You can now find $APP_NAME using the app launcher (SUPER + SPACE)\n"
+fi
