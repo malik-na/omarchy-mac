@@ -1,8 +1,9 @@
-<img width="2560" height="1600" alt="screenshot-2025-09-28_11-19-38" src="https://github.com/user-attachments/assets/dbce832d-4054-4fbb-8057-e521be4859f8" />
 
-# Omarchy-mac installation steps
+![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
 
-_Disclaimer: This guide is intended for Apple Silicon MacBooks M1/M2 and has only been tested on the M1 variant released in 2020. It is advised that you follow the instructions in the manual very carefully lest you risk bricking the MacBook or getting stuck in a Boot Loop (I will provide a fix for that as well in the end)._
+# Omarchy Mac installation steps
+
+_Disclaimer: This guide is intended for Apple Silicon Macs M1/M2. It is advised that you follow the instructions very carefully lest you risk bricking the Mac or getting stuck in a Boot Loop (I will provide a fix for that as well in the end)._
 
 ## Step 1: Install Arch minimal from Asahi Alarm
 
@@ -40,9 +41,9 @@ Create a new user account and configure sudo access:
 5. **Save and exit** - Ctrl O, Enter, Ctrl X
 6. **Switch to new user** - `su - <username>`
 
-## Step 4: Install AUR Helper and Omarchy
+## Step 4: Install AUR Helper and Omarchy Mac
 
-As your new user, set up the AUR helper and install Omarchy:
+As your new user, set up the AUR helper and install Omarchy Mac:
 
 1. **Install yay AUR helper**:
    ```bash
@@ -51,24 +52,19 @@ As your new user, set up the AUR helper and install Omarchy:
    makepkg -si
    ```
 
-2. **Create directories**:
+2. **Clone and setup Omarchy Mac**:
    ```bash
-   mkdir -p ~/.local/share
-   cd ~/.local/share
-   ```
-
-3. **Clone and setup Omarchy**:
-   ```bash
-   git clone https://github.com/malik-na/omarchy-mac.git
-   mv omarchy-mac omarchy
-   cd omarchy
+   git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
+   cd ~/.local/share/omarchy
    bash install.sh
    ```
+
+   And you're done! Now, please wait for the installation to complete and enter password when required.
 
 **Note**: If mirrors break during installation, run `bash fix-mirrors.sh` then run `install.sh` again.
 
 
-## Omarchy Menu
+## Omarchy Mac Menu
 
 Omarchy Mac now includes the **Omarchy Mac Menu** by default, which replaces Walker with fuzzel for better aarch64 compatibility and performance. The menu system uses fuzzel as the frontend while maintaining all the original functionality.
 
@@ -83,10 +79,34 @@ Key improvements:
 
 Omarchy may provide a recommended mirrorlist during install, but it will not silently overwrite an existing system mirrorlist. The installer and helper scripts follow a safe default:
 
-- If `/etc/pacman.d/mirrorlist` does not exist, Omarchy will install the bundled default.
-- If it exists, Omarchy will merge `Server = ...` entries from the bundled mirrorlist into the existing file so user-configured or distribution-specific mirrors (e.g., Arch Linux ARM) are preserved.
 
 If you want to force a full overwrite you can either run the helper with `--force` and/or `--backup` to keep a timestamped backup, or set the environment variable `OMARCHY_FORCE_MIRROR_OVERWRITE=1` during install.
+
+## Changes since v0.1.0
+
+A few notable improvements have been added since v0.1.0. These are safe, tested, and meant to make installation and first-run smoother on Apple Silicon (ARM) systems:
+
+- ARM mirror enhancements
+   - Auto-detects country (from timezone) and tests mirrors before applying.
+   - Supports many more regional mirrors with primary/fallback entries and connectivity checks.
+   - Runs automatically during the Omarchy preflight on aarch64 systems and creates backups by default.
+   - Files: `install/helpers/set-arm-mirrors.sh`, `install/preflight/arm-mirrors.sh`, `install/preflight/all.sh`, `install/helpers/all.sh`.
+
+- Timezone detection & setup
+   - Automatic timezone detection (IP-based via `tzupdate`) with confirmation and graceful fallbacks.
+   - Interactive/manual selection, first-run reminders, and Waybar/menu integration for easy updates.
+   - New commands: `bin/omarchy-cmd-tzupdate-enhanced`, `bin/omarchy-cmd-tzupdate-manual`.
+   - Files: `install/config/timezone-detection.sh`, `install/first-run/timezone.sh`, `install/config/timezones.sh`, and related menu/waybar wiring.
+
+- Menu & UX
+   - The Omarchy Mac Menu has moved to a `fuzzel` frontend for improved aarch64 stability and performance.
+   - Menu now exposes timezone and update helpers for easier access.
+
+- Mirrorlist & safety
+   - Mirrorlist handling is conservative: the installer merges recommended servers into existing `/etc/pacman.d/mirrorlist` by default and only overwrites when explicitly requested (or when `OMARCHY_FORCE_MIRROR_OVERWRITE=1` is set).
+   - A `fix-mirrors.sh` helper is available to repair mirror issues during install.
+
+These changes are additive and intended to preserve existing workflows while improving reliability for new installs.
 
 ## Boot Loop Recovery
 
@@ -103,11 +123,11 @@ New updates coming soon...
 
 Join [Omarchy Mac Discord server](https://discord.gg/KNQRk7dMzy) for updates and support.
 
-- If you wish to donate-  [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/malik2015no)
+- Please consider donation-  [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/malik2015no)
 
 ## Acknowledgements
-
-Thanks [DHH](https://github.com/dhh) for creating Omarchy.
+- Thanks to [Asahi Linux](https://asahilinux.org/) and [Asahi Alarm](https://asahi-alarm.org/) for making Linux possible on M1/M2 Macs
+- Thanks to [DHH](https://github.com/dhh) for creating Omarchy
 
 ## Contributors
 
