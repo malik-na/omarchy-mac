@@ -1,39 +1,39 @@
 #!/bin/bash
-# Emoji picker using fuzzel
-# Fallback to basic emoji list if no advanced picker is available
 
-# Basic emoji list - you can expand this or use a more comprehensive source
-EMOJIS="😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇
-🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚
-😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩
-🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣
-😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬
-🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗
-🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯
-😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐
-🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈
-👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾
-🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿
-😾 👋 🤚 🖐️ ✋ 🖖 👌 🤌 🤏 ✌️
-🤞 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️
-👍 👎 👊 ✊ 🤛 🤜 👏 🙌 👐 🤲
-🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶
-👂 🦻 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️
-👅 👄 💋 🩸 👶 🧒 👦 👧 🧑 👱
-👨 🧔 👩 🧓 👴 👵 🙍 🙎 🙅 🙆
-💁 🙋 🧏 🙇 🤦 🤷 👮 🕵️ 💂 🥷
-👷 🤴 👸 👳 👲 🧕 🤵 👰 🤰 🤱
-👼 🎅 🤶 🦸 🦹 🧙 🧚 🧛 🧜 🧝
-🧞 🧟 💆 💇 🚶 🧍 🧎 🏃 💃 🕺
-🕴️ 👯 🧖 🧗 🤺 🏇 ⛷️ 🏂 🏌️ 🏄
-🚣 🏊 ⛹️ 🏋️ 🚴 🚵 🤸 🤼 🤽 🤾
-🤹 🧘 🛀 🛌 👭 👫 👬 💏 💑 👪"
+# Emoji-picker using fuzzel // Revised by Witcher
+# We fetch the official list from unicode.org, cache it and parse to fuzzel
 
-# Use fuzzel to display emoji selection
-selected_emoji=$(echo "$EMOJIS" | tr ' ' '\n' | fuzzel --dmenu --prompt="🔍 " --placeholder="Pick an emoji...")
+EMOJI_FILE="$HOME/.cache/emoji-list.txt"
+EMOJI_URL="https://www.unicode.org/Public/emoji/latest/emoji-test.txt"
+
+mkdir -p "$(dirname "$EMOJI_FILE")"
+
+# Download the emoji list if it doesn't exist
+if [ ! -f "$EMOJI_FILE" ]; then
+  echo "Downloading emoji list..."
+  curl -s "$EMOJI_URL" -o "$EMOJI_FILE"
+fi
+
+# We grab only fully-qualified emojis and up to version 5.
+get_emojis() {
+  awk -F'# ' '/fully-qualified|component/ && /^[^#]/ {
+    if (match($2, / E([0-9\.]+)/, arr)) {
+        if (arr[1] + 0 <= 5.0) {
+            sub(/ E[0-9\.]+ /, " ");
+            print $2;
+        }
+    }
+}' "$EMOJI_FILE"
+}
+
+# Use fuzzel to display emojis
+selected_line=$(get_emojis | fuzzel --dmenu --prompt="🔍 " --placeholder="Search emojis...")
 
 # Copy to clipboard if an emoji was selected
-if [ -n "$selected_emoji" ]; then
-    echo -n "$selected_emoji" | wl-copy
-    notify-send "Emoji Picker" "Copied $selected_emoji to clipboard" 2>/dev/null || true
+if [ -n "$selected_line" ]; then
+  selected_emoji=$(echo "$selected_line" | cut -d' ' -f1)
+
+  echo -n "$selected_emoji" | wl-copy
+  notify-send "Emoji Picker" "Copied $selected_emoji to clipboard" 2>/dev/null || true
 fi
+
