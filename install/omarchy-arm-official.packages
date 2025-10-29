@@ -1,0 +1,8 @@
+# Official ARM repository packages
+
+asahi-alarm/widevine  # Widevine DRM libraries for Omarchy Chromium
+e2fsprogs             # ext2/ext3/ext4 filesystem utilities
+fuse2                 # FUSE library for userspace filesystems (AppImage support)
+gst-plugin-pipewire   # GStreamer plugin for PipeWire
+libappindicator-gtk3  # AppIndicator library for system tray icons
+pipewire-jack         # JACK replacement using PipeWire (prevents jack2 conflicts)
