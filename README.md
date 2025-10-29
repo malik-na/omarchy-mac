@@ -125,6 +125,58 @@ Join [Omarchy Mac Discord server](https://discord.gg/KNQRk7dMzy) for updates and
 
 - Please consider donation-  [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/malik2015no)
 
+## Hyprland patch: quick installer (terminal)
+
+If you need to apply the included Hyprland PKGBUILD patch (for example the
+`hyprland-patch/PKGBUILD` directory in this repo), we provide a small
+installer script that:
+
+- builds the PKGBUILD as a normal user (makepkg must NOT be run as root),
+- then performs the required root actions (install package, install
+   llvm20, enable/start seatd, add user to seat group) in a single sudo
+   session so the user is prompted for their password only once.
+
+Files added:
+
+- `scripts/apply-hyprland-patch.sh` — installer script (make executable before use)
+
+Usage (recommended):
+
+```bash
+chmod +x scripts/apply-hyprland-patch.sh
+./scripts/apply-hyprland-patch.sh hyprland-patch
+```
+
+The script will:
+
+- run `makepkg -f` in the given directory as your user; it will then locate
+   the produced package file (*.pkg.tar.*),
+- call `sudo` once and run `pacman -U` on the built package, `pacman -Sy llvm20`,
+   `systemctl enable --now seatd.service`, and `usermod -aG seat <you>` all
+   inside a single root command block (so only one password prompt),
+- prompt whether to reboot (reboot required for new group membership to take
+   effect immediately).
+
+Compact one-liner (advanced users):
+
+```bash
+cd hyprland-patch && makepkg -f && pkg=$(ls -1t *.pkg.tar.* | head -n1) && sudo -v && sudo bash -c "pacman -U --noconfirm \"$PWD/$pkg\" && pacman -Sy --noconfirm llvm20 && systemctl enable --now seatd.service && usermod -aG seat \$SUDO_USER && echo 'Done (root actions)';"
+```
+
+Security notes and caveats:
+
+- Do NOT run `makepkg` as root. The installer enforces this.
+- Only run PKGBUILDs you trust.
+- The script uses `--noconfirm` for `pacman` to make the flow non-interactive; remove
+   `--noconfirm` from the script if you want explicit confirmation prompts.
+- Adding the user to the `seat` group requires a re-login or reboot to take
+   effect; the script offers an optional reboot.
+- `llvm20` must be available from your enabled repositories. If it is not
+   present you may need to enable an additional repository or install it
+   via another method.
+
+
+
 ## Acknowledgements
 - Thanks to [Asahi Linux](https://asahilinux.org/) and [Asahi Alarm](https://asahi-alarm.org/) for making Linux possible on M1/M2 Macs
 - Thanks to [DHH](https://github.com/dhh) for creating Omarchy
