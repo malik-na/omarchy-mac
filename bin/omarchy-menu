@@ -29,11 +29,11 @@ menu() {
     local index
     index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
     if [[ -n "$index" ]]; then
-      args+=("-c" "$index")
+      args+=("-i" "$((index - 1))")
     fi
   fi
 
-  echo -e "$options" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" "${args[@]}" 2>/dev/null
+  echo -e "$options" | fuzzel --dmenu -w 40 -p "$prompt…" "${args[@]}" 2>/dev/null
 }
 
 terminal() {
@@ -210,13 +210,13 @@ show_setup_power_menu() {
 }
 
 show_setup_config_menu() {
-  case $(menu "Setup" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose") in
+  case $(menu "Setup" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n  Fuzzel\n󰍜  Waybar\n󰞅  XCompose") in
   *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
   *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf && omarchy-restart-hypridle ;;
   *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
   *Hyprsunset*) open_in_editor ~/.config/hypr/hyprsunset.conf && omarchy-restart-hyprsunset ;;
   *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && omarchy-restart-swayosd ;;
-  *Walker*) open_in_editor ~/.config/walker/config.toml && omarchy-restart-walker ;;
+  *Fuzzel*) open_in_editor ~/.config/fuzzel/fuzzel.ini && omarchy-restart-fuzzel ;;
   *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && omarchy-restart-waybar ;;
   *XCompose*) open_in_editor ~/.XCompose && omarchy-restart-xcompose ;;
   *) show_main_menu ;;
@@ -402,25 +402,25 @@ show_update_menu() {
 }
 
 show_update_process_menu() {
-  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
+  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n  Swayosd\n  Fuzzel\n󰍜  Waybar") in
   *Hypridle*) omarchy-restart-hypridle ;;
   *Hyprsunset*) omarchy-restart-hyprsunset ;;
   *Swayosd*) omarchy-restart-swayosd ;;
-  *Walker*) omarchy-restart-walker ;;
+  *Fuzzel*) omarchy-restart-fuzzel ;;
   *Waybar*) omarchy-restart-waybar ;;
   *) show_update_menu ;;
   esac
 }
 
 show_update_config_menu() {
-  case $(menu "Use default config" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
+  case $(menu "Use default config" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Fuzzel\n󰍜  Waybar") in
   *Hyprland*) present_terminal omarchy-refresh-hyprland ;;
   *Hypridle*) present_terminal omarchy-refresh-hypridle ;;
   *Hyprlock*) present_terminal omarchy-refresh-hyprlock ;;
   *Hyprsunset*) present_terminal omarchy-refresh-hyprsunset ;;
   *Plymouth*) present_terminal omarchy-refresh-plymouth ;;
   *Swayosd*) present_terminal omarchy-refresh-swayosd ;;
-  *Walker*) present_terminal omarchy-refresh-walker ;;
+  *Fuzzel*) present_terminal omarchy-refresh-fuzzel ;;
   *Waybar*) present_terminal omarchy-refresh-waybar ;;
   *) show_update_menu ;;
   esac
@@ -460,7 +460,7 @@ show_main_menu() {
 
 go_to_menu() {
   case "${1,,}" in
-  *apps*) walker -p "Launch…" ;;
+  *apps*) fuzzel -p "Launch…" ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
   *share*) show_share_menu ;;
