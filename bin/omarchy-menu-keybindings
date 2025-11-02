@@ -53,10 +53,10 @@ parse_keycodes() {
       code="${BASH_REMATCH[1]}"
 
       case "$code" in
-        272) symbol="LEFT MOUSE BUTTON" ;;
-        273) symbol="RIGHT MOUSE BUTTON" ;;
-        274) symbol="MIDDLE MOUSE BUTTON" ;;
-        *)   symbol="mouse:${code}" ;;
+      272) symbol="LEFT MOUSE BUTTON" ;;
+      273) symbol="RIGHT MOUSE BUTTON" ;;
+      274) symbol="MIDDLE MOUSE BUTTON" ;;
+      *) symbol="mouse:${code}" ;;
       esac
 
       echo "${line/mouse:${code}/$symbol}"
@@ -114,7 +114,7 @@ dynamic_bindings() {
 
 # Hardcoded bindings, like the copy-url extension and such
 static_bindings() {
-    echo "SHIFT ALT,L,Copy URL from Web App,extension,copy-url"
+  echo "SHIFT ALT,L,Copy URL from Web App,extension,copy-url"
 }
 
 # Parse and format keybindings
@@ -208,8 +208,8 @@ prioritize_entries() {
     # print "priority<TAB>line"
     printf "%d\t%s\n", prio, line
   }' |
-  sort -k1,1n -k2,2 |
-  cut -f2-
+    sort -k1,1n -k2,2 |
+    cut -f2-
 }
 
 monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
@@ -225,5 +225,4 @@ build_keymap_cache
   parse_keycodes |
   parse_bindings |
   prioritize_entries |
-  walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height"
-
+  fuzzel --dmenu -p 'Keybindings' --width 80
