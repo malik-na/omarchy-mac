@@ -33,7 +33,7 @@ menu() {
     fi
   fi
 
-  echo -e "$options" | fuzzel --dmenu -w 40 -p "$prompt…" "${args[@]}" 2>/dev/null
+  echo -e "$options" | fuzzel --dmenu -w 40 --placeholder "$prompt…" "${args[@]}" 2>/dev/null
 }
 
 terminal() {
