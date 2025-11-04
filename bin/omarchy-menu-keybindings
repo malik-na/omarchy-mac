@@ -225,4 +225,4 @@ build_keymap_cache
   parse_keycodes |
   parse_bindings |
   prioritize_entries |
-  fuzzel --dmenu -p 'Keybindings' --width 80
+  fuzzel --dmenu --placeholder 'Keybindings' --width 80
