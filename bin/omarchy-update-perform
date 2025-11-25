@@ -2,6 +2,9 @@
 
 set -e
 
+# Save kernel version before updates to detect if it actually changes
+pacman -Q linux-asahi 2>/dev/null | awk '{print $2}' > /tmp/omarchy-kernel-before
+
 omarchy-update-available-reset
 omarchy-update-system-pkgs
 omarchy-migrate
