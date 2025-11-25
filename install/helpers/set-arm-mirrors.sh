@@ -19,12 +19,27 @@ VERBOSE=0
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --force) FORCE=1; shift ;;
-    --backup) BACKUP=1; shift ;;
-    --auto) AUTO_DETECT=1; shift ;;
-    --test) TEST_MIRRORS=1; shift ;;
-    --verbose) VERBOSE=1; shift ;;
-    --help) 
+    --force)
+      FORCE=1
+      shift
+      ;;
+    --backup)
+      BACKUP=1
+      shift
+      ;;
+    --auto)
+      AUTO_DETECT=1
+      shift
+      ;;
+    --test)
+      TEST_MIRRORS=1
+      shift
+      ;;
+    --verbose)
+      VERBOSE=1
+      shift
+      ;;
+    --help)
       echo "Usage: $0 [country_code] [options]"
       echo "Country codes: us, de, uk, fr, au, ca, jp, nl, se, dk, no, fi, it, es, br, in, cn, kr, sg"
       echo "Options:"
@@ -36,18 +51,18 @@ while [[ $# -gt 0 ]]; do
       echo "  --help     Show this help message"
       exit 0
       ;;
-    -*) 
+    -*)
       echo "[ERROR] Unknown option: $1" >&2
       exit 1
       ;;
-    *) 
+    *)
       if [[ -z "$COUNTRY" ]]; then
         COUNTRY="$1"
       else
         echo "[ERROR] Multiple country codes specified" >&2
         exit 1
       fi
-      shift 
+      shift
       ;;
   esac
 done
@@ -55,39 +70,39 @@ done
 # Set default country or enable auto-detection
 if [[ -z "$COUNTRY" ]]; then
   AUTO_DETECT=1
-  COUNTRY="us"  # fallback if auto-detection fails
+  COUNTRY="us" # fallback if auto-detection fails
 fi
 
 # Auto-detect country function
 auto_detect_country() {
-  local detected_country="us"  # fallback
-  
+  local detected_country="us" # fallback
+
   # Try to detect from timezone
   if command -v timedatectl >/dev/null 2>&1; then
     local timezone=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "")
     case "$timezone" in
-      Europe/London|Europe/Edinburgh) detected_country="uk" ;;
-      Europe/Berlin|Europe/Munich) detected_country="de" ;;
+      Europe/London | Europe/Edinburgh) detected_country="uk" ;;
+      Europe/Berlin | Europe/Munich) detected_country="de" ;;
       Europe/Paris) detected_country="fr" ;;
       Europe/Amsterdam) detected_country="nl" ;;
       Europe/Stockholm) detected_country="se" ;;
       Europe/Copenhagen) detected_country="dk" ;;
       Europe/Oslo) detected_country="no" ;;
       Europe/Helsinki) detected_country="fi" ;;
-      Europe/Rome|Europe/Milan) detected_country="it" ;;
+      Europe/Rome | Europe/Milan) detected_country="it" ;;
       Europe/Madrid) detected_country="es" ;;
       Australia/*) detected_country="au" ;;
-      America/Toronto|America/Montreal) detected_country="ca" ;;
+      America/Toronto | America/Montreal) detected_country="ca" ;;
       America/Sao_Paulo) detected_country="br" ;;
       Asia/Tokyo) detected_country="jp" ;;
       Asia/Seoul) detected_country="kr" ;;
       Asia/Singapore) detected_country="sg" ;;
-      Asia/Kolkata|Asia/Mumbai) detected_country="in" ;;
-      Asia/Shanghai|Asia/Beijing) detected_country="cn" ;;
+      Asia/Kolkata | Asia/Mumbai) detected_country="in" ;;
+      Asia/Shanghai | Asia/Beijing) detected_country="cn" ;;
       America/*) detected_country="us" ;;
     esac
   fi
-  
+
   echo "$detected_country"
 }
 
@@ -95,17 +110,17 @@ auto_detect_country() {
 test_mirror_connectivity() {
   local mirror_url="$1"
   local test_url="${mirror_url//\$arch\$repo/aarch64/core}"
-  
+
   if [[ $VERBOSE -eq 1 ]]; then
     echo "[DEBUG] Testing connectivity to: $test_url"
   fi
-  
+
   if command -v curl >/dev/null 2>&1; then
     curl -s --connect-timeout 5 --max-time 10 "$test_url" >/dev/null 2>&1
   elif command -v wget >/dev/null 2>&1; then
     wget -q --timeout=5 --tries=1 "$test_url" -O /dev/null 2>&1
   else
-    return 0  # Assume available if no test tools
+    return 0 # Assume available if no test tools
   fi
 }
 
@@ -205,7 +220,7 @@ esac
 # Test mirrors if requested and select the best one
 if [[ $TEST_MIRRORS -eq 1 ]]; then
   echo "[INFO] Testing mirror connectivity..."
-  
+
   if test_mirror_connectivity "$PRIMARY_MIRROR"; then
     MIRROR="Server = $PRIMARY_MIRROR"
     if [[ $VERBOSE -eq 1 ]]; then
@@ -234,7 +249,7 @@ if [[ -f "$MIRRORLIST_FILE" && $FORCE -eq 0 && -z "${OMARCHY_FORCE_MIRROR_OVERWR
       sudo cp "$MIRRORLIST_FILE" "$MIRRORLIST_FILE.bak.$(date +%Y%m%d%H%M%S)"
       echo "[INFO] Backed up existing mirrorlist to $MIRRORLIST_FILE.bak.*"
     fi
-    echo "$MIRROR" | sudo tee -a "$MIRRORLIST_FILE" > /dev/null
+    echo "$MIRROR" | sudo tee -a "$MIRRORLIST_FILE" >/dev/null
     echo "[OK] Appended ARM mirror to $MIRRORLIST_FILE: $MIRROR"
     echo "Updating package database..."
     sudo pacman -Syy
