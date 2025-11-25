@@ -1,7 +1,7 @@
 
 ![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
 
-# Omarchy Mac installation steps
+# Omarchy Mac installation steps (_Dual Boot_)
 
 _Disclaimer: This guide is intended for Apple Silicon Macs M1/M2. It is advised that you follow the instructions very carefully lest you risk bricking the Mac or getting stuck in a Boot Loop (I will provide a fix for that as well in the end)._
 
@@ -26,8 +26,8 @@ After installation, boot into Arch Linux and perform the initial setup:
 2. **Configure wifi** - Run `nmtui` for network setup (if you get an error after activating your wifi, reboot)
 3. **Update system** - Run `pacman -Syu`
 4. **Install essential packages** - Run `pacman -S sudo git base-devel neovim chromium`
-5. **Set locale** - Run `nano /etc/locale.gen` and uncomment `en_US.UTF-8`, save and exit.
-Run `locale-gen`, `nano /etc/locale.conf` and it should show `LANG=en_US.UTF-8`, if it doesn't, change it. 
+5. **Set locale** - Run `nano /etc/locale.gen` and uncomment `en_US.UTF-8`, save and exit. 
+Run `locale-gen`, then `nano /etc/locale.conf` and it should show `LANG=en_US.UTF-8`, if it doesn't, change it to `LANG=en_US.UTF-8`. 
 Now run `locale` and then `reboot` .
 
 ## Step 3: Create User Account

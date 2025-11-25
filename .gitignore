@@ -17,4 +17,29 @@ Thumbs.db
 # Local utility/test scripts (ignore)
 test-asahi-compatibility.sh
 test-timezone-enhancements.sh
+
+# Hyprland build folder (local source checkout/build artifacts)
+hyprland-source/build/
+
+# Common compiled/build artefacts
+**/build/
+**/dist/
+*.o
+*.a
+*.so
+*.dll
+*.class
+compile_commands.json
+*.ninja_log
+*.ninja_deps
+
+# Editor/IDE
+.vscode/
+.idea/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+
 fix-shebangs.sh
