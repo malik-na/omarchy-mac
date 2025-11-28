@@ -3,7 +3,7 @@
 # Sets keyboard backlight to 50% if available
 
 # Ensure brightnessctl is installed
-if ! command -v brightnessctl &> /dev/null; then
+if ! command -v brightnessctl &>/dev/null; then
   echo "Installing brightnessctl..."
   sudo pacman -S brightnessctl --noconfirm
 fi
@@ -19,4 +19,3 @@ if brightnessctl --list 2>/dev/null | grep -q "kbd_backlight"; then
 else
   echo "No keyboard backlight device found, skipping configuration"
 fi
-

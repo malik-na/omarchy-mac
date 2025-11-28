@@ -15,7 +15,7 @@ DEST="$WORKDIR/dest_mirrorlist"
 cp "$ROOT/default/pacman/mirrorlist" "$SRC"
 
 # Create sample existing system mirrorlist
-cat > "$DEST" <<'EOF'
+cat >"$DEST" <<'EOF'
 # System mirrorlist
 # Some comment
 Server = http://old.mirror.example/$arch/$repo
@@ -66,7 +66,7 @@ echo "--- Backups created (fix-mirrors) ---"
 ls -l "$WORKDIR" | sed -n '1,200p'
 
 # Reset DEST to original sample for the refresh test
-cat > "$DEST" <<'EOF'
+cat >"$DEST" <<'EOF'
 # System mirrorlist
 # Some comment
 Server = http://old.mirror.example/$arch/$repo

@@ -4,8 +4,8 @@ echo "Configuring timezone..."
 
 # First run enhanced timezone detection
 if [[ -f "$OMARCHY_INSTALL/config/timezone-detection.sh" ]]; then
-    source "$OMARCHY_INSTALL/config/timezone-detection.sh"
-    main
+  source "$OMARCHY_INSTALL/config/timezone-detection.sh"
+  main
 fi
 
 # Ensure timezone can be updated without needing to sudo

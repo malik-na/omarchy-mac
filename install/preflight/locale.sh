@@ -6,24 +6,24 @@ echo "Setting up locale (en_US.UTF-8)..."
 
 # Check if en_US.UTF-8 is already the current locale
 if [[ "$(locale | grep LANG=en_US.UTF-8)" ]] && [[ "$(locale | grep LC_ALL=en_US.UTF-8 2>/dev/null || echo 'not_set')" != "not_set" ]]; then
-    echo "Locale already set to en_US.UTF-8"
-    return 0
+  echo "Locale already set to en_US.UTF-8"
+  return 0
 fi
 
 # Ensure en_US.UTF-8 locale is generated
 if ! locale -a | grep -q "en_US.utf8\|en_US.UTF-8"; then
-    echo "Generating en_US.UTF-8 locale..."
-    
-    # Uncomment en_US.UTF-8 in locale.gen if it's commented
-    if grep -q "^#en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
-        sudo sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-    elif ! grep -q "^en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
-        # Add en_US.UTF-8 if it doesn't exist at all
-        echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
-    fi
-    
-    # Generate locales
-    sudo locale-gen >/dev/null 2>&1
+  echo "Generating en_US.UTF-8 locale..."
+
+  # Uncomment en_US.UTF-8 in locale.gen if it's commented
+  if grep -q "^#en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
+    sudo sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+  elif ! grep -q "^en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
+    # Add en_US.UTF-8 if it doesn't exist at all
+    echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
+  fi
+
+  # Generate locales
+  sudo locale-gen >/dev/null 2>&1
 fi
 
 # Set system locale

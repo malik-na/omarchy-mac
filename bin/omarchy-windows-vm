@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Windows VM for Omarchy
+# Note: This script is designed for x86_64 systems.
+# On ARM64/Apple Silicon, Windows VM requires ARM-specific virtualization.
+
+show_arm_notice() {
+  cat << 'EOF'
+
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ⚠️  Windows VM Not Supported on Apple Silicon/ARM64        ║
+║                                                               ║
+║   The Windows VM feature requires x86_64 architecture.        ║
+║   Apple Silicon Macs use ARM64 which cannot efficiently       ║
+║   run x86 Windows without extreme performance penalties.      ║
+║                                                               ║
+║   Alternatives for Apple Silicon:                             ║
+║   • Parallels Desktop (commercial, ARM Windows support)       ║
+║   • VMware Fusion (free for personal use)                     ║
+║   • UTM (free, open source, uses QEMU)                        ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+EOF
+}
+
+# Check architecture
+ARCH=$(uname -m)
+if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+  show_arm_notice
+  echo "Current architecture: $ARCH"
+  echo "This feature is only available on x86_64 systems."
+  echo
+  exit 1
+fi
+
+# If we somehow get here on ARM (shouldn't happen), show notice anyway
+show_arm_notice
+echo "If you're seeing this on an ARM system, please report this as a bug."
+exit 1

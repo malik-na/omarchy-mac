@@ -12,11 +12,14 @@ ARCH="$(uname -m)"
 case "$ARCH" in
   "x86_64") PACMAN_ARCH="x86_64" ;;
   "aarch64") PACMAN_ARCH="aarch64" ;;
-  *) echo "[ERROR] Unsupported architecture: $ARCH" >&2; exit 1 ;;
+  *)
+    echo "[ERROR] Unsupported architecture: $ARCH" >&2
+    exit 1
+    ;;
 esac
 
 # Setup pacman.conf first
-cat > /tmp/pacman.conf << "EOL"
+cat >/tmp/pacman.conf <<"EOL"
 # /etc/pacman.conf
 #
 # See the pacman.conf(5) manpage for option and repository directives
@@ -87,7 +90,7 @@ EOL
 
 # Add architecture-specific repositories
 if [[ "$PACMAN_ARCH" == "aarch64" ]]; then
-cat >> /tmp/pacman.conf << 'AARCH64_REPOS'
+  cat >>/tmp/pacman.conf <<'AARCH64_REPOS'
 [asahi-alarm]
 Include = /etc/pacman.d/mirrorlist.asahi-alarm
 
@@ -104,7 +107,7 @@ Include = /etc/pacman.d/mirrorlist
 Include = /etc/pacman.d/mirrorlist
 AARCH64_REPOS
 else
-cat >> /tmp/pacman.conf << 'X86_64_REPOS'
+  cat >>/tmp/pacman.conf <<'X86_64_REPOS'
 [core]
 Include = /etc/pacman.d/mirrorlist
 
@@ -121,8 +124,8 @@ sed -i "s/PACMAN_ARCH_PLACEHOLDER/$PACMAN_ARCH/g" /tmp/pacman.conf
 
 # Install the pacman.conf if it doesn't match
 if ! cmp -s /tmp/pacman.conf /etc/pacman.conf; then
-    echo "Installing new pacman.conf..."
-    sudo cp /tmp/pacman.conf /etc/pacman.conf
+  echo "Installing new pacman.conf..."
+  sudo cp /tmp/pacman.conf /etc/pacman.conf
 fi
 rm -f /tmp/pacman.conf
 
@@ -151,15 +154,43 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --replace) REPLACE=1; shift ;;
-    --prefer) PREFER=1; shift ;;
-    --backup) BACKUP=1; shift ;;
-    --dry-run) DRYRUN=1; shift ;;
-    --country) COUNTRY=${2:-us}; shift 2 ;;
-    --remove-omarchy) REMOVE_OMARCHY=1; shift ;;
-    --keep-omarchy) REMOVE_OMARCHY=0; shift ;;
-    -h|--help) usage; exit 0 ;;
-    *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
+    --replace)
+      REPLACE=1
+      shift
+      ;;
+    --prefer)
+      PREFER=1
+      shift
+      ;;
+    --backup)
+      BACKUP=1
+      shift
+      ;;
+    --dry-run)
+      DRYRUN=1
+      shift
+      ;;
+    --country)
+      COUNTRY=${2:-us}
+      shift 2
+      ;;
+    --remove-omarchy)
+      REMOVE_OMARCHY=1
+      shift
+      ;;
+    --keep-omarchy)
+      REMOVE_OMARCHY=0
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
   esac
 done
 
@@ -189,7 +220,7 @@ if [[ ! -f "$DEST" ]]; then
   # Write the servers (simple form)
   tmp=$(mktemp)
   for s in "${arch_servers[@]}"; do
-    echo "$s" >> "$tmp"
+    echo "$s" >>"$tmp"
   done
   sudo cp "$tmp" "$DEST"
   rm -f "$tmp"
@@ -277,23 +308,26 @@ if [[ $PREFER -eq 1 ]]; then
     # avoid duplicates
     exists=0
     for cs in "${combined_servers[@]}"; do
-      if [[ "$(normalize "$cs")" == "$key" ]]; then exists=1; break; fi
+      if [[ "$(normalize "$cs")" == "$key" ]]; then
+        exists=1
+        break
+      fi
     done
     if [[ $exists -eq 0 ]]; then combined_servers+=("$s"); fi
   done
 
   if [[ $DRYRUN -eq 1 ]]; then
-    echo "[DRYRUN] Would write preferred servers for $PACMAN_ARCH at top of $DEST:" 
+    echo "[DRYRUN] Would write preferred servers for $PACMAN_ARCH at top of $DEST:"
     for s in "${combined_servers[@]}"; do echo "  $s"; done
     exit 0
   fi
 
   tmp=$(mktemp)
-  grep -v -E '^\s*Server\s*=' "$DEST" > "$tmp".body || true
+  grep -v -E '^\s*Server\s*=' "$DEST" >"$tmp".body || true
   {
     for s in "${combined_servers[@]}"; do echo "$s"; done
     cat "$tmp".body
-  } | sudo tee "$DEST" > /dev/null
+  } | sudo tee "$DEST" >/dev/null
   rm -f "$tmp".body
   echo "[OK] Wrote preferred servers for $PACMAN_ARCH to $DEST"
   exit 0
@@ -302,19 +336,19 @@ fi
 # Default: append any missing arch servers after existing filtered servers
 if [[ $DRYRUN -eq 1 ]]; then
   echo "[DRYRUN] Would remove Omarchy servers and append missing servers for $PACMAN_ARCH to $DEST"
-  echo "[DRYRUN] Servers to append:" 
+  echo "[DRYRUN] Servers to append:"
   for s in "${missing_arch[@]}"; do echo "  $s"; done
   exit 0
 fi
 
 # Reconstruct DEST: preserve non-Server lines, keep filtered_dest, then append missing_arch
 tmp=$(mktemp)
-grep -v -E '^\s*Server\s*=' "$DEST" > "$tmp".body || true
+grep -v -E '^\s*Server\s*=' "$DEST" >"$tmp".body || true
 {
   for s in "${filtered_dest[@]}"; do echo "$s"; done
   for s in "${missing_arch[@]}"; do echo "$s"; done
   cat "$tmp".body
-} | sudo tee "$DEST" > /dev/null
+} | sudo tee "$DEST" >/dev/null
 rm -f "$tmp".body
 
 echo "[OK] Updated $DEST: removed Omarchy servers (if any) and ensured appropriate servers for $PACMAN_ARCH present"

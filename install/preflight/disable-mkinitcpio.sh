@@ -14,4 +14,3 @@ if [ -f /usr/share/libalpm/hooks/60-mkinitcpio-remove.hook ]; then
 fi
 
 echo "mkinitcpio hooks disabled"
-

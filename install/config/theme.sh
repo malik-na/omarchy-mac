@@ -29,7 +29,7 @@ mkdir -p ~/.config/fuzzel
 cp -n ~/.local/share/omarchy/config/fuzzel/fuzzel.ini ~/.config/fuzzel/fuzzel.ini
 
 # Ensure all themes have fuzzel.ini files
-~/.local/share/omarchy/bin/omarchy-convert-themes-to-fuzzel
+~/.local/share/omarchy/bin/omarchy-mac-custom-theme-utility
 
 # Add managed policy directories for Chromium and Brave for theme changes
 sudo mkdir -p /etc/chromium/policies/managed

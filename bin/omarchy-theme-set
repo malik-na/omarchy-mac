@@ -17,7 +17,7 @@ if [[ ! -d "$THEME_PATH" ]]; then
   exit 1
 fi
 
-# Auto-generate fuzzel.ini if missing (for new themes)
+# Auto-generate fuzzel.ini if missing (for new themes) - Mac-specific feature
 if [[ ! -f "$THEME_PATH/fuzzel.ini" && -f "$THEME_PATH/walker.css" ]]; then
   echo "Auto-generating fuzzel.ini for theme $THEME_NAME..."
   omarchy-mac-custom-theme-utility
@@ -30,16 +30,22 @@ ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
 omarchy-theme-bg-next
 
 # Restart components to apply new theme
-omarchy-restart-waybar
-omarchy-restart-walker # This now handles fuzzel restart
+if pgrep -x waybar >/dev/null; then
+  omarchy-restart-waybar
+fi
+omarchy-restart-walker # This handles fuzzel restart on Mac
 omarchy-restart-swayosd
+omarchy-restart-terminal
 hyprctl reload
 pkill -SIGUSR2 btop
 makoctl reload
 
-# Change gnome, browser, vscode themes
-omarchy-theme-set-terminal
+# Change gnome, browser, vscode, cursor, obsidian themes
 omarchy-theme-set-gnome
-omarchy-theme-set-eza
 omarchy-theme-set-browser
 omarchy-theme-set-vscode
+omarchy-theme-set-cursor
+omarchy-theme-set-obsidian
+
+# Call hook on theme set
+omarchy-hook theme-set "$THEME_NAME"

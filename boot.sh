@@ -18,7 +18,25 @@ clear
 echo -e "\n$ansi_art\n"
 
 # Validate sudo access and refresh timestamp to minimize password prompts
-sudo -v
+echo "🔐 Omarchy Mac Installation requires administrator access..."
+if ! sudo -v; then
+  echo "❌ Error: sudo access required. Please run with proper permissions."
+  exit 1
+fi
+
+# Keep sudo alive during bootstrap
+keep_sudo_alive() {
+  while true; do
+    sudo -v
+    sleep 50
+  done
+}
+
+keep_sudo_alive &
+SUDO_KEEPALIVE_PID=$!
+
+# Cleanup on exit
+trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
 
 sudo pacman -Syu --noconfirm --needed git
 
