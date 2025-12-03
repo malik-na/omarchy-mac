@@ -64,9 +64,7 @@ As your new user, set up the AUR helper and install Omarchy Mac:
 **Note**: If mirrors break during installation, run `bash fix-mirrors.sh` then run `install.sh` again.
 
 
-##External Monitor Guide - 
-https://github.com/malik-na/omarchy-mac/discussions/73
-
+### External Monitor [Guide](https://github.com/malik-na/omarchy-mac/discussions/73) 
 ## Omarchy Mac Menu
 
 Omarchy Mac now includes the **Omarchy Mac Menu** by default, which replaces Walker with fuzzel for better aarch64 compatibility and performance. The menu system uses fuzzel as the frontend while maintaining all the original functionality.
