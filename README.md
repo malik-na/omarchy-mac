@@ -64,8 +64,7 @@ As your new user, set up the AUR helper and install Omarchy Mac:
 **Note**: If mirrors break during installation, run `bash fix-mirrors.sh` then run `install.sh` again.
 
 
-##External Monitor Guide - 
-https://github.com/malik-na/omarchy-mac/discussions/73
+### External Monitor [Guide](https://github.com/malik-na/omarchy-mac/discussions/73) ❗
 
 ## Omarchy Mac Menu
 
