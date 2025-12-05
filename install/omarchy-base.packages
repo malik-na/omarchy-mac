@@ -37,6 +37,7 @@ polkit-gnome
 qt5-wayland
 waybar
 btop
+bluetui
 cargo
 clang
 cups
@@ -48,6 +49,7 @@ docker-buildx
 docker-compose
 dust
 evince
+exfatprogs
 eza
 fastfetch
 fd
@@ -69,6 +71,7 @@ hyprsunset
 imagemagick
 impala
 imv
+inxi
 inetutils
 jq
 kdenlive
@@ -131,10 +134,10 @@ wiremix
 wireplumber
 wl-clip-persist
 wl-clipboard
-wl-screenrec
 woff2-font-awesome
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
+xdg-terminal-exec
 xmlstarlet
 xournalpp
 yaru-icon-theme

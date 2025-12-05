@@ -5,7 +5,13 @@ source "$OMARCHY_INSTALL/helpers/packages.sh"
 
 for pkg in "$@"; do
   if ! omarchy_install_package_with_fallback "$pkg"; then
-    echo "Failed to install $pkg" >&2
+    echo -e "\033[31mError: Failed to install $pkg\033[0m" >&2
+    exit 1
+  fi
+
+  # Secondary check to handle states where package manager doesn't actually register an error
+  if ! pacman -Q "$pkg" &>/dev/null; then
+    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
     exit 1
   fi
 done
