@@ -13,9 +13,6 @@ if [[ -f ~/.local/state/omarchy/toggles/screensaver-off ]] && [[ $1 != "force" ]
   exit 1
 fi
 
-# Close any open menus before launching screensaver
-pkill fuzzel 2>/dev/null || true
-
 focused=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true).name')
 terminal=$(xdg-terminal-exec --print-id)
 
@@ -32,6 +29,7 @@ for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
   *ghostty*)
     hyprctl dispatch exec -- \
       ghostty --class=org.omarchy.screensaver \
+      --config-file=~/.local/share/omarchy/default/ghostty/screensaver \
       --font-size=18 \
       -e omarchy-cmd-screensaver
     ;;
@@ -39,6 +37,7 @@ for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
     hyprctl dispatch exec -- \
       kitty --class=org.omarchy.screensaver \
       --override font_size=18 \
+      --override window_padding_width=0 \
       -e omarchy-cmd-screensaver
     ;;
   *)
