@@ -14,7 +14,7 @@ mesa
 mesa-utils
 mesa-demos
 fwupd
-#nvme-cli
+#nvme-cli  # not needed: NVMe hardware not supported on target platforms
 grub
 efibootmgr
 alacritty
