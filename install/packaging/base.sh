@@ -39,7 +39,7 @@ for pkg in "${packages[@]}"; do
   fi
 done
 if ((${#unavailable_pkgs[@]} > 0)); then
-  echo "\e[33m[Warning] The following packages were not found in pacman, yay, or paru metadata and may fail to install:\e[0m"
+  echo "\e[33m[Warning] The following packages were not found in pacman or yay metadata and may fail to install:\e[0m"
   for pkg in "${unavailable_pkgs[@]}"; do
     echo "  - $pkg"
   done
@@ -61,7 +61,7 @@ for pkg in "${packages[@]}"; do
     if omarchy_package_known_to_any_manager "$pkg"; then
       failed_packages+=("$pkg")
     else
-      failed_packages+=("$pkg (not found in pacman/yay/paru)")
+      failed_packages+=("$pkg (not found in pacman/yay)")
     fi
   fi
 done

@@ -20,12 +20,6 @@ omarchy_package_known_to_any_manager() {
     fi
   fi
 
-  if command -v paru >/dev/null 2>&1; then
-    if paru -Si "$package" >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
   return 1
 }
 
@@ -79,10 +73,6 @@ omarchy_try_install_with_manager() {
       command -v yay >/dev/null 2>&1 || return 1
       yay -S --noconfirm --needed "$package"
       ;;
-    paru)
-      command -v paru >/dev/null 2>&1 || return 1
-      paru -S --noconfirm --needed "$package"
-      ;;
     *)
       return 1
       ;;
@@ -91,7 +81,7 @@ omarchy_try_install_with_manager() {
 
 omarchy_install_package_with_fallback() {
   local package="$1"
-  local managers=("pacman" "yay" "paru")
+  local managers=("pacman" "yay")
   local manager
 
   if omarchy_package_installed "$package"; then
@@ -132,16 +122,15 @@ omarchy_ensure_aur_helper() {
   return 1
 }
 
-# Public entry point: ensure yay and paru are installed before package installation begins
+# Public entry point: ensure yay is installed before package installation begins
 omarchy_setup_aur_helpers() {
   local failures=()
 
   omarchy_ensure_aur_helper "yay" "yay" "yay-bin" || failures+=("yay")
-  omarchy_ensure_aur_helper "paru" "paru" "paru-bin" || failures+=("paru")
 
   if ((${#failures[@]} > 0)); then
     echo "[Omarchy] Warning: The following AUR helpers could not be set up: ${failures[*]}" >&2
   else
-    echo "[Omarchy] yay and paru are ready for fallback installations."
+    echo "[Omarchy] yay is ready for fallback installations."
   fi
 }
