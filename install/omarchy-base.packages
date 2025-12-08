@@ -14,7 +14,7 @@ mesa
 mesa-utils
 mesa-demos
 fwupd
-nvme-cli
+#nvme-cli
 grub
 efibootmgr
 alacritty
@@ -92,7 +92,7 @@ noto-fonts-cjk
 noto-fonts-emoji
 noto-fonts-extra
 nss-mdns
-obs-studio
+#obs-studio
 #obsidian
 pamixer
 pinta
