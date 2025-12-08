@@ -4,9 +4,9 @@
 autoconf-archive
 base
 base-devel
-broadcom-wl
+#broadcom-wl (x86_64 DKMS driver, unsupported on aarch64)
 btrfs-progs
-dart
+#dart (binary distribution not available on aarch64)
 dkms
 egl-wayland
 git
@@ -18,19 +18,19 @@ iwd
 jdk-openjdk
 libpulse
 libsass
-libva-intel-driver
-libva-nvidia-driver
-limine
-limine-mkinitcpio-hook
-limine-snapper-sync
-linux
+#libva-intel-driver (Intel VA-API stack is x86_64-only)
+#libva-nvidia-driver (NVIDIA VA-API shim is x86_64-only)
+#limine
+#limine-mkinitcpio-hook
+#limine-snapper-sync
+#linux (x86_64 kernel package)
 linux-firmware
-linux-headers
-macbook12-spi-driver-dkms
-nvidia-dkms
-nvidia-open-dkms
-nvidia-utils
-lib32-nvidia-utils
+#linux-headers (x86_64 kernel headers)
+#macbook12-spi-driver-dkms (Intel Mac keyboard driver, not for aarch64)
+#nvidia-dkms
+#nvidia-open-dkms
+#nvidia-utils
+#lib32-nvidia-utils (multilib, x86_64-only)
 pipewire
 pipewire-alsa
 pipewire-jack
