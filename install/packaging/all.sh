@@ -1,5 +1,11 @@
 #!/bin/bash
-run_logged $OMARCHY_INSTALL/packaging/aur-helpers.sh
+# Distro detection abstraction
+OMARCHY_INSTALL="${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}"
+source "$OMARCHY_INSTALL/helpers/distro.sh"
+
+if is_arch; then
+	run_logged $OMARCHY_INSTALL/packaging/aur-helpers.sh
+fi
 run_logged $OMARCHY_INSTALL/packaging/base.sh
 run_logged $OMARCHY_INSTALL/packaging/fonts.sh
 run_logged $OMARCHY_INSTALL/packaging/nvim.sh
