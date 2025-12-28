@@ -17,6 +17,10 @@ abort() {
 source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.sh"
 
 if is_fedora; then
+  ARCH="$(uname -m)"
+  if [[ "$ARCH" != "aarch64" ]]; then
+    abort "Fedora Asahi Remix requires ARM64 (aarch64) hardware. Detected: $ARCH"
+  fi
   # Fedora Asahi only
   if ! grep -q "asahi" /proc/version 2>/dev/null; then
     abort "Fedora Asahi Remix required (not detected)"
@@ -37,10 +41,13 @@ if [ "$EUID" -eq 0 ]; then
   abort "Running as root (run as a regular user, not root)"
 fi
 
-# Must be ARM64 (aarch64) for Apple Silicon Macs
-ARCH="$(uname -m)"
-if [[ "$ARCH" != "aarch64" ]]; then
-  abort "ARM64 (aarch64) CPU required for Apple Silicon (detected: $ARCH)"
+
+# Must be ARM64 (aarch64) for Apple Silicon Macs (Arch only)
+if is_arch; then
+  ARCH="$(uname -m)"
+  if [[ "$ARCH" != "aarch64" ]]; then
+    abort "ARM64 (aarch64) CPU required for Apple Silicon (detected: $ARCH)"
+  fi
 fi
 
 
