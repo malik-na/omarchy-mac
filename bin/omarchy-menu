@@ -146,7 +146,7 @@ show_capture_menu() {
 }
 
 show_screenshot_menu() {
-  case $(menu "Screenshot" "  Snap with Editing\n  Straight to Clipboard") in
+  case $(menu "Screenshot" $'  Snap with Editing\n  Straight to Clipboard') in
   *Editing*) omarchy-cmd-screenshot smart ;;
   *Clipboard*) omarchy-cmd-screenshot smart clipboard ;;
   *) show_capture_menu ;;
@@ -156,7 +156,7 @@ show_screenshot_menu() {
 show_screenrecord_menu() {
   omarchy-cmd-screenrecord --stop-recording && exit 0
 
-  case $(menu "Screenrecord" "  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
+  case $(menu "Screenrecord" $'  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam') in
   *"With desktop audio") omarchy-cmd-screenrecord --with-desktop-audio ;;
   *"With desktop + microphone audio") omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio ;;
   *"With desktop + microphone audio + webcam") omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio --with-webcam ;;
@@ -165,7 +165,7 @@ show_screenrecord_menu() {
 }
 
 show_share_menu() {
-  case $(menu "Share" "  Clipboard\n  File \n  Folder") in
+  case $(menu "Share" $'  Clipboard\n  File \n  Folder') in
   *Clipboard*) omarchy-cmd-share clipboard ;;
   *File*) terminal bash -c "omarchy-cmd-share file" ;;
   *Folder*) terminal bash -c "omarchy-cmd-share folder" ;;
@@ -285,7 +285,7 @@ show_setup_security_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming") in
+  case $(menu "Install" $'󰣇  Package\n󰣇  AUR\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
   *AUR*) terminal omarchy-pkg-aur-install ;;
   *Web*) present_terminal omarchy-webapp-install ;;
@@ -313,7 +313,7 @@ show_install_service_menu() {
 }
 
 show_install_editor_menu() {
-  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs") in
+  case $(menu "Install" $'  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs') in
   *VSCode*) present_terminal omarchy-install-vscode ;;
   *Cursor*) aur_install_and_launch "Cursor" "cursor-bin" "cursor" ;;
   *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
@@ -341,7 +341,7 @@ show_install_ai_menu() {
       echo ollama
   )
 
-  case $(menu "Install" "󱚤  Claude Code\n󱚤  Cursor CLI\n󱚤  Gemini\n󱚤  OpenAI Codex\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush\n󱚤  opencode") in
+  case $(menu "Install" $'󱚤  Claude Code\n󱚤  Cursor CLI\n󱚤  Gemini\n󱚤  OpenAI Codex\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush\n󱚤  opencode') in
   *Claude*) aur_install "Claude Code" "claude-code" ;;
   *Cursor*) aur_install "Cursor CLI" "cursor-cli" ;;
   *OpenAI*) aur_install "OpenAI Codex" "openai-codex-bin" ;;
@@ -355,7 +355,7 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" "  Steam\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]") in
+  case $(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]') in
   *Steam*) present_terminal omarchy-install-steam ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
   *Minecraft*) aur_install_and_launch "Minecraft [AUR]" "minecraft-launcher" "minecraft-launcher" ;;
@@ -374,7 +374,7 @@ show_install_style_menu() {
 }
 
 show_install_font_menu() {
-  case $(menu "Install" "  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono\n  Iosevka" "-w 350") in
+  case $(menu "Install" $'  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono\n  Iosevka' "-w 350") in
   *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
   *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
   *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
@@ -430,7 +430,7 @@ show_install_elixir_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰸌  Theme\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
+  case $(menu "Remove" $'󰣇  Package\n  Web App\n  TUI\n󰸌  Theme\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2') in
   *Package*) terminal omarchy-pkg-remove ;;
   *Web*) present_terminal omarchy-webapp-remove ;;
   *TUI*) present_terminal omarchy-tui-remove ;;
@@ -443,7 +443,7 @@ show_remove_menu() {
 }
 
 show_update_menu() {
-  case $(menu "Update" " Omarchy\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  case $(menu "Update" $' Omarchy\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time') in
   *Omarchy*) present_terminal omarchy-update ;;
   *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
@@ -459,7 +459,7 @@ show_update_menu() {
 }
 
 show_update_channel_menu() {
-  case $(menu "Update channel" "🟢 Stable\n🟡 Edge\n🔴 Dev") in
+  case $(menu "Update channel" $'🟢 Stable\n🟡 Edge\n🔴 Dev') in
   *Stable*) present_terminal "omarchy-channel-set stable" ;;
   *Edge*) present_terminal "omarchy-channel-set edge" ;;
   *Dev*) present_terminal "omarchy-channel-set dev" ;;
@@ -493,7 +493,7 @@ show_update_config_menu() {
 }
 
 show_update_hardware_menu() {
-  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  case $(menu "Restart" $'  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth') in
   *Audio*) present_terminal omarchy-restart-pipewire ;;
   *Wi-Fi*) present_terminal omarchy-restart-wifi ;;
   *Bluetooth*) present_terminal omarchy-restart-bluetooth ;;
@@ -510,7 +510,7 @@ show_update_password_menu() {
 }
 
 show_system_menu() {
-  case $(menu "System" "  Lock\n󱄄  Screensaver\n󰤄  Suspend\n󰜉  Restart\n󰐥  Shutdown") in
+  case $(menu "System" $'  Lock\n󱄄  Screensaver\n󰤄  Suspend\n󰜉  Restart\n󰐥  Shutdown') in
   *Lock*) omarchy-lock-screen ;;
   *Screensaver*) omarchy-launch-screensaver force ;;
   *Suspend*) systemctl suspend ;;
