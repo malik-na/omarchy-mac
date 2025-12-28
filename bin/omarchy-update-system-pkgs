@@ -4,7 +4,7 @@ set -e
 
 # Used in package emergencies if a bad package has been pushed and we can't revoke.
 # Requires manually installing the good package using sudo pacman -U <url>
-ignored_packages=$(omarchy-pkg-ignored)
+#ignored_packages=$(omarchy-pkg-ignored)
 
 echo -e "\e[32m\nUpdate system packages (including AUR)\e[0m"
 if omarchy-pkg-aur-accessible; then
@@ -12,7 +12,8 @@ if omarchy-pkg-aur-accessible; then
   yay -Syu --noconfirm --ignore "$ignored_packages"
   echo
 else
-  echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
+  echo -e "  echo -e "main\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
+main\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
   echo
 fi
 

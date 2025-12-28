@@ -13,7 +13,6 @@ abort() {
 }
 
 # Must be an Arch distro
-
 if [[ ! -f /etc/arch-release ]]; then
   abort "Vanilla Arch (install on official Arch Linux only)"
 fi
@@ -30,10 +29,10 @@ if [ "$EUID" -eq 0 ]; then
   abort "Running as root (run as a regular user, not root)"
 fi
 
-# Must be x86_64 or ARM64 (aarch64)
+# Must be ARM64 (aarch64) for Apple Silicon Macs
 ARCH="$(uname -m)"
-if [[ "$ARCH" != "x86_64" && "$ARCH" != "aarch64" ]]; then
-  abort "x86_64 or ARM64 (aarch64) CPU (detected: $ARCH)"
+if [[ "$ARCH" != "aarch64" ]]; then
+  abort "ARM64 (aarch64) CPU required for Apple Silicon (detected: $ARCH)"
 fi
 
 # Must not have Gnome or KDE already install
