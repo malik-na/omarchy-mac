@@ -39,24 +39,6 @@ SUDO_KEEPALIVE_PID=$!
 trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
 
 # ============================================================================
-# Safety Check: Warn if uncommitted changes exist
-# ============================================================================
-
-if [[ -d ~/.local/share/omarchy/.git ]]; then
-  if [[ -n "$(git -C ~/.local/share/omarchy status --porcelain 2>/dev/null)" ]]; then
-    echo -e "\n⚠️  \e[33mWarning: Uncommitted changes detected in ~/.local/share/omarchy/\e[0m"
-    echo "   Running this script will DELETE all local changes!"
-    echo ""
-    read -t 10 -p "   Continue and DELETE? (y/N, auto-cancels in 10s): " confirm
-    echo ""
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-      echo "❌ Aborted. Push your changes first, then re-run."
-      exit 1
-    fi
-  fi
-fi
-
-# ============================================================================
 # Distro Detection & Branch Selection
 # ============================================================================
 
@@ -159,6 +141,21 @@ fi
 OMARCHY_REPO="${OMARCHY_REPO:-malik-na/omarchy-mac}"
 
 echo -e "\nCloning Omarchy from: https://github.com/${OMARCHY_REPO}.git (branch: $OMARCHY_BRANCH)"
+
+# Warn if existing installation will be overwritten
+if [[ -d ~/.local/share/omarchy ]]; then
+  echo -e "\n⚠️  \e[33mWarning: Existing Omarchy installation found at ~/.local/share/omarchy/\e[0m"
+  echo "   This will be DELETED and replaced with a fresh clone."
+  echo ""
+  read -t 15 -p "   Continue and replace? (y/N, auto-cancels in 15s): " confirm
+  echo ""
+  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    echo "❌ Aborted. Your existing installation was preserved."
+    echo "   To update without re-cloning, run: ~/.local/share/omarchy/install.sh"
+    exit 1
+  fi
+fi
+
 rm -rf ~/.local/share/omarchy/
 git clone -b "$OMARCHY_BRANCH" "https://github.com/${OMARCHY_REPO}.git" ~/.local/share/omarchy >/dev/null
 
