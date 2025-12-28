@@ -9,8 +9,14 @@ export ANSI_HIDE_CURSOR="\033[?25l"
 export ANSI_SHOW_CURSOR="\033[?25h"
 export ANSI_CLEAR_SCREEN="\033[2J\033[H"
 
+
 # Distro detection abstraction (must be early)
 source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.sh"
+
+# Source Fedora package helpers if needed
+if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+  source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/packages-fedora.sh"
+fi
 
 # Show cursor on exit (cleanup trap to prevent ghosting)
 trap 'printf "$ANSI_SHOW_CURSOR"; sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM

@@ -120,14 +120,18 @@ select_distro_branch
 
 echo -e "\n📦 Installing Omarchy for: \e[32m$OMARCHY_BRANCH\e[0m"
 
+
 # ============================================================================
-# Package Manager Setup (distro-specific)
+# Package Manager Setup (distro-specific, via abstraction)
 # ============================================================================
 
+# Source Fedora helpers if Fedora detected
 if [[ -f /etc/fedora-release ]]; then
+  OMARCHY_INSTALL="${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}"
+  source "$OMARCHY_INSTALL/helpers/packages-fedora.sh"
   echo -e "\n🔄 Updating system packages (dnf)..."
-  sudo dnf upgrade -y --refresh
-  sudo dnf install -y git
+  fedora_update_system
+  fedora_install_package git
 else
   echo -e "\n🔄 Updating system packages (pacman)..."
   sudo pacman -Syu --noconfirm --needed git
