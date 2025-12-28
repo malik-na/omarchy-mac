@@ -7,7 +7,18 @@
 
 set -euo pipefail
 
-# Detect architecture
+
+# Distro detection abstraction
+OMARCHY_INSTALL="${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}"
+source "$OMARCHY_INSTALL/helpers/distro.sh"
+
+# Only run on Arch (not Fedora)
+if is_fedora; then
+  echo "[fix-mirrors.sh] Fedora detected. This script is only relevant for Arch-based installs. Exiting."
+  exit 0
+fi
+
+# Detect architecture (Arch only)
 ARCH="$(uname -m)"
 case "$ARCH" in
   "x86_64") PACMAN_ARCH="x86_64" ;;
