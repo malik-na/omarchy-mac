@@ -1,0 +1,73 @@
+# Fedora package list for Omarchy
+# Format: one package name per line
+
+# Desktop
+hyprland
+waybar
+fuzzel
+mako
+swaybg
+slurp
+wf-recorder
+wl-clipboard
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+
+# Terminal
+alacritty
+btop
+fzf
+ripgrep
+bat
+fd-find
+zoxide
+fastfetch
+jq
+htop
+
+# Development
+neovim
+git
+cargo
+clang
+llvm
+java-21-openjdk
+luarocks
+gh
+
+# Containers
+moby-engine
+docker-compose
+docker-buildx
+
+# Media & Apps
+imv
+mpv
+pinta
+libreoffice
+kdenlive
+evince
+nautilus
+gnome-calculator
+
+# System Utilities
+playerctl
+brightnessctl
+pamixer
+gum
+plymouth
+cups
+snapper
+ImageMagick
+
+# Fonts
+google-noto-fonts-common
+google-noto-sans-cjk-fonts
+google-noto-emoji-fonts
+cascadia-mono-nf-fonts
+jetbrains-mono-nf-fonts
+
+# Input Methods
+fcitx5
+fcitx5-gtk
+fcitx5-qt5

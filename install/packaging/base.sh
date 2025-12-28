@@ -1,7 +1,14 @@
 #!/bin/bash
 source "$OMARCHY_INSTALL/helpers/packages.sh"
 
-# Read core and optional packages from omarchy-base.packages
+
+# Select package list based on distro
+if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+  package_file="$OMARCHY_INSTALL/omarchy-base.packages.fedora"
+else
+  package_file="$OMARCHY_INSTALL/omarchy-base.packages"
+fi
+
 core_packages=()
 optional_packages=()
 in_optional=0
@@ -16,7 +23,7 @@ while IFS= read -r line; do
   else
     core_packages+=("$line")
   fi
-done <"$OMARCHY_INSTALL/omarchy-base.packages"
+done <"$package_file"
 
 # Interactive selection for optional packages using gum
 if command -v gum &>/dev/null && ((${#optional_packages[@]} > 0)); then
@@ -34,8 +41,14 @@ packages=("${core_packages[@]}" "${selected_optional_pkgs[@]}")
 echo "\e[34m[Omarchy] Checking package availability...\e[0m"
 unavailable_pkgs=()
 for pkg in "${packages[@]}"; do
-  if ! omarchy_package_known_to_any_manager "$pkg"; then
-    unavailable_pkgs+=("$pkg")
+  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+    if ! fedora_package_installed "$pkg" && ! dnf list --available "$pkg" &>/dev/null; then
+      unavailable_pkgs+=("$pkg")
+    fi
+  else
+    if ! omarchy_package_known_to_any_manager "$pkg"; then
+      unavailable_pkgs+=("$pkg")
+    fi
   fi
 done
 if ((${#unavailable_pkgs[@]} > 0)); then
@@ -54,14 +67,22 @@ for pkg in "${packages[@]}"; do
     continue
   fi
 
-  if omarchy_install_package_with_fallback "$pkg"; then
+  if omarchy_install_package "$pkg"; then
     echo "[OK] $pkg"
   else
     echo "[FAILED] $pkg"
-    if omarchy_package_known_to_any_manager "$pkg"; then
-      failed_packages+=("$pkg")
+    if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+      if dnf list --available "$pkg" &>/dev/null; then
+        failed_packages+=("$pkg")
+      else
+        failed_packages+=("$pkg (not found in dnf)")
+      fi
     else
-      failed_packages+=("$pkg (not found in pacman/yay/paru)")
+      if omarchy_package_known_to_any_manager "$pkg"; then
+        failed_packages+=("$pkg")
+      else
+        failed_packages+=("$pkg (not found in pacman/yay/paru)")
+      fi
     fi
   fi
 done

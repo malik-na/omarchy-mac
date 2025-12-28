@@ -1,9 +1,22 @@
 #!/bin/bash
 
-# Check if a package is already installed (covers repo and AUR packages)
+
+# Omarchy package abstraction layer
+source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.sh"
+
+# Source Fedora helpers if needed
+if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+  source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/packages-fedora.sh"
+fi
+
+# Distro-agnostic package installed check
 omarchy_package_installed() {
   local package="$1"
-  pacman -Qi "$package" >/dev/null 2>&1
+  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+    fedora_package_installed "$package"
+  else
+    pacman -Qi "$package" >/dev/null 2>&1
+  fi
 }
 
 # Determine whether any configured package manager can see the package metadata
@@ -64,29 +77,34 @@ omarchy_install_from_aur() {
   return 0
 }
 
-omarchy_try_install_with_manager() {
-  local manager="$1"
-  local package="$2"
 
-  case "$manager" in
-    pacman)
-      if ! pacman -Si "$package" >/dev/null 2>&1; then
-        return 1
-      fi
-      sudo pacman -S --noconfirm --needed "$package"
-      ;;
-    yay)
-      command -v yay >/dev/null 2>&1 || return 1
-      yay -S --noconfirm --needed "$package"
-      ;;
-    paru)
-      command -v paru >/dev/null 2>&1 || return 1
-      paru -S --noconfirm --needed "$package"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+# Distro-agnostic install
+omarchy_install_package() {
+  local package="$1"
+  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+    fedora_install_package "$package"
+  else
+    omarchy_install_package_with_fallback "$package"
+  fi
+}
+
+# Distro-agnostic remove
+omarchy_remove_package() {
+  local package="$1"
+  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+    fedora_remove_package "$package"
+  else
+    sudo pacman -Rns --noconfirm "$package"
+  fi
+}
+
+# Distro-agnostic update
+omarchy_update_system() {
+  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
+    fedora_update_system
+  else
+    sudo pacman -Syu --noconfirm
+  fi
 }
 
 omarchy_install_package_with_fallback() {
