@@ -42,4 +42,5 @@ compile_commands.json
 __pycache__/
 *.pyc
 
-fix-shebangs.sh
+# Project roadmap (local only)
+Roadmap.md
