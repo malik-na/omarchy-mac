@@ -1,4 +1,32 @@
 #!/bin/bash
+
+# Check for ARM64 architecture first
+ARCH=$(uname -m)
+if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+  cat << 'EOF'
+
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ⚠️  Windows VM Not Supported on Apple Silicon/ARM64        ║
+║                                                               ║
+║   The Windows VM feature requires x86_64 architecture.        ║
+║   Apple Silicon Macs use ARM64 which cannot efficiently       ║
+║   run x86 Windows without extreme performance penalties.      ║
+║                                                               ║
+║   Alternatives for Apple Silicon:                             ║
+║   • Parallels Desktop (commercial, ARM Windows support)       ║
+║   • VMware Fusion (free for personal use)                     ║
+║   • UTM (free, open source, uses QEMU)                        ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+EOF
+  echo "Current architecture: $ARCH"
+  echo "This feature is only available on x86_64 systems."
+  echo
+  exit 1
+fi
+
 COMPOSE_FILE="$HOME/.config/windows/docker-compose.yml"
 
 check_prerequisites() {
