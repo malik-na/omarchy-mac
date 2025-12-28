@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# Ensure walker is set to autostart
-mkdir -p ~/.config/autostart/
-cp $OMARCHY_PATH/autostart/walker.desktop ~/.config/autostart/
-systemctl --user daemon-reload
-
-omarchy-refresh-config walker/config.toml
-omarchy-refresh-config elephant/calc.toml
-omarchy-refresh-config elephant/desktopapplications.toml
+# Note: This script now manages fuzzel configuration for omarchy-mac-menu compatibility
+omarchy-refresh-config fuzzel/fuzzel.ini
+omarchy-refresh-config fuzzel/fuzzel.theme.ini
 omarchy-restart-walker

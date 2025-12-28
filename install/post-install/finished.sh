@@ -1,3 +1,4 @@
+#!/bin/bash
 stop_install_log
 
 echo_in_style() {
@@ -20,6 +21,7 @@ else
   echo_in_style "Finished installing"
 fi
 
+# Clean up temporary installer sudoers rule
 if sudo test -f /etc/sudoers.d/99-omarchy-installer; then
   sudo rm -f /etc/sudoers.d/99-omarchy-installer &>/dev/null
 fi

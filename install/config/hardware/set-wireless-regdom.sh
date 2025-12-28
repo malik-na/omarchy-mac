@@ -1,3 +1,4 @@
+#!/bin/bash
 # First check that wireless-regdb is there
 if [ -f "/etc/conf.d/wireless-regdom" ]; then
   unset WIRELESS_REGDOM

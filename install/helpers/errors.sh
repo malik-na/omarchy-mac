@@ -1,18 +1,5 @@
+#!/bin/bash
 # Directs user to Omarchy Discord
-QR_CODE='
-█▀▀▀▀▀█ ▄ ▄ ▀▄▄▄█ █▀▀▀▀▀█
-█ ███ █ ▄▄▄▄▀▄▀▄▀ █ ███ █
-█ ▀▀▀ █ ▄█  ▄█▄▄▀ █ ▀▀▀ █
-▀▀▀▀▀▀▀ ▀▄█ █ █ █ ▀▀▀▀▀▀▀
-▀▀█▀▀▄▀▀▀▀▄█▀▀█  ▀ █ ▀ █ 
-█▄█ ▄▄▀▄▄ ▀ ▄ ▀█▄▄▄▄ ▀ ▀█
-▄ ▄▀█ ▀▄▀▀▀▄ ▄█▀▄█▀▄▀▄▀█▀
-█ ▄▄█▄▀▄█ ▄▄▄  ▀ ▄▀██▀ ▀█
-▀ ▀   ▀ █ ▀▄  ▀▀█▀▀▀█▄▀  
-█▀▀▀▀▀█ ▀█  ▄▀▀ █ ▀ █▄▀██
-█ ███ █ █▀▄▄▀ █▀███▀█▄██▄
-█ ▀▀▀ █ ██  ▀ █▄█ ▄▄▄█▀ █
-▀▀▀▀▀▀▀ ▀ ▀ ▀▀▀  ▀ ▀▀▀▀▀▀'
 
 # Track if we're already handling an error to prevent double-trapping
 ERROR_HANDLING=false
@@ -98,7 +85,13 @@ catch_errors() {
 
   gum style "$QR_CODE"
   echo
-  gum style "Get help from the community via QR code or at https://discord.gg/tXFUdasqhY"
+  gum style "Get help from the community via QR code, at https://discord.gg/Pk7q7FkGb7, or contact @tiredkebab on X (Twitter)."
+  echo
+  gum confirm "Would you like to continue the installation anyway? (Not recommended)" && {
+    echo -e "\e[33m[Omarchy] Continuing at your own risk...\e[0m"
+    ERROR_HANDLING=false
+    return
+  }
 
   # Offer options menu
   while true; do
@@ -116,28 +109,29 @@ catch_errors() {
 
     # Add remaining options
     options+=("View full log")
-    options+=("Exit")
+    options+=("Exit (recommended)")
 
     choice=$(gum choose "${options[@]}" --header "What would you like to do?" --height 6 --padding "1 $PADDING_LEFT")
 
     case "$choice" in
-    "Retry installation")
-      bash ~/.local/share/omarchy/install.sh
-      break
-      ;;
-    "View full log")
-      if command -v less &>/dev/null; then
-        less "$OMARCHY_INSTALL_LOG_FILE"
-      else
-        tail "$OMARCHY_INSTALL_LOG_FILE"
-      fi
-      ;;
-    "Upload log for support")
-      omarchy-upload-install-log
-      ;;
-    "Exit" | "")
-      exit 1
-      ;;
+      "Retry installation")
+        bash ~/.local/share/omarchy/install.sh
+        break
+        ;;
+      "View full log")
+        if command -v less &>/dev/null; then
+          less "$OMARCHY_INSTALL_LOG_FILE"
+        else
+          tail "$OMARCHY_INSTALL_LOG_FILE"
+        fi
+        ;;
+      "Upload log for support")
+        omarchy-upload-install-log
+        ;;
+      "Exit (recommended)" | "")
+        echo -e "\e[33m[Omarchy] Installation aborted. For support, contact @tiredkebab on X (Twitter).\e[0m"
+        exit 1
+        ;;
     esac
   done
 }

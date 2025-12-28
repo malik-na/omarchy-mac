@@ -24,7 +24,58 @@ default = [
 prefix = "/"
 provider = "providerlist"
 
-[[providers.prefixes]]
+[builtins.applications.actions]
+enabled = false
+hide_category = true
+
+[builtins.bookmarks]
+hidden = true
+
+[[builtins.bookmarks.entries]]
+label = "Omarchy - Github"
+url = "https://github.com/malik-na/omarchy-mac"
+keywords = ["omarchy", "github"]
+
+[[builtins.bookmarks.entries]]
+label = "Omarchy Manual"
+url = "https://manuals.omamix.org/2/the-omarchy-manual"
+keywords = ["omarchy"]
+
+[builtins.calc]
+name = "Calculator"
+icon = ""
+min_chars = 3
+prefix = "="
+
+[builtins.windows]
+switcher_only = true
+hidden = true
+
+[builtins.clipboard]
+hidden = true
+
+[builtins.commands]
+hidden = true
+
+[builtins.custom_commands]
+hidden = true
+
+[builtins.emojis]
+name = "Emojis"
+icon = ""
+prefix = ":"
+
+[builtins.symbols]
+after_copy = ""
+hidden = true
+
+[builtins.finder]
+use_fd = true
+cmd_alt = "xdg-open $(dirname ~/%RESULT%)"
+icon = "file"
+name = "Finder"
+preview_images = true
+hidden = false
 prefix = "."
 provider = "files"
 

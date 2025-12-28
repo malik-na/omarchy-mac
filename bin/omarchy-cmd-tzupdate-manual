@@ -1,0 +1,16 @@
+#!/bin/bash
+# Manual timezone selection interface
+
+# Source the timezone detection functions
+if [[ -f "$OMARCHY_PATH/install/config/timezone-detection.sh" ]]; then
+    source "$OMARCHY_PATH/install/config/timezone-detection.sh"
+    select_timezone_interactive
+else
+    echo "Error: Timezone detection script not found at $OMARCHY_PATH/install/config/timezone-detection.sh"
+    echo "Available timezones:"
+    timedatectl list-timezones | head -20
+    echo "..."
+    echo
+    echo "Use: sudo timedatectl set-timezone <timezone>"
+    echo "Example: sudo timedatectl set-timezone America/New_York"
+fi

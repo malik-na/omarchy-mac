@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # https://wiki.archlinux.org/title/Systemd-resolved
 echo "Symlink resolved stub-resolv to /etc/resolv.conf"
 

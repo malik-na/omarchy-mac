@@ -29,5 +29,10 @@ if ! git clone "$REPO_URL" "$THEME_PATH"; then
   exit 1
 fi
 
+if [[ -f "$THEME_PATH/walker.css" && ! -f "$THEME_PATH/fuzzel.ini" ]]; then
+  echo "Auto-generating fuzzel.ini for new theme..."
+  omarchy-mac-custom-theme-utility
+fi
+
 # Apply the new theme with omarchy-theme-set
 omarchy-theme-set $THEME_NAME

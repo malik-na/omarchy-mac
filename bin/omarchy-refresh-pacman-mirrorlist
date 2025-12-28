@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# Safe mirrorlist updater
+# Usage: omarchy-refresh-pacman-mirrorlist [--force] [--backup]
+#
+# Behavior:
+# - If /etc/pacman.d/mirrorlist does not exist: copy the bundled default mirrorlist.
+# - If it exists and --force (or OMARCHY_FORCE_MIRROR_OVERWRITE) is set: optionally
+#   back up the file then replace it with the bundled mirrorlist.
+# - If it exists and not forcing: perform a merge that preserves existing `Server = ...`
+#   lines and appends any `Server` lines that are present in the bundled source but
+#   missing from the system file. This avoids removing Arch Linux ARM or user-added
+#   mirrors while still making Omarchy's recommended servers available.
+
+SRC="$HOME/.local/share/omarchy/default/pacman/mirrorlist"
+DEST="/etc/pacman.d/mirrorlist"
+
+force=0
+backup=0
+keep_omarchy=0
+prefer=0
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--force) force=1; shift ;;
+		--backup) backup=1; shift ;;
+		--keep-omarchy) keep_omarchy=1; shift ;;
+		--prefer) prefer=1; shift ;;
+		*) shift ;;
+	esac
+done
+
+if [[ ! -f "$SRC" ]]; then
+	echo "[ERROR] Source mirrorlist not found: $SRC"
+	exit 1
+fi
+
+# If destination exists and not forcing, perform a merge: keep existing Server lines
+# and append any Server lines from the source that aren't present. This avoids
+# removing Arch Linux ARM or user-configured mirrors.
+if [[ -f "$DEST" && $force -eq 0 && -z "${OMARCHY_FORCE_MIRROR_OVERWRITE:-}" ]]; then
+	# If files are identical, nothing to do
+	if cmp -s "$SRC" "$DEST"; then
+		echo "[OK] Mirrorlist already up-to-date; not overwriting."
+		exit 0
+	fi
+
+	echo "[INFO] Existing mirrorlist found; merging Server lines from source into $DEST"
+
+	# Backup if requested
+	if [[ $backup -eq 1 ]]; then
+		sudo cp "$DEST" "$DEST.bak.$(date +%Y%m%d%H%M%S)"
+		echo "[INFO] Backed up existing mirrorlist to $DEST.bak.*"
+	fi
+
+	# Collect Server lines from both files
+	mapfile -t src_servers < <(grep -E '^\s*Server\s*=' "$SRC" || true)
+	mapfile -t dest_servers < <(grep -E '^\s*Server\s*=' "$DEST" || true)
+
+	# Normalize whitespace for comparison
+	normalize() { echo "$1" | sed -E 's/\s+/ /g' | sed -E 's/^\s+|\s+$//g'; }
+
+	# Filter out Omarchy servers from dest unless keep_omarchy is set
+	filtered_dest=()
+	for s in "${dest_servers[@]}"; do
+		if [[ $keep_omarchy -eq 0 ]]; then
+			if echo "$s" | grep -qi 'omarchy'; then
+				echo "[INFO] Removing Omarchy server from $DEST during merge: $s"
+				continue
+			fi
+		fi
+		filtered_dest+=("$s")
+	done
+
+	# Build a set of existing dest servers for quick lookup
+	declare -A have
+	for s in "${filtered_dest[@]}"; do
+		have["$(normalize "$s")"]=1
+	done
+
+	# If prefer is set, write source servers first (without duplicates), then the filtered dest
+	if [[ $prefer -eq 1 ]]; then
+		echo "[INFO] Prefer mode: placing Arch Linux ARM servers at top of $DEST"
+		arm_servers=()
+		other_servers=()
+		# Separate source servers into arm vs others
+		for s in "${src_servers[@]}"; do
+			if echo "$s" | grep -qiE 'archlinuxarm|mirror\.archlinuxarm'; then
+				arm_servers+=("$s")
+			else
+				other_servers+=("$s")
+			fi
+		done
+
+		combined=()
+		# Add ARM servers first (if not already present)
+		for s in "${arm_servers[@]}"; do
+			key=$(normalize "$s")
+			if [[ -z "${have[$key]:-}" ]]; then
+				combined+=("$s")
+				have["$key"]=1
+			fi
+		done
+		# Then other source servers
+		for s in "${other_servers[@]}"; do
+			key=$(normalize "$s")
+			if [[ -z "${have[$key]:-}" ]]; then
+				combined+=("$s")
+				have["$key"]=1
+			fi
+		done
+		# Then existing filtered servers
+		for s in "${filtered_dest[@]}"; do
+			key=$(normalize "$s")
+			if [[ -z "${have[$key]:-}" ]]; then
+				combined+=("$s")
+				have["$key"]=1
+			fi
+		done
+
+		if [[ $backup -eq 1 ]]; then
+			sudo cp "$DEST" "$DEST.bak.$(date +%Y%m%d%H%M%S)"
+			echo "[INFO] Backed up existing mirrorlist to $DEST.bak.*"
+		fi
+
+		# Write new ordered server list, preserving non-server lines from original
+		tmp=$(mktemp)
+		grep -v -E '^\s*Server\s*=' "$DEST" > "$tmp".body || true
+		{
+			for s in "${combined[@]}"; do echo "$s"; done
+			cat "$tmp".body
+		} | sudo tee "$DEST" > /dev/null
+		rm -f "$tmp".body
+		echo "[OK] Wrote preferred (Arch Linux ARM first) server order to $DEST"
+		exit 0
+	fi
+
+	# If there are source servers not present in dest, append them
+	appended=0
+	for s in "${src_servers[@]}"; do
+		key=$(normalize "$s")
+		if [[ -z "${have[$key]:-}" ]]; then
+			echo "$s" | sudo tee -a "$DEST" > /dev/null
+			appended=1
+			echo "[INFO] Appended server to $DEST: $s"
+		fi
+	done
+
+	if [[ $appended -eq 0 ]]; then
+		echo "[OK] No new Server entries to add; leaving $DEST unchanged (Omarchy servers removed if present)."
+	else
+		echo "[OK] Merged mirrorlist: $DEST"
+	fi
+
+	exit 0
+fi
+
+# If forcing or destination doesn't exist, replace (with optional backup)
+if [[ -f "$DEST" && $backup -eq 1 ]]; then
+	sudo cp "$DEST" "$DEST.bak.$(date +%Y%m%d%H%M%S)"
+	echo "[INFO] Backed up existing mirrorlist to $DEST.bak.*"
+fi
+
+sudo cp "$SRC" "$DEST"
+echo "[OK] Updated mirrorlist: $DEST"
+

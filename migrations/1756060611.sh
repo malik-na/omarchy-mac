@@ -13,6 +13,7 @@ reinstall_package_opr yay-bin yay
 reinstall_package_opr obsidian-bin obsidian
 reinstall_package_opr localsend-bin localsend
 reinstall_package_opr omarchy-chromium-bin omarchy-chromium
+reinstall_package_opr wl-screenrec
 reinstall_package_opr python-terminaltexteffects
 reinstall_package_opr tzupdate
 reinstall_package_opr typora

@@ -443,3 +443,5 @@ case "$1" in
     exit 1
     ;;
 esac
+
+# Note: If we get here, it means the user ran the script successfully on x86_64

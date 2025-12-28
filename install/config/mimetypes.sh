@@ -1,3 +1,4 @@
+#!/bin/bash
 omarchy-refresh-applications
 update-desktop-database ~/.local/share/applications
 

@@ -1,18 +1,7 @@
 #!/bin/bash
 
-# Detect if we're running as root (from pacman hook)
-if [[ $EUID -eq 0 ]]; then
-  # Get the owner of this script to determine which user to run as
-  SCRIPT_OWNER=$(stat -c '%U' "$0")
-  USER_UID=$(id -u "$SCRIPT_OWNER")
-
-  # Restart services as the script owner
-  systemd-run --uid="$SCRIPT_OWNER" --setenv=XDG_RUNTIME_DIR="/run/user/$USER_UID" \
-    bash -c "
-      systemctl --user restart elephant.service
-      systemctl --user restart app-walker@autostart.service
-    "
-else
-  systemctl --user restart elephant.service
-  systemctl --user restart app-walker@autostart.service
-fi
+# Note: This script now manages fuzzel instead of walker for omarchy-mac-menu compatibility
+pkill walker 2>/dev/null || true
+pkill fuzzel 2>/dev/null || true
+# Fuzzel doesn't need a background service like walker did
+echo # Always end in success so we don't terminate further running

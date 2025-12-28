@@ -1,10 +1,12 @@
+#!/bin/bash
+
 KEYRING_DIR="$HOME/.local/share/keyrings"
 KEYRING_FILE="$KEYRING_DIR/Default_keyring.keyring"
 DEFAULT_FILE="$KEYRING_DIR/default"
 
 mkdir -p $KEYRING_DIR
 
-cat << EOF | tee "$KEYRING_FILE"
+cat <<EOF | tee "$KEYRING_FILE"
 [keyring]
 display-name=Default keyring
 ctime=$(date +%s)
@@ -13,7 +15,7 @@ lock-on-idle=false
 lock-after=false
 EOF
 
-cat << EOF | tee "$DEFAULT_FILE"
+cat <<EOF | tee "$DEFAULT_FILE"
 Default_keyring
 EOF
 

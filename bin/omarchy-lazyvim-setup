@@ -1,0 +1,32 @@
+#!/bin/bash
+# Omarchy LazyVim setup script
+# Installs LazyVim config for the current user
+
+set -e
+
+# Check for nvim
+if ! command -v nvim &>/dev/null; then
+  echo "[ERROR] Neovim (nvim) is not installed. Please install it first."
+  exit 1
+fi
+
+# Check for git
+if ! command -v git &>/dev/null; then
+  echo "[ERROR] git is not installed. Please install it first."
+  exit 1
+fi
+
+# Install LazyVim config if not present
+if [[ -d "$HOME/.config/nvim" ]]; then
+  echo "[INFO] $HOME/.config/nvim already exists. Skipping LazyVim setup."
+  exit 0
+fi
+
+# Clone LazyVim starter
+mkdir -p "$HOME/.config"
+git clone --depth=1 https://github.com/LazyVim/starter "$HOME/.config/nvim"
+
+# Remove .git to detach from upstream
+rm -rf "$HOME/.config/nvim/.git"
+
+echo "[OK] LazyVim config installed to $HOME/.config/nvim"

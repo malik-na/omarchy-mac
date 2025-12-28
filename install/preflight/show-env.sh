@@ -1,3 +1,4 @@
+#!/bin/bash
 # Show installation environment variables
 gum log --level info "Installation Environment:"
 

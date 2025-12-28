@@ -1,0 +1,129 @@
+name: CI (Linux ARM64 only)
+
+on:
+  push:
+    branches: [ main, v0.* ]
+    paths:
+      - ".github/workflows/**"
+      - "**/*.sh"
+      - "scripts/**"
+  pull_request:
+    branches: [ main, v0.* ]
+    paths:
+      - ".github/workflows/**"
+      - "**/*.sh"
+      - "scripts/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  # 1) Lint shell scripts on native aarch64
+  lint:
+    name: Lint (shellcheck + shfmt) [aarch64]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assert we are on ARM64
+        run: |
+          arch=$(uname -m)
+          echo "Detected arch: $arch"
+          test "$arch" = "aarch64" || { echo "Not running on aarch64"; exit 1; }
+
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck shfmt
+
+      - name: List scripts to lint
+        id: list_scripts
+        run: |
+          # Exclude legacy migrations from lint/format to reduce noise
+          mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/' || true)
+          printf "%s\n" "${files[@]}"
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+
+      - name: shellcheck
+        if: steps.list_scripts.outputs.count != '0'
+        run: |
+          shellcheck --version
+          # Only fail on actual errors; exclude network/dynamic source checks
+          # Exclude migrations/ to avoid flagging historical scripts
+          shellcheck -S error -e SC1090,SC1091 $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+
+      - name: shfmt (check only)
+        if: steps.list_scripts.outputs.count != '0'
+        run: |
+          # Show diffs but don't fail the build on formatting; exclude migrations/
+          shfmt -v -i 2 -ci -d $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/') || true
+
+  # 2) Syntax + smoke tests (safe, non-privileged)
+  smoke:
+    name: Syntax + Smoke [aarch64]
+    runs-on: ubuntu-24.04-arm
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assert we are on ARM64
+        run: |
+          arch=$(uname -m)
+          echo "Detected arch: $arch"
+          test "$arch" = "aarch64" || { echo "Not running on aarch64"; exit 1; }
+
+      - name: Install helpful tools (optional)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl coreutils
+
+      - name: Bash syntax check for all scripts
+        run: |
+          set -o pipefail
+          # Only .sh files and scripts directory
+          while IFS= read -r -d '' f; do
+            echo "::group::bash -n $f"
+            bash -n "$f"
+            echo "::endgroup::"
+          done < <(git ls-files -z | grep -z -E '\.sh$|^scripts/.*')
+
+      - name: Smoke run selected scripts in DRY_RUN/--help mode
+        env:
+          DRY_RUN: "1"
+          # Add any other env your scripts respect to avoid destructive actions
+        run: |
+          # TODO: Replace with the specific entry points you want to verify
+          # Examples:
+          # ./scripts/set-arm-mirrors.sh --help || true
+          # ./scripts/timezone/auto-detect-timezone.sh --help || true
+          # ./install.sh --dry-run || true
+          echo "Add your smoke commands here."
+          exit 0
+
+  # 3) OPTIONAL: Arch Linux ARM container tests
+  # NOTE: Only enable if you have a multi-arch container image that supports aarch64.
+  # Many 'archlinux' images are x86_64-only; verify before using.
+  # arch-arm-container:
+  #   name: Arch ARM container tests [aarch64]
+  #   runs-on: ubuntu-24.04-arm
+  #   container:
+  #     image: ghcr.io/<your-org>/<arch-arm-image>:latest # <-- ensure this is ARM64
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Verify container arch
+  #       run: uname -m | grep -q aarch64
+  #     - name: Run Arch-specific tests
+  #       run: |
+  #         pacman -Syu --noconfirm jq
+  #         # Run your Arch-only commands in here…
