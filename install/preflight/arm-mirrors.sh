@@ -2,20 +2,22 @@
 # Automatic ARM mirror setup for Omarchy installation
 # This script automatically configures ARM mirrors if on ARM architecture
 
-# Only run on ARM64 systems
-ARCH="$(uname -m)"
-if [[ "$ARCH" != "aarch64" ]]; then
-  if [[ "${OMARCHY_DEBUG:-}" == "1" ]]; then
-    echo "[DEBUG] Not an ARM64 system (detected: $ARCH), skipping ARM mirror setup"
-  fi
+
+# Distro detection abstraction
+OMARCHY_INSTALL="${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}"
+source "$OMARCHY_INSTALL/helpers/distro.sh"
+
+# Only run on Arch ARM64
+if is_fedora; then
   exit 0
 fi
-
-# Check if we're in an Arch Linux ARM environment
+ARCH="$(uname -m)"
+if [[ "$ARCH" != "aarch64" ]]; then
+  [[ "${OMARCHY_DEBUG:-}" == "1" ]] && echo "[DEBUG] Not an ARM64 system (detected: $ARCH), skipping ARM mirror setup"
+  exit 0
+fi
 if [[ ! -f /etc/arch-release ]]; then
-  if [[ "${OMARCHY_DEBUG:-}" == "1" ]]; then
-    echo "[DEBUG] Not an Arch Linux system, skipping ARM mirror setup"
-  fi
+  [[ "${OMARCHY_DEBUG:-}" == "1" ]] && echo "[DEBUG] Not an Arch Linux system, skipping ARM mirror setup"
   exit 0
 fi
 
