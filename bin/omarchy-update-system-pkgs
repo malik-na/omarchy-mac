@@ -12,8 +12,7 @@ if omarchy-pkg-aur-accessible; then
   yay -Syu --noconfirm --ignore "$ignored_packages"
   echo
 else
-  echo -e "  echo -e "main\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
-main\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
+  echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
   echo
 fi
 

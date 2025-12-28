@@ -25,7 +25,7 @@ After installation, boot into Arch Linux and perform the initial setup:
 1. **Log into root** - username and password: `root`
 2. **Configure wifi** - Run `nmtui` for network setup (if you get an error after activating your wifi, reboot)
 3. **Update system** - Run `pacman -Syu`
-4. **Install essential packages** - Run `pacman -S sudo git base-devel neovim chromium`
+4. **Install essential packages** - Run `pacman -S sudo git base-devel chromium`
 5. **Set locale** - Run `nano /etc/locale.gen` and uncomment `en_US.UTF-8`, save and exit.
 Run `locale-gen`, then `nano /etc/locale.conf` and verify it shows `LANG=en_US.UTF-8`. If it doesn't, change it to `LANG=en_US.UTF-8`.
 Run `locale` and then `reboot`.
