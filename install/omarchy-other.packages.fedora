@@ -1,0 +1,31 @@
+# Fedora optional/build package list for Omarchy
+# Format: one package name per line
+
+# These are packages from omarchy-other.packages mapped to Fedora equivalents or omitted if not needed
+
+autoconf-archive
+@development-tools
+btrfs-progs
+egl-wayland
+git
+gst-plugin-pipewire
+gtk4-layer-shell
+htop
+intltool
+iwd
+java-21-openjdk
+pulseaudio-libs-devel
+sassc
+snapper
+webp-pixbuf-loader
+wget
+zram-generator
+
+# Omitted/handled by Fedora:
+# - base, base-devel: replaced by @development-tools
+# - dkms: not needed for most ARM64 hardware on Fedora Asahi
+# - pipewire, pipewire-alsa, pipewire-jack, pipewire-pulse: pre-installed
+# - linux, linux-firmware, kernel headers: handled by Fedora Asahi
+# - yay-debug: not needed (AUR helper)
+# - limine, limine-mkinitcpio-hook, limine-snapper-sync: Arch-specific bootloader/init
+# - broadcom-wl, dart, macbook12-spi-driver-dkms, nvidia-dkms, nvidia-open-dkms, nvidia-utils, lib32-nvidia-utils, libva-intel-driver, libva-nvidia-driver: x86_64/Arch-specific or not needed
