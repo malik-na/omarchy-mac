@@ -19,7 +19,7 @@ cat >"$DEST" <<'EOF'
 # System mirrorlist
 # Some comment
 Server = http://old.mirror.example/$arch/$repo
-Server = http://mirror.omarchy.org/$arch/$repo
+Server = http://mirror.archlinux.org/$repo/os/$arch
 EOF
 
 # Prepare patched copies of the scripts (remove sudo and set SRC/DEST to temp files)
@@ -70,7 +70,7 @@ cat >"$DEST" <<'EOF'
 # System mirrorlist
 # Some comment
 Server = http://old.mirror.example/$arch/$repo
-Server = http://mirror.omarchy.org/$arch/$repo
+Server = http://mirror.archlinux.org/$repo/os/$arch
 EOF
 
 echo
