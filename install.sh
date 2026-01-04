@@ -16,6 +16,8 @@ source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.sh
 # Source Fedora package helpers if needed
 if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
   source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/packages-fedora.sh"
+  # Install gum early - it's needed for the installation UI
+  bash "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/fedora-gum.sh"
 fi
 
 # Show cursor on exit (cleanup trap to prevent ghosting)
