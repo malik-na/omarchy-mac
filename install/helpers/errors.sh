@@ -111,7 +111,7 @@ catch_errors() {
     options+=("View full log")
     options+=("Exit (recommended)")
 
-    choice=$(gum choose "${options[@]}" --header "What would you like to do?" --height 6 --padding "1 $PADDING_LEFT")
+    choice=$(gum choose "${options[@]}" --header "What would you like to do?" --height 6)
 
     case "$choice" in
       "Retry installation")

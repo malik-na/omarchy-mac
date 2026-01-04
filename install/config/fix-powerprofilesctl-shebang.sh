@@ -7,9 +7,9 @@ if [[ -f "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.
   source "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/distro.sh"
 fi
 
-# Only run on Arch Linux
-if [[ -f /etc/fedora-release ]]; then
-  echo "[SKIP] powerprofilesctl shebang fix not needed on Fedora"
+# Only run on Arch Linux - skip on Fedora and other distros
+if ! is_arch 2>/dev/null && ! [[ -f /etc/arch-release ]]; then
+  echo "[SKIP] powerprofilesctl shebang fix not needed (Arch-specific)"
   exit 0
 fi
 
