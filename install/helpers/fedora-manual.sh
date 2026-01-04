@@ -9,16 +9,22 @@ if ! is_fedora; then
   exit 0
 fi
 
-set -e
-
 # 1. lazydocker (GitHub binary)
 if ! command -v lazydocker &>/dev/null; then
   echo "Installing lazydocker (GitHub binary)..."
-  LAZYDOCKER_URL="https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_$(uname -s)_$(uname -m).tar.gz"
+  # Map architecture: aarch64 -> arm64, x86_64 -> x86_64
+  ARCH=$(uname -m)
+  if [[ "$ARCH" == "aarch64" ]]; then
+    ARCH="arm64"
+  fi
+  LAZYDOCKER_URL="https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_$(uname -s)_${ARCH}.tar.gz"
   tmpdir=$(mktemp -d)
-  curl -L "$LAZYDOCKER_URL" | tar -xz -C "$tmpdir"
-  sudo mv "$tmpdir/lazydocker" /usr/local/bin/
-  sudo chmod +x /usr/local/bin/lazydocker
+  if curl -fL "$LAZYDOCKER_URL" -o "$tmpdir/lazydocker.tar.gz" && tar -xzf "$tmpdir/lazydocker.tar.gz" -C "$tmpdir"; then
+    sudo mv "$tmpdir/lazydocker" /usr/local/bin/
+    sudo chmod +x /usr/local/bin/lazydocker
+  else
+    echo "[WARN] Failed to install lazydocker, skipping..."
+  fi
   rm -rf "$tmpdir"
 fi
 
