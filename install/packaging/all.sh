@@ -17,3 +17,8 @@ run_logged $OMARCHY_INSTALL/packaging/nvim.sh
 run_logged $OMARCHY_INSTALL/packaging/icons.sh
 run_logged $OMARCHY_INSTALL/packaging/webapps.sh
 run_logged $OMARCHY_INSTALL/packaging/tuis.sh
+
+# Fedora manual installs (pip packages, flatpaks, etc.)
+if is_fedora; then
+	run_logged "$OMARCHY_INSTALL/helpers/fedora-manual.sh"
+fi

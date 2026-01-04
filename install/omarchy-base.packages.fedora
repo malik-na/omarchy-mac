@@ -60,6 +60,11 @@ cups
 snapper
 ImageMagick
 
+# Display Manager
+sddm
+libsecret
+gnome-keyring
+
 # Fonts
 google-noto-fonts-common
 google-noto-sans-cjk-fonts

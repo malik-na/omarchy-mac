@@ -29,5 +29,5 @@ if gum confirm "Are you sure you want to reinstall and lose all config changes?"
 
   omarchy-refresh-limine
   omarchy-refresh-plymouth
-  omarchy-nvim-setup
+  omarchy-lazyvim-setup
 fi

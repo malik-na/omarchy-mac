@@ -1,13 +1,40 @@
 #!/bin/bash
 stop_install_log
 
-echo_in_style() {
-  echo "$1" | tte --canvas-width 0 --anchor-text c --frame-rate 640 print
-}
+# Check if tte (terminaltexteffects) is available
+if command -v tte &>/dev/null; then
+  echo_in_style() {
+    echo "$1" | tte --canvas-width 0 --anchor-text c --frame-rate 640 print
+  }
+
+  show_logo() {
+    if [[ -f ~/.local/share/omarchy/logo.txt ]]; then
+      tte -i ~/.local/share/omarchy/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+    elif [[ -f "$OMARCHY_PATH/logo.txt" ]]; then
+      tte -i "$OMARCHY_PATH/logo.txt" --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+    else
+      echo "  OMARCHY"
+    fi
+  }
+else
+  echo_in_style() {
+    echo "$1"
+  }
+
+  show_logo() {
+    if [[ -f ~/.local/share/omarchy/logo.txt ]]; then
+      cat ~/.local/share/omarchy/logo.txt
+    elif [[ -f "$OMARCHY_PATH/logo.txt" ]]; then
+      cat "$OMARCHY_PATH/logo.txt"
+    else
+      echo "  OMARCHY"
+    fi
+  }
+fi
 
 clear
 echo
-tte -i ~/.local/share/omarchy/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+show_logo
 echo
 
 # Display installation time if available

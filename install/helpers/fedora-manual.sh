@@ -28,6 +28,12 @@ if ! command -v uwsm &>/dev/null; then
   pip3 install --user uwsm
 fi
 
+# 2b. terminaltexteffects (tte) - for install animations
+if ! command -v tte &>/dev/null; then
+  echo "Installing terminaltexteffects (pip)..."
+  pip3 install --user terminaltexteffects
+fi
+
 # 3. mise (install script)
 if ! command -v mise &>/dev/null; then
   echo "Installing mise (install script)..."
