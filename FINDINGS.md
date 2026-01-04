@@ -766,13 +766,40 @@ The port is **ready to test** and has a **very high probability of success** on 
 - Potential service startup issues
 - Minor script adjustments
 
+### Issues Fixed During Testing
+
+**1. eza Package Unavailability**
+
+**Problem Found:**
+- `atim/eza` COPR has no Fedora 42 builds (404 error)
+- `fedora-copr.sh` would fail hard when encountering this
+
+**Codebase Analysis:**
+- ✅ Aliases already safe: `default/bash/aliases` uses `if command -v eza` check
+- ✅ Migration safe: `migrations/1760684828.sh` just removes config (no hard dependency)
+- ✅ Not in Fedora package list: Already excluded from `omarchy-base.packages.fedora`
+- ❌ COPR script would fail: No error handling for unavailable repos
+
+**Fix Applied:**
+Updated `install/helpers/fedora-copr.sh`:
+- Separated required vs optional COPR repos
+- Added error handling for optional repos
+- eza moved to `OPTIONAL_COPR_REPOS` array
+- Script continues if optional repos fail
+- Script exits if required repos fail
+
+**Result:**
+- ✅ Installation will proceed without eza
+- ✅ If eza becomes available later, aliases will automatically use it
+- ✅ No breakage if eza is missing
+
 ### Recommendations for Full Test
 
 **Safe to Proceed:** Yes, with snapshot in place
 
 **Recommended Next Steps:**
-1. Update `fedora-copr.sh` to handle eza COPR failure gracefully
-2. Update `omarchy-base.packages.fedora` to remove or mark eza as optional
+1. ~~Update `fedora-copr.sh` to handle eza COPR failure gracefully~~ ✅ DONE
+2. ~~Update `omarchy-base.packages.fedora` to remove or mark eza as optional~~ ✅ Already excluded
 3. Proceed with full installation test
 4. If issues occur, rollback with: `sudo btrfs subvolume set-default /.snapshots/pre-omarchy-20260105-000535 && sudo reboot`
 

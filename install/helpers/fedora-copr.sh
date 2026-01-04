@@ -14,13 +14,33 @@ COPR_REPOS=(
   "solopasha/hyprland"
   "atim/starship"
   "atim/lazygit"
-  "atim/eza"
   "pgdev/ghostty"
 )
 
+# Optional COPR repos (may not be available for all Fedora versions)
+OPTIONAL_COPR_REPOS=(
+  "atim/eza"
+)
+
+echo "Enabling required COPR repositories..."
 for repo in "${COPR_REPOS[@]}"; do
   echo "Enabling COPR repo: $repo"
-  sudo dnf copr enable -y "$repo"
+  if sudo dnf copr enable -y "$repo"; then
+    echo "✓ Successfully enabled: $repo"
+  else
+    echo "✗ Failed to enable: $repo (required)"
+    exit 1
+  fi
+done
+
+echo "Enabling optional COPR repositories..."
+for repo in "${OPTIONAL_COPR_REPOS[@]}"; do
+  echo "Attempting to enable optional COPR repo: $repo"
+  if sudo dnf copr enable -y "$repo" 2>/dev/null; then
+    echo "✓ Successfully enabled: $repo"
+  else
+    echo "⚠ Skipping unavailable repo: $repo (optional)"
+  fi
 done
 
 echo "COPR repositories enabled."
