@@ -1,23 +1,25 @@
 #!/bin/bash
 
-if grep -q "https://stable-mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then
+# Determine mirror source from system mirrorlist
+mirror="unknown"
+if grep -q "mirror.archlinux.org" /etc/pacman.d/mirrorlist 2>/dev/null; then
   mirror="stable"
-elif grep -q "https://mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then
-  mirror="edge"
-else
-  mirror="unknown"
+elif grep -q "mirror.archlinuxarm.org" /etc/pacman.d/mirrorlist 2>/dev/null; then
+  mirror="archlinuxarm"
+elif grep -qi "asahi" /etc/pacman.d/mirrorlist 2>/dev/null; then
+  mirror="asahi"
 fi
 
-if grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf; then
-  pkgs="stable"
-elif grep -q "https://pkgs.omarchy.org/edge/" /etc/pacman.conf; then
-  pkgs="edge"
-else
-  pkgs="unknown"
+# Determine package channel from pacman.conf (presence of asahi/alarm repo or default include)
+pkgs="unknown"
+if grep -q "asahi-alarm" /etc/pacman.conf 2>/dev/null; then
+  pkgs="asahi"
+elif grep -q "Include = /etc/pacman.d/mirrorlist" /etc/pacman.conf 2>/dev/null; then
+  pkgs="system"
 fi
 
 if [[ $mirror == $pkgs ]]; then
-  echo $mirror
+  echo "$mirror"
 else
   echo "$mirror / $pkgs"
 fi
