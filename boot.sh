@@ -3,6 +3,12 @@
 # Set install mode to online since boot.sh is used for curl installations
 export OMARCHY_ONLINE_INSTALL=true
 
+# When running via `wget ... | bash`, stdin is the pipe and may be EOF.
+# Reattach stdin to the controlling terminal so any interactive prompts work.
+if [[ ! -t 0 ]] && [[ -r /dev/tty ]]; then
+    exec </dev/tty
+fi
+
 if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
     SUDO=""
 else

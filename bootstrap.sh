@@ -10,6 +10,13 @@
 
 set -euo pipefail
 
+# When invoked from `wget ... | bash`, stdin may be the pipe (EOF).
+# Prefer reading from the controlling terminal.
+TTY_IN=""
+if [[ -r /dev/tty ]]; then
+    TTY_IN="/dev/tty"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -61,7 +68,17 @@ prompt_username() {
         if [[ -n "${OMARCHY_USER_NAME:-}" ]]; then
             input="$OMARCHY_USER_NAME"
         else
-            read -r -p "Choose a username to create: " input
+            if [[ -n "$TTY_IN" ]]; then
+                if ! read -r -p "Choose a username to create: " input <"$TTY_IN"; then
+                    print_error "Unable to read username (no interactive input)."
+                    print_info "Run with OMARCHY_USER_NAME=yourname to continue non-interactively."
+                    exit 1
+                fi
+            else
+                print_error "No TTY available for interactive input."
+                print_info "Run with OMARCHY_USER_NAME=yourname to continue non-interactively."
+                exit 1
+            fi
         fi
 
         if valid_username "$input"; then
@@ -99,7 +116,11 @@ ensure_user() {
 
     print_step "Setting password for '$username'"
     print_info "You will be prompted to enter the password twice."
-    passwd "$username"
+    # passwd reads from the controlling terminal; if none exists, this will fail.
+    if ! passwd "$username"; then
+        print_error "Failed to set password (is this running in a real TTY?)."
+        exit 1
+    fi
 }
 
 install_yay() {
