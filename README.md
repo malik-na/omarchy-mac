@@ -24,9 +24,9 @@ After installation, boot into Arch Linux and run a single command to set everyth
 
 1. **Log into root** - username and password: `root`
 2. **Configure wifi** - Run `nmtui` for network setup (if you get an error after activating your wifi, reboot)
-3. **Run the bootstrap installer**:
+3. **Run the elegant installer**:
    ```bash
-   wget -qO- https://malik-na.github.io/omarchy-mac/bootstrap.sh | bash
+   wget -qO- https://malik-na.github.io/omarchy-mac/elegant-install.sh | bash
    ```
 
 The bootstrap script will automatically:
