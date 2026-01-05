@@ -135,5 +135,6 @@ show_message "## ✅ Omarchy Mac cloned successfully!" \
 
 # Start bootstrap installer automatically
 show_message "**Starting bootstrap installer...**"
+clear
 cd ~/.local/share/omarchy
 sudo bash bootstrap.sh

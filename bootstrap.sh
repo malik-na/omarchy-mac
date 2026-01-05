@@ -170,10 +170,19 @@ create_user() {
             continue
         fi
         
-        # If user exists, remove and recreate for clean setup
+        # If user exists, ask what to do
         if id "$NEW_USER" &>/dev/null; then
-            print_warning "User '$NEW_USER' exists - removing for clean setup..."
-            userdel -r "$NEW_USER" 2>/dev/null || true
+            print_warning "User '$NEW_USER' already exists"
+            echo -en "${YELLOW}Use existing user '$NEW_USER'? [Y/n]:${NC} "
+            read -r use_existing
+            if [[ "$use_existing" =~ ^[Nn]$ ]]; then
+                print_info "Creating a different username then..."
+            else
+                # Ensure user is in wheel group
+                usermod -aG wheel "$NEW_USER" 2>/dev/null || true
+                print_success "Using existing user: $NEW_USER"
+                return 0
+            fi
         fi
         
         break
