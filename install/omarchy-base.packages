@@ -82,7 +82,7 @@ kvantum-qt5
 lazydocker
 lazygit
 less
-libreoffice
+#libreoffice
 llvm
 localsend
 luarocks
