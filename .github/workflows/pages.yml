@@ -31,7 +31,6 @@ jobs:
           cp install.sh _site/
           cp boot.sh _site/
           cp bootstrap.sh _site/
-          cp elegant-install.sh _site/
           cp -r bin _site/
           cp -r config _site/
           cp -r default _site/
