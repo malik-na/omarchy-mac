@@ -26,7 +26,7 @@ After installation, boot into Arch Linux and run a single command to set everyth
 2. **Configure wifi** - Run `nmtui` for network setup (if you get an error after activating your wifi, reboot)
 3. **Run the bootstrap installer**:
    ```bash
-   wget -qO- malik-na.github.io/omarchy-mac/bootstrap.sh | bash
+   wget -qO- https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
    ```
 
 The bootstrap script will automatically:
