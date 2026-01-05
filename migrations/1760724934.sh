@@ -19,5 +19,5 @@ omarchy-pkg-add gvfs-nfs
 
 if [ ! -d "$HOME/.config/nvim" ]; then
   echo "Add missing nvim config"
-  omarchy-nvim-setup
+  omarchy-lazyvim-setup
 fi
