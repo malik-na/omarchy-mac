@@ -146,8 +146,8 @@ install_packages() {
     print_success "System updated"
     
     # Install essential packages
-    pacman -S --noconfirm --needed sudo git base-devel chromium
-    print_success "Essential packages installed (sudo, git, base-devel, chromium)"
+    pacman -S --noconfirm --needed sudo git base-devel chromium gum
+    print_success "Essential packages installed (sudo, git, base-devel, chromium, gum)"
 }
 
 # Create user account
