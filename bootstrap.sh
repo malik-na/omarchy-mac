@@ -154,20 +154,6 @@ install_packages() {
 create_user() {
     print_step "User Account Setup"
     
-    # Check if we should skip user creation (if non-root user already exists in wheel group)
-    existing_user=$(getent group wheel | cut -d: -f4 | tr ',' '\n' | grep -v '^$' | head -n1)
-    
-    if [[ -n "$existing_user" && "$existing_user" != "root" ]]; then
-        print_info "Existing user found: $existing_user"
-        echo -en "${YELLOW}Use existing user '$existing_user'? [Y/n]:${NC} "
-        read -r use_existing
-        if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
-            NEW_USER="$existing_user"
-            print_success "Using existing user: $NEW_USER"
-            return 0
-        fi
-    fi
-    
     # Prompt for username
     while true; do
         echo -en "${CYAN}Enter username for new account:${NC} "
@@ -184,34 +170,25 @@ create_user() {
             continue
         fi
         
+        # If user exists, remove and recreate for clean setup
         if id "$NEW_USER" &>/dev/null; then
-            print_warning "User '$NEW_USER' already exists"
-            echo -en "${YELLOW}Use this existing user? [Y/n]:${NC} "
-            read -r use_existing
-            if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
-                # Ensure user is in wheel group
-                usermod -aG wheel "$NEW_USER"
-                print_success "Added $NEW_USER to wheel group"
-                break
-            fi
-            continue
+            print_warning "User '$NEW_USER' exists - removing for clean setup..."
+            userdel -r "$NEW_USER" 2>/dev/null || true
         fi
         
         break
     done
     
-    # Create user if doesn't exist
-    if ! id "$NEW_USER" &>/dev/null; then
-        useradd -m -G wheel "$NEW_USER"
-        print_success "Created user: $NEW_USER"
-        
-        # Set password
-        print_info "Set password for $NEW_USER:"
-        while ! passwd "$NEW_USER"; do
-            print_error "Passwords did not match. Please try again."
-        done
-        print_success "Password set for $NEW_USER"
-    fi
+    # Create new user
+    useradd -m -G wheel "$NEW_USER"
+    print_success "Created user: $NEW_USER"
+    
+    # Set password
+    print_info "Set password for $NEW_USER:"
+    while ! passwd "$NEW_USER"; do
+        print_error "Passwords did not match. Please try again."
+    done
+    print_success "Password set for $NEW_USER"
 }
 
 # Configure sudo
@@ -326,7 +303,6 @@ install_omarchy() {
 
 # Main execution
 main() {
-    clear
     print_banner
     
     echo -e "${BOLD}Welcome to the Omarchy Mac Bootstrap Installer!${NC}"
@@ -336,6 +312,15 @@ main() {
     check_root
     check_arch
     
+    # Prompt for user identification early (moved from identification.sh)
+    echo -en "${CYAN}Enter your full name (for git config):${NC} "
+    read -r OMARCHY_USER_NAME
+    export OMARCHY_USER_NAME
+    
+    echo -en "${CYAN}Enter your email address (for git config):${NC} "
+    read -r OMARCHY_USER_EMAIL
+    export OMARCHY_USER_EMAIL
+    
     print_info "This script will:"
     echo "  • Configure network (if needed)"
     echo "  • Set up locale (en_US.UTF-8)"
@@ -343,14 +328,8 @@ main() {
     echo "  • Create a user account with sudo access"
     echo "  • Install yay AUR helper"
     echo "  • Clone and install Omarchy Mac"
+    echo "  • Configure git with your information"
     echo ""
-    
-    echo -en "${YELLOW}Continue with installation? [Y/n]:${NC} "
-    read -r confirm
-    if [[ "$confirm" =~ ^[Nn]$ ]]; then
-        print_info "Installation cancelled."
-        exit 0
-    fi
     
     # Run setup steps
     setup_network
