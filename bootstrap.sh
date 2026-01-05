@@ -1,18 +1,14 @@
 #!/bin/bash
 
 # =============================================================================
-# Omarchy Mac Bootstrap Setup Script
+# Omarchy Mac Bootstrap Installer
 # =============================================================================
-# This script downloads the omarchy-mac repository to the correct location
-# and guides the user to run the actual bootstrap script locally.
-#
-# Usage (as root after first boot):
-#   curl -fsSL https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
-#   OR
-#   wget -qO- https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
+# This script is intended to be run as root on a fresh Arch/Asahi install.
+# It creates a user (wheel), installs core dependencies (sudo, git, base-devel),
+# installs yay, clones the repo into the new user's home, and then runs install.sh.
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -20,14 +16,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 BOLD='\033[1m'
 
-# ASCII Art Banner
 print_banner() {
     echo -e "${CYAN}"
     cat << 'EOF'
-                 ▄▄▄                                                   
+                                 ▄▄▄                                                   
  ▄█████▄    ▄███████████▄    ▄███████   ▄███████   ▄███████   ▄█   █▄    ▄█   █▄ 
 ████   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
 ████   ███  ███   ███   ███  ███   ███  ███   ███  ███   █▀   ███   ███  ███   ███
@@ -36,93 +31,117 @@ print_banner() {
 ████   ███  ███   ███   ███  ███   ███ ██████████  ███   █▄   ███   ███  ▄██   ███
 ████   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
  ▀█████▀    ▀█   ███   █▀   ███   █▀   ███   ███  ███████▀   ███   █▀    ▀█████▀ 
-                                       ███   █▀                                  
+                                                                             ███   █▀                                  
 
-                        MAC BOOTSTRAP INSTALLER
+                                                MAC BOOTSTRAP INSTALLER
 EOF
     echo -e "${NC}"
 }
 
-print_step() {
-    echo -e "\n${BLUE}${BOLD}==>${NC}${BOLD} $1${NC}"
-}
+print_step() { echo -e "\n${BLUE}${BOLD}==>${NC}${BOLD} $1${NC}"; }
+print_success() { echo -e "${GREEN}✓${NC} $1"; }
+print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
+print_error() { echo -e "${RED}✗${NC} $1"; }
+print_info() { echo -e "${CYAN}ℹ${NC} $1"; }
 
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-print_info() {
-    echo -e "${CYAN}ℹ${NC} $1"
-}
-
-# Check if running as root
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This script must be run as root for initial setup."
-        print_info "Please log in as root and run this script again."
+require_root() {
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        print_error "This script must be run as root."
         exit 1
     fi
 }
 
-# Clone repository and setup
-clone_repository() {
-    local repo_url="https://github.com/malik-na/omarchy-mac.git"
-    local target_dir="/root/.local/share/omarchy"
-    
-    print_step "Downloading Omarchy Mac repository..."
-    
-    # Install git if not available
-    if ! command -v git &>/dev/null; then
-        print_info "Installing git..."
-        pacman -Sy --noconfirm git
-    fi
-    
-    # Create target directory
-    mkdir -p "$(dirname "$target_dir")"
-    
-    # Remove existing directory if it exists
-    if [[ -d "$target_dir" ]]; then
-        rm -rf "$target_dir"
-    fi
-    
-    # Clone the repository
-    git clone "$repo_url" "$target_dir"
-    print_success "Repository cloned to $target_dir"
-    
-    echo ""
-    print_step "Next Steps:"
-    echo ""
-    print_info "The Omarchy Mac repository has been downloaded."
-    print_info "Now run the actual bootstrap script:"
-    echo ""
-    echo -e "  ${CYAN}cd ~/.local/share/omarchy${NC}"
-    echo -e "  ${CYAN}bash bootstrap.sh${NC}"
-    echo ""
-    print_warning "Make sure you're running as root when you execute the bootstrap script."
-    echo ""
+valid_username() {
+    [[ "$1" =~ ^[a-z_][a-z0-9_-]*$ ]]
 }
 
-# Main execution
+prompt_username() {
+    local input
+    while true; do
+        if [[ -n "${OMARCHY_USER_NAME:-}" ]]; then
+            input="$OMARCHY_USER_NAME"
+        else
+            read -r -p "Choose a username to create: " input
+        fi
+
+        if valid_username "$input"; then
+            echo "$input"
+            return 0
+        fi
+        print_warning "Invalid username. Use lowercase letters/numbers/_/- and start with a letter or _."
+        unset OMARCHY_USER_NAME
+    done
+}
+
+ensure_deps() {
+    print_step "Updating system and installing dependencies"
+    pacman -Syu --noconfirm --needed sudo git base-devel
+}
+
+ensure_wheel_sudo() {
+    print_step "Configuring sudo for wheel group"
+    cat >/etc/sudoers.d/00-wheel <<'EOF'
+%wheel ALL=(ALL:ALL) ALL
+EOF
+    chmod 440 /etc/sudoers.d/00-wheel
+}
+
+ensure_user() {
+    local username="$1"
+
+    if id "$username" &>/dev/null; then
+        print_info "User '$username' already exists; reusing."
+    else
+        print_step "Creating user '$username'"
+        useradd -m -G wheel -s /bin/bash "$username"
+        print_success "User created"
+    fi
+
+    print_step "Setting password for '$username'"
+    print_info "You will be prompted to enter the password twice."
+    passwd "$username"
+}
+
+install_yay() {
+    local username="$1"
+    print_step "Installing yay (AUR helper)"
+    su - "$username" -c "bash -lc 'set -e; cd /tmp; rm -rf yay; git clone https://aur.archlinux.org/yay.git; cd yay; makepkg -si --noconfirm --needed'"
+    print_success "yay installed"
+}
+
+clone_repo_to_user() {
+    local username="$1"
+    local repo="${OMARCHY_REPO:-malik-na/omarchy-mac}"
+    local ref="${OMARCHY_REF:-main}"
+
+    print_step "Cloning Omarchy Mac into user's home"
+    su - "$username" -c "bash -lc 'set -e; mkdir -p ~/.local/share; rm -rf ~/.local/share/omarchy; git clone https://github.com/${repo}.git ~/.local/share/omarchy; cd ~/.local/share/omarchy; if [[ \"${ref}\" != \"main\" ]]; then git fetch origin \"${ref}\" && git checkout \"${ref}\"; fi'"
+    print_success "Repository cloned"
+}
+
+run_installer() {
+    local username="$1"
+    print_step "Running Omarchy installer as $username"
+    print_info "You may be prompted for the user's sudo password during installation."
+    su - "$username" -c "bash -lc 'cd ~/.local/share/omarchy && bash install.sh'"
+}
+
 main() {
     print_banner
-    
-    echo -e "${BOLD}Omarchy Mac Setup${NC}"
-    echo -e "Downloading the repository to your system...\n"
-    
-    # Pre-flight checks
-    check_root
-    
-    # Clone repository
-    clone_repository
+    require_root
+
+    local username
+    username="$(prompt_username)"
+
+    ensure_deps
+    ensure_wheel_sudo
+    ensure_user "$username"
+    install_yay "$username"
+    clone_repo_to_user "$username"
+    run_installer "$username"
+
+    print_success "Bootstrap complete"
+    print_info "If you hit mirror issues, run: bash fix-mirrors.sh"
 }
 
-# Run main function
 main "$@"

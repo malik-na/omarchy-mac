@@ -3,6 +3,12 @@
 # Set install mode to online since boot.sh is used for curl installations
 export OMARCHY_ONLINE_INSTALL=true
 
+if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
+
 ansi_art='                 ▄▄▄                                                   
  ▄█████▄    ▄███████████▄    ▄███████   ▄███████   ▄███████   ▄█   █▄    ▄█   █▄ 
 ███   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
@@ -18,7 +24,7 @@ ansi_art='                 ▄▄▄
 install_gum() {
     if ! command -v gum &>/dev/null; then
         echo "Installing gum for elegant interface..."
-        sudo pacman -S --noconfirm --needed gum 2>/dev/null || {
+        ${SUDO:+$SUDO }pacman -S --noconfirm --needed gum 2>/dev/null || {
             echo "Warning: Could not install gum, falling back to basic interface"
             return 1
         }
@@ -77,35 +83,43 @@ fi
 # Install gum for better experience
 install_gum
 
-# Validate sudo access and refresh timestamp to minimize password prompts
-show_message "🔐 **Validating administrator access...**"
-if ! sudo -v; then
-  show_message "❌ **Error**: sudo access required. Please run with proper permissions."
-  exit 1
+# Validate privileges / sudo if needed
+if [[ -n "$SUDO" ]]; then
+        if ! command -v sudo &>/dev/null; then
+                show_message "❌ **Error**: \\`sudo\\` is required when not running as root."
+                show_message "Run this script as root, or install sudo and re-run."
+                exit 1
+        fi
+
+        show_message "🔐 **Validating administrator access...**"
+        if ! sudo -v; then
+            show_message "❌ **Error**: sudo access required. Please run with proper permissions."
+            exit 1
+        fi
+
+        # Keep sudo alive during bootstrap
+        keep_sudo_alive() {
+            while true; do
+                sudo -v
+                sleep 50
+            done
+        }
+
+        keep_sudo_alive &
+        SUDO_KEEPALIVE_PID=$!
+
+        # Cleanup on exit
+        trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
 fi
 
-# Keep sudo alive during bootstrap
-keep_sudo_alive() {
-  while true; do
-    sudo -v
-    sleep 50
-  done
-}
-
-keep_sudo_alive &
-SUDO_KEEPALIVE_PID=$!
-
-# Cleanup on exit
-trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
-
 show_spinner "Updating package database and installing git" \
-    sudo pacman -Syu --noconfirm --needed git
+    ${SUDO:+$SUDO }pacman -Syu --noconfirm --needed git
 
 # Use custom repo if specified, otherwise default to malik-na/omarchy-mac
 OMARCHY_REPO="${OMARCHY_REPO:-malik-na/omarchy-mac}"
 
 show_spinner "Cloning Omarchy Mac repository" \
-    git clone "https://github.com/${OMARCHY_REPO}.git" ~/.local/share/omarchy
+    bash -lc 'set -e; target="$HOME/.local/share/omarchy"; mkdir -p "$(dirname "$target")"; rm -rf "$target"; git clone "https://github.com/'"$OMARCHY_REPO"'.git" "$target"'
 
 # Use custom branch if instructed, otherwise default to main
 OMARCHY_REF="${OMARCHY_REF:-main}"
@@ -137,4 +151,4 @@ show_message "## ✅ Omarchy Mac cloned successfully!" \
 show_message "**Starting bootstrap installer...**"
 clear
 cd ~/.local/share/omarchy
-sudo bash bootstrap.sh
+${SUDO:+$SUDO }bash bootstrap.sh

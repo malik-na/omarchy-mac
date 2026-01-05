@@ -40,6 +40,7 @@ printf "$ANSI_CLEAR_SCREEN"
 export OMARCHY_PATH="$HOME/.local/share/omarchy"
 export OMARCHY_INSTALL="$OMARCHY_PATH/install"
 export OMARCHY_INSTALL_LOG_FILE="/var/log/omarchy-install.log"
+export OMARCHY_BIN="$OMARCHY_PATH/bin"
 export PATH="$OMARCHY_PATH/bin:$PATH"
 
 # Set default compilation flags (do not suppress warnings or disable FORTIFY_SOURCE)
@@ -48,6 +49,15 @@ export CXXFLAGS=""
 export CPPFLAGS=""
 export LDFLAGS=""
 export MAKEFLAGS="-s"
+
+# Guardrail: install.sh must run from a cloned repo
+if [[ ! -d "$OMARCHY_INSTALL" ]]; then
+  echo "❌ Error: $OMARCHY_INSTALL not found."
+  echo "This installer must be run from a cloned Omarchy repo in $OMARCHY_PATH."
+  echo "Recommended:" 
+  echo "  wget -qO- https://malik-na.github.io/omarchy-mac/boot.sh | bash"
+  exit 1
+fi
 
 # Set locale first for proper TUI display
 source "$OMARCHY_INSTALL/preflight/locale.sh"
