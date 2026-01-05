@@ -133,17 +133,8 @@ show_message "## ✅ Omarchy Mac cloned successfully!" \
     "• Create user account with sudo access" \
     "• Install AUR helper and Omarchy Mac"
 
-# Ask if user wants to run bootstrap now
-if ask_confirm "Run bootstrap installer now?"; then
-    show_message "**Starting bootstrap installer...**"
-    cd ~/.local/share/omarchy
-    sudo bash bootstrap.sh
-else
-    show_message "## 🎉 Ready to install!" \
-        "" \
-        "Run bootstrap installer when you're ready:" \
-        "\`\`\`bash" \
-        "cd ~/.local/share/omarchy" \
-        "sudo bash bootstrap.sh" \
-        "\`\`\`"
-fi
+# Start bootstrap installer automatically
+show_message "**Starting bootstrap installer...**"
+clear
+cd ~/.local/share/omarchy
+sudo bash bootstrap.sh
