@@ -85,17 +85,17 @@ install_gum
 
 # Validate privileges / sudo if needed
 if [[ -n "$SUDO" ]]; then
-        if ! command -v sudo &>/dev/null; then
-                show_message "❌ **Error**: \\`sudo\\` is required when not running as root."
-                show_message "Run this script as root, or install sudo and re-run."
-                exit 1
-        fi
+    if ! command -v sudo &>/dev/null; then
+        show_message '❌ **Error**: `sudo` is required when not running as root.'
+        show_message "Run this script as root, or install sudo and re-run."
+        exit 1
+    fi
 
-        show_message "🔐 **Validating administrator access...**"
-        if ! sudo -v; then
-            show_message "❌ **Error**: sudo access required. Please run with proper permissions."
-            exit 1
-        fi
+    show_message "🔐 **Validating administrator access...**"
+    if ! sudo -v; then
+        show_message "❌ **Error**: sudo access required. Please run with proper permissions."
+        exit 1
+    fi
 
         # Keep sudo alive during bootstrap
         keep_sudo_alive() {
