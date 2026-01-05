@@ -18,7 +18,36 @@ Once inside the Asahi Alarm Installer, follow the on-screen instructions careful
 - You should have at least `50 GB` available on your SSD for the Linux partition.
 - Choose `Asahi Arch Minimal` from the list of OS options the installer provides.
 
-## Step 2: Initial Arch Linux Setup
+## Step 2: One-Command Installation (Recommended)
+
+After installation, boot into Arch Linux and run a single command to set everything up:
+
+1. **Log into root** - username and password: `root`
+2. **Configure wifi** - Run `nmtui` for network setup (if you get an error after activating your wifi, reboot)
+3. **Run the bootstrap installer**:
+   ```bash
+   wget -qO- malik-na.github.io/omarchy-mac/bootstrap.sh | bash
+   ```
+
+The bootstrap script will automatically:
+- ✅ Configure locale (en_US.UTF-8)
+- ✅ Update system and install essential packages
+- ✅ Create your user account with sudo access
+- ✅ Install yay AUR helper
+- ✅ Clone and install Omarchy Mac
+
+Just follow the prompts to choose your username and password, then sit back and relax! ☕
+
+**Note**: If mirrors break during installation, run `bash fix-mirrors.sh` then run the bootstrap again.
+
+---
+
+<details>
+<summary><strong>📖 Manual Installation (Advanced)</strong></summary>
+
+If you prefer manual control, follow these steps instead:
+
+### Step 2: Initial Arch Linux Setup
 
 After installation, boot into Arch Linux and perform the initial setup:
 
@@ -30,7 +59,7 @@ After installation, boot into Arch Linux and perform the initial setup:
 Run `locale-gen`, then `nano /etc/locale.conf` and verify it shows `LANG=en_US.UTF-8`. If it doesn't, change it to `LANG=en_US.UTF-8`.
 Run `locale` and then `reboot`.
 
-## Step 3: Create User Account
+### Step 3: Create User Account
 
 Create a new user account and configure sudo access:
 
@@ -42,7 +71,7 @@ Create a new user account and configure sudo access:
 5. **Save and exit** - Ctrl O, Enter, Ctrl X
 6. **Switch to new user** - `su - <username>`
 
-## Step 4: Install AUR Helper and Omarchy Mac
+### Step 4: Install AUR Helper and Omarchy Mac
 
 As your new user, set up the AUR helper and install Omarchy Mac:
 
@@ -63,6 +92,8 @@ As your new user, set up the AUR helper and install Omarchy Mac:
    Wait for the installation to complete and enter your password when prompted.
 
 **Note**: If mirrors break during installation, run `bash fix-mirrors.sh` then run `install.sh` again.
+
+</details>
 
 
 ### External Monitor [Guide](https://github.com/malik-na/omarchy-mac/discussions/73) ❗
