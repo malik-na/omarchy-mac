@@ -4,9 +4,11 @@
 export OMARCHY_ONLINE_INSTALL=true
 
 # When running via `wget ... | bash`, stdin is the pipe and may be EOF.
-# Reattach stdin to the controlling terminal so any interactive prompts work.
-if [[ ! -t 0 ]] && [[ -r /dev/tty ]]; then
-    exec </dev/tty
+# Do NOT rebind stdin (FD 0), since bash may still be reading this script from it.
+# Instead, use /dev/tty explicitly for interactive prompts when available.
+TTY_IN=""
+if [[ -r /dev/tty ]]; then
+    TTY_IN="/dev/tty"
 fi
 
 if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
@@ -62,11 +64,19 @@ show_spinner() {
 # Ask for confirmation with gum or fallback
 ask_confirm() {
     if command -v gum &>/dev/null; then
-        gum confirm "$1"
+        if [[ -n "${TTY_IN}" ]]; then
+            gum confirm "$1" <"${TTY_IN}"
+        else
+            gum confirm "$1"
+        fi
     else
         echo "$1 [Y/n]:"
-        read -r response
-        [[ ! "$response" =~ ^[Nn]$ ]]
+        if [[ -n "${TTY_IN}" ]]; then
+            read -r response <"${TTY_IN}" || return 0
+        else
+            read -r response || return 0
+        fi
+        [[ ! "${response}" =~ ^[Nn]$ ]]
     fi
 }
 
@@ -157,4 +167,8 @@ show_message "## ✅ Omarchy Mac cloned successfully!" \
 show_message "**Starting bootstrap installer...**"
 clear
 cd ~/.local/share/omarchy
-${SUDO:+$SUDO }bash bootstrap.sh
+if [[ -n "${TTY_IN}" ]]; then
+    ${SUDO:+$SUDO }bash bootstrap.sh <"${TTY_IN}"
+else
+    ${SUDO:+$SUDO }bash bootstrap.sh
+fi
