@@ -151,24 +151,10 @@ show_message "## ✅ Omarchy Mac cloned successfully!" \
     "" \
     "The repository has been cloned to \`~/.local/share/omarchy\`" \
     "" \
-    "For new installations, run the bootstrap installer:" \
-    "\`\`\`bash" \
-    "cd ~/.local/share/omarchy" \
-    "sudo bash bootstrap.sh" \
-    "\`\`\`" \
+    "Run command: \"bash ~/.local/share/omarchy/bootstrap.sh\"" \
     "" \
     "The bootstrap script will:" \
     "• Configure network and locale" \
     "• Update system and install essential packages" \
     "• Create user account with sudo access" \
     "• Install AUR helper and Omarchy Mac"
-
-# Start bootstrap installer automatically
-show_message "**Starting bootstrap installer...**"
-clear
-cd ~/.local/share/omarchy
-if [[ -n "${TTY_IN}" ]]; then
-    ${SUDO:+$SUDO }bash bootstrap.sh <"${TTY_IN}"
-else
-    ${SUDO:+$SUDO }bash bootstrap.sh
-fi
