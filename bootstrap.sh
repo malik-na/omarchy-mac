@@ -51,6 +51,16 @@ print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; }
 print_info() { echo -e "${CYAN}ℹ${NC} $1"; }
 
+on_error() {
+    local exit_code=$?
+    local line_no="${BASH_LINENO[0]:-${LINENO}}"
+    print_error "Bootstrap failed (exit ${exit_code}) at line ${line_no}."
+    print_info "Command: ${BASH_COMMAND}"
+    exit "${exit_code}"
+}
+
+trap on_error ERR
+
 require_root() {
     if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
         print_error "This script must be run as root."
@@ -92,7 +102,9 @@ prompt_username() {
 
 ensure_deps() {
     print_step "Updating system and installing dependencies"
-    pacman -Syu --noconfirm --needed sudo git base-devel
+    if ! pacman -Syu --noconfirm --needed sudo git base-devel; then
+        print_warning "Package installation failed; continuing anyway. Some later steps may fail."
+    fi
 }
 
 ensure_wheel_sudo() {
@@ -114,6 +126,17 @@ ensure_user() {
         print_success "User created"
     fi
 
+    local home_dir
+    home_dir="$(getent passwd "$username" | cut -d: -f6)"
+    if [[ -n "$home_dir" ]] && [[ -d "$home_dir" ]]; then
+        local home_owner
+        home_owner="$(stat -c %U "$home_dir" 2>/dev/null || true)"
+        if [[ -n "$home_owner" ]] && [[ "$home_owner" != "$username" ]]; then
+            print_warning "Home directory ownership is '$home_owner' (expected '$username'); fixing."
+            chown -R "$username:$username" "$home_dir"
+        fi
+    fi
+
     print_step "Setting password for '$username'"
     print_info "You will be prompted to enter the password twice."
     # passwd reads from the controlling terminal; if none exists, this will fail.
@@ -126,8 +149,20 @@ ensure_user() {
 install_yay() {
     local username="$1"
     print_step "Installing yay (AUR helper)"
-    su - "$username" -c "bash -lc 'set -e; cd /tmp; rm -rf yay; git clone https://aur.archlinux.org/yay.git; cd yay; makepkg -si --noconfirm --needed'"
-    print_success "yay installed"
+
+    if command -v findmnt &>/dev/null; then
+        local tmp_opts
+        tmp_opts="$(findmnt -no OPTIONS /tmp 2>/dev/null || true)"
+        if [[ "$tmp_opts" == *noexec* ]]; then
+            print_info "/tmp is mounted with noexec; building yay under the user's cache directory."
+        fi
+    fi
+
+    if su - "$username" -c "bash -lc 'set -e; build_root=\"${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-build\"; mkdir -p \"$build_root\"; cd \"$build_root\"; rm -rf yay; git clone https://aur.archlinux.org/yay.git yay; cd yay; makepkg -si --noconfirm --needed'"; then
+        print_success "yay installed"
+    else
+        print_warning "Failed to install yay; continuing without AUR helper."
+    fi
 }
 
 clone_repo_to_user() {
