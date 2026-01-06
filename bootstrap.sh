@@ -1,21 +1,21 @@
 #!/bin/bash
 
 # =============================================================================
-# Omarchy Mac Bootstrap Script
+# Omarchy Mac Bootstrap Installer
 # =============================================================================
-# This script automates Steps 2-4 from the README:
-#   - Initial Arch Linux setup (locale, packages)
-#   - User account creation with sudo access
-#   - AUR helper (yay) installation
-#   - Omarchy Mac installation
-#
-# Usage (as root after first boot):
-#   curl -fsSL https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
-#   OR
-#   wget -qO- https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
+# This script is intended to be run as root on a fresh Arch/Asahi install.
+# It creates a user (wheel), installs core dependencies (sudo, git, base-devel),
+# installs yay, clones the repo into the new user's home, and then runs install.sh.
 # =============================================================================
 
-set -e
+set -euo pipefail
+
+# When invoked from `wget ... | bash`, stdin may be the pipe (EOF).
+# Prefer reading from the controlling terminal.
+TTY_IN=""
+if [[ -r /dev/tty ]]; then
+    TTY_IN="/dev/tty"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -23,352 +23,146 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 BOLD='\033[1m'
 
-# ASCII Art Banner
 print_banner() {
     echo -e "${CYAN}"
     cat << 'EOF'
-                 ▄▄▄                                                   
+                                 ▄▄▄                                                   
  ▄█████▄    ▄███████████▄    ▄███████   ▄███████   ▄███████   ▄█   █▄    ▄█   █▄ 
-███   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
-███   ███  ███   ███   ███  ███   ███  ███   ███  ███   █▀   ███   ███  ███   ███
-███   ███  ███   ███   ███ ▄███▄▄▄███ ▄███▄▄▄██▀  ███       ▄███▄▄▄███▄ ███▄▄▄███
-███   ███  ███   ███   ███ ▀███▀▀▀███ ▀███▀▀▀▀    ███      ▀▀███▀▀▀███  ▀▀▀▀▀▀███
-███   ███  ███   ███   ███  ███   ███ ██████████  ███   █▄   ███   ███  ▄██   ███
-███   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
+████   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
+████   ███  ███   ███   ███  ███   ███  ███   ███  ███   █▀   ███   ███  ███   ███
+████   ███  ███   ███   ███ ▄███▄▄▄███ ▄███▄▄▄██▀  ███       ▄███▄▄▄███▄ ███▄▄▄███
+████   ███  ███   ███   ███ ▀███▀▀▀███ ▀███▀▀▀▀    ███      ▀▀███▀▀▀███  ▀▀▀▀▀▀███
+████   ███  ███   ███   ███  ███   ███ ██████████  ███   █▄   ███   ███  ▄██   ███
+████   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
  ▀█████▀    ▀█   ███   █▀   ███   █▀   ███   ███  ███████▀   ███   █▀    ▀█████▀ 
-                                       ███   █▀                                  
+                                                                             ███   █▀                                  
 
-                        MAC BOOTSTRAP INSTALLER
+                                                MAC BOOTSTRAP INSTALLER
 EOF
     echo -e "${NC}"
 }
 
-print_step() {
-    echo -e "\n${BLUE}${BOLD}==>${NC}${BOLD} $1${NC}"
-}
+print_step() { echo -e "\n${BLUE}${BOLD}==>${NC}${BOLD} $1${NC}"; }
+print_success() { echo -e "${GREEN}✓${NC} $1"; }
+print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
+print_error() { echo -e "${RED}✗${NC} $1"; }
+print_info() { echo -e "${CYAN}ℹ${NC} $1"; }
 
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-print_info() {
-    echo -e "${CYAN}ℹ${NC} $1"
-}
-
-# Check if running as root
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This script must be run as root for initial setup."
-        print_info "Please log in as root and run this script again."
+require_root() {
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        print_error "This script must be run as root."
         exit 1
     fi
 }
 
-# Check if running on Arch Linux
-check_arch() {
-    if [[ ! -f /etc/arch-release ]]; then
-        print_error "This script is designed for Arch Linux."
-        exit 1
-    fi
+valid_username() {
+    [[ "$1" =~ ^[a-z_][a-z0-9_-]*$ ]]
 }
 
-# Configure network if not connected
-setup_network() {
-    print_step "Checking network connectivity..."
-    
-    if ping -c 1 archlinux.org &>/dev/null; then
-        print_success "Network is connected"
-        return 0
-    fi
-    
-    print_warning "No network connection detected"
-    print_info "Launching nmtui for network configuration..."
-    echo -e "${YELLOW}Please configure your WiFi connection, then exit nmtui to continue.${NC}"
-    sleep 2
-    nmtui
-    
-    # Verify connection after nmtui
-    sleep 3
-    if ping -c 1 archlinux.org &>/dev/null; then
-        print_success "Network connected successfully"
-    else
-        print_error "Network still not connected. Please configure manually and rerun this script."
-        exit 1
-    fi
-}
-
-# Configure locale
-setup_locale() {
-    print_step "Configuring locale..."
-    
-    # Check if en_US.UTF-8 is already configured
-    if locale 2>/dev/null | grep -q "en_US.UTF-8"; then
-        print_success "Locale already configured"
-        return 0
-    fi
-    
-    # Enable en_US.UTF-8 in locale.gen
-    if grep -q "^#en_US.UTF-8" /etc/locale.gen; then
-        sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-        print_success "Enabled en_US.UTF-8 in locale.gen"
-    fi
-    
-    # Generate locale
-    locale-gen
-    print_success "Generated locales"
-    
-    # Set locale.conf
-    echo "LANG=en_US.UTF-8" > /etc/locale.conf
-    print_success "Set LANG=en_US.UTF-8 in locale.conf"
-    
-    # Export for current session
-    export LANG=en_US.UTF-8
-    export LC_ALL=en_US.UTF-8
-}
-
-# Update system and install essential packages
-install_packages() {
-    print_step "Updating system and installing essential packages..."
-    
-    # Update package database and system
-    pacman -Syu --noconfirm
-    print_success "System updated"
-    
-    # Install essential packages
-    pacman -S --noconfirm --needed sudo git base-devel chromium gum
-    print_success "Essential packages installed (sudo, git, base-devel, chromium, gum)"
-}
-
-# Create user account
-create_user() {
-    print_step "User Account Setup"
-    
-    # Prompt for username
+prompt_username() {
+    local input
     while true; do
-        echo -en "${CYAN}Enter username for new account:${NC} "
-        read -r NEW_USER
-        
-        # Validate username
-        if [[ -z "$NEW_USER" ]]; then
-            print_error "Username cannot be empty"
-            continue
-        fi
-        
-        if [[ ! "$NEW_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
-            print_error "Invalid username. Use lowercase letters, numbers, underscores, and hyphens."
-            continue
-        fi
-        
-        # If user exists, ask what to do
-        if id "$NEW_USER" &>/dev/null; then
-            print_warning "User '$NEW_USER' already exists"
-            echo -en "${YELLOW}Use existing user '$NEW_USER'? [Y/n]:${NC} "
-            read -r use_existing
-            if [[ "$use_existing" =~ ^[Nn]$ ]]; then
-                print_info "Creating a different username then..."
+        if [[ -n "${OMARCHY_USER_NAME:-}" ]]; then
+            input="$OMARCHY_USER_NAME"
+        else
+            if [[ -n "$TTY_IN" ]]; then
+                if ! read -r -p "Choose a username to create: " input <"$TTY_IN"; then
+                    print_error "Unable to read username (no interactive input)."
+                    print_info "Run with OMARCHY_USER_NAME=yourname to continue non-interactively."
+                    exit 1
+                fi
             else
-                # Ensure user is in wheel group
-                usermod -aG wheel "$NEW_USER" 2>/dev/null || true
-                print_success "Using existing user: $NEW_USER"
-                return 0
+                print_error "No TTY available for interactive input."
+                print_info "Run with OMARCHY_USER_NAME=yourname to continue non-interactively."
+                exit 1
             fi
         fi
-        
-        break
+
+        if valid_username "$input"; then
+            echo "$input"
+            return 0
+        fi
+        print_warning "Invalid username. Use lowercase letters/numbers/_/- and start with a letter or _."
+        unset OMARCHY_USER_NAME
     done
-    
-    # Create new user
-    useradd -m -G wheel "$NEW_USER"
-    print_success "Created user: $NEW_USER"
-    
-    # Set password
-    print_info "Set password for $NEW_USER:"
-    while ! passwd "$NEW_USER"; do
-        print_error "Passwords did not match. Please try again."
-    done
-    print_success "Password set for $NEW_USER"
 }
 
-# Configure sudo
-setup_sudo() {
-    print_step "Configuring sudo access..."
-    
-    # Check if wheel group already has sudo access
-    if grep -q "^%wheel ALL=(ALL:ALL) ALL" /etc/sudoers 2>/dev/null; then
-        print_success "Sudo already configured for wheel group"
-        return 0
-    fi
-    
-    # Ask about NOPASSWD preference
-    echo -e "${CYAN}Sudo configuration options:${NC}"
-    echo "  1) Standard (password required for sudo commands)"
-    echo "  2) NOPASSWD (no password prompts - smoother installation)"
-    echo -en "${YELLOW}Choose option [1/2, default=2]:${NC} "
-    read -r sudo_option
-    
-    # Backup sudoers
-    cp /etc/sudoers /etc/sudoers.backup
-    
-    if [[ "$sudo_option" == "1" ]]; then
-        # Enable wheel group with password
-        sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
-        print_success "Enabled sudo with password for wheel group"
+ensure_deps() {
+    print_step "Updating system and installing dependencies"
+    pacman -Syu --noconfirm --needed sudo git base-devel
+}
+
+ensure_wheel_sudo() {
+    print_step "Configuring sudo for wheel group"
+    cat >/etc/sudoers.d/00-wheel <<'EOF'
+%wheel ALL=(ALL:ALL) ALL
+EOF
+    chmod 440 /etc/sudoers.d/00-wheel
+}
+
+ensure_user() {
+    local username="$1"
+
+    if id "$username" &>/dev/null; then
+        print_info "User '$username' already exists; reusing."
     else
-        # Enable wheel group without password (smoother install experience)
-        sed -i 's/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
-        print_success "Enabled sudo without password for wheel group (NOPASSWD)"
-        print_info "You can change this later by running: sudo EDITOR=nano visudo"
+        print_step "Creating user '$username'"
+        useradd -m -G wheel -s /bin/bash "$username"
+        print_success "User created"
     fi
-    
-    # Verify sudoers file is valid
-    if ! visudo -c &>/dev/null; then
-        print_error "Sudoers file validation failed. Restoring backup..."
-        cp /etc/sudoers.backup /etc/sudoers
+
+    print_step "Setting password for '$username'"
+    print_info "You will be prompted to enter the password twice."
+    # passwd reads from the controlling terminal; if none exists, this will fail.
+    if ! passwd "$username"; then
+        print_error "Failed to set password (is this running in a real TTY?)."
         exit 1
     fi
 }
 
-# Install yay AUR helper
 install_yay() {
-    print_step "Installing yay AUR helper..."
-    
-    # Check if yay is already installed
-    if command -v yay &>/dev/null; then
-        print_success "yay is already installed"
-        return 0
-    fi
-    
-    # Install yay as the new user
-    sudo -u "$NEW_USER" bash << 'EOFYAY'
-        set -e
-        cd /tmp
-        rm -rf yay
-        git clone https://aur.archlinux.org/yay.git
-        cd yay
-        makepkg -si --noconfirm
-        cd ..
-        rm -rf yay
-EOFYAY
-    
-    print_success "yay AUR helper installed"
+    local username="$1"
+    print_step "Installing yay (AUR helper)"
+    su - "$username" -c "bash -lc 'set -e; cd /tmp; rm -rf yay; git clone https://aur.archlinux.org/yay.git; cd yay; makepkg -si --noconfirm --needed'"
+    print_success "yay installed"
 }
 
-# Clone and install Omarchy Mac
-install_omarchy() {
-    print_step "Installing Omarchy Mac..."
-    
-    OMARCHY_PATH="/home/$NEW_USER/.local/share/omarchy"
-    
-    # Use custom repo if specified
-    OMARCHY_REPO="${OMARCHY_REPO:-malik-na/omarchy-mac}"
-    OMARCHY_REF="${OMARCHY_REF:-main}"
-    
-    print_info "Cloning from: https://github.com/${OMARCHY_REPO}.git"
-    
-    # Clone repository as the new user
-    sudo -u "$NEW_USER" bash -c "
-        rm -rf '$OMARCHY_PATH'
-        mkdir -p '$(dirname "$OMARCHY_PATH")'
-        git clone 'https://github.com/${OMARCHY_REPO}.git' '$OMARCHY_PATH'
-    "
-    
-    # Checkout specific branch if not main
-    if [[ "$OMARCHY_REF" != "main" ]]; then
-        print_info "Using branch: $OMARCHY_REF"
-        sudo -u "$NEW_USER" bash -c "
-            cd '$OMARCHY_PATH'
-            git fetch origin '$OMARCHY_REF'
-            git checkout '$OMARCHY_REF'
-        "
-    fi
-    
-    print_success "Omarchy Mac repository cloned"
-    
-    # Set online install mode
-    export OMARCHY_ONLINE_INSTALL=true
-    
-    print_info "Starting Omarchy Mac installation..."
-    print_info "This may take a while. Please wait..."
-    echo ""
-    
-    # Run install.sh as the new user
-    sudo -u "$NEW_USER" bash -c "
-        export OMARCHY_ONLINE_INSTALL=true
-        cd '$OMARCHY_PATH'
-        bash install.sh
-    "
+clone_repo_to_user() {
+    local username="$1"
+    local repo="${OMARCHY_REPO:-malik-na/omarchy-mac}"
+    local ref="${OMARCHY_REF:-main}"
+
+    print_step "Cloning Omarchy Mac into user's home"
+    su - "$username" -c "bash -lc 'set -e; mkdir -p ~/.local/share; rm -rf ~/.local/share/omarchy; git clone https://github.com/${repo}.git ~/.local/share/omarchy; cd ~/.local/share/omarchy; if [[ \"${ref}\" != \"main\" ]]; then git fetch origin \"${ref}\" && git checkout \"${ref}\"; fi'"
+    print_success "Repository cloned"
 }
 
-# Main execution
+run_installer() {
+    local username="$1"
+    print_step "Running Omarchy installer as $username"
+    print_info "You may be prompted for the user's sudo password during installation."
+    su - "$username" -c "bash -lc 'cd ~/.local/share/omarchy && bash install.sh'"
+}
+
 main() {
     print_banner
-    
-    echo -e "${BOLD}Welcome to the Omarchy Mac Bootstrap Installer!${NC}"
-    echo -e "This script will automate the initial setup process.\n"
-    
-    # Pre-flight checks
-    check_root
-    check_arch
-    
-    # Prompt for user identification early (moved from identification.sh)
-    echo -en "${CYAN}Enter your full name (for git config):${NC} "
-    read -r OMARCHY_USER_NAME
-    export OMARCHY_USER_NAME
-    
-    echo -en "${CYAN}Enter your email address (for git config):${NC} "
-    read -r OMARCHY_USER_EMAIL
-    export OMARCHY_USER_EMAIL
-    
-    print_info "This script will:"
-    echo "  • Configure network (if needed)"
-    echo "  • Set up locale (en_US.UTF-8)"
-    echo "  • Update system and install essential packages"
-    echo "  • Create a user account with sudo access"
-    echo "  • Install yay AUR helper"
-    echo "  • Clone and install Omarchy Mac"
-    echo "  • Configure git with your information"
-    echo ""
-    
-    # Run setup steps
-    setup_network
-    setup_locale
-    install_packages
-    create_user
-    setup_sudo
-    install_yay
-    install_omarchy
-    
-    # Final message
-    echo ""
-    print_step "Installation Complete!"
-    echo ""
-    print_success "Omarchy Mac has been installed successfully!"
-    echo ""
-    print_info "Next steps:"
-    echo "  1. Reboot your system: ${CYAN}reboot${NC}"
-    echo "  2. Log in as: ${CYAN}$NEW_USER${NC}"
-    echo "  3. Enjoy Omarchy Mac! 🎉"
-    echo ""
-    
-    echo -en "${YELLOW}Reboot now? [Y/n]:${NC} "
-    read -r do_reboot
-    if [[ ! "$do_reboot" =~ ^[Nn]$ ]]; then
-        print_info "Rebooting in 3 seconds..."
-        sleep 3
-        reboot
-    fi
+    require_root
+
+    local username
+    username="$(prompt_username)"
+
+    ensure_deps
+    ensure_wheel_sudo
+    ensure_user "$username"
+    install_yay "$username"
+    clone_repo_to_user "$username"
+    run_installer "$username"
+
+    print_success "Bootstrap complete"
+    print_info "If you hit mirror issues, run: bash fix-mirrors.sh"
 }
 
-# Run main function
 main "$@"
