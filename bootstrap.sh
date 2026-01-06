@@ -102,7 +102,9 @@ prompt_username() {
 
 ensure_deps() {
     print_step "Updating system and installing dependencies"
-    pacman -Syu --noconfirm --needed sudo git base-devel
+    if ! pacman -Syu --noconfirm --needed sudo git base-devel; then
+        print_warning "Package installation failed; continuing anyway. Some later steps may fail."
+    fi
 }
 
 ensure_wheel_sudo() {
@@ -156,8 +158,11 @@ install_yay() {
         fi
     fi
 
-    su - "$username" -c "bash -lc 'set -e; build_root=\"${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-build\"; mkdir -p \"$build_root\"; cd \"$build_root\"; rm -rf yay; git clone https://aur.archlinux.org/yay.git yay; cd yay; makepkg -si --noconfirm --needed'"
-    print_success "yay installed"
+    if su - "$username" -c "bash -lc 'set -e; build_root=\"${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-build\"; mkdir -p \"$build_root\"; cd \"$build_root\"; rm -rf yay; git clone https://aur.archlinux.org/yay.git yay; cd yay; makepkg -si --noconfirm --needed'"; then
+        print_success "yay installed"
+    else
+        print_warning "Failed to install yay; continuing without AUR helper."
+    fi
 }
 
 clone_repo_to_user() {
