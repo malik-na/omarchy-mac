@@ -13,3 +13,4 @@ omarchy-webapp-install "Spotify" https://open.spotify.com/ https://cdn.jsdelivr.
 omarchy-webapp-install "Figma" https://figma.com/ Figma.png
 omarchy-webapp-install "Discord" https://discord.com/channels/@me Discord.png
 omarchy-webapp-install "Zoom" https://app.zoom.us/wc/home Zoom.png "omarchy-webapp-handler-zoom %u" "x-scheme-handler/zoommtg;x-scheme-handler/zoomus"
+omarchy-webapp-install "Fizzy" https://app.fizzy.do/ Fizzy.png

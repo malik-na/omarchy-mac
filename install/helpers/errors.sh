@@ -1,7 +1,6 @@
 #!/bin/bash
 # Directs user to Omarchy Discord
 
-
 # Track if we're already handling an error to prevent double-trapping
 ERROR_HANDLING=false
 
@@ -78,7 +77,6 @@ catch_errors() {
   clear_logo
   show_cursor
 
-
   gum style --foreground 1 --padding "1 0 1 $PADDING_LEFT" "Omarchy installation stopped!"
   show_log_tail
 
@@ -111,29 +109,29 @@ catch_errors() {
 
     # Add remaining options
     options+=("View full log")
-  options+=("Exit (recommended)")
+    options+=("Exit (recommended)")
 
     choice=$(gum choose "${options[@]}" --header "What would you like to do?" --height 6 --padding "1 $PADDING_LEFT")
 
     case "$choice" in
-    "Retry installation")
-      bash ~/.local/share/omarchy/install.sh
-      break
-      ;;
-    "View full log")
-      if command -v less &>/dev/null; then
-        less "$OMARCHY_INSTALL_LOG_FILE"
-      else
-        tail "$OMARCHY_INSTALL_LOG_FILE"
-      fi
-      ;;
-    "Upload log for support")
-      omarchy-upload-install-log
-      ;;
-    "Exit (recommended)" | "")
-      echo -e "\e[33m[Omarchy] Installation aborted. For support, contact @tiredkebab on X (Twitter).\e[0m"
-      exit 1
-      ;;
+      "Retry installation")
+        bash ~/.local/share/omarchy/install.sh
+        break
+        ;;
+      "View full log")
+        if command -v less &>/dev/null; then
+          less "$OMARCHY_INSTALL_LOG_FILE"
+        else
+          tail "$OMARCHY_INSTALL_LOG_FILE"
+        fi
+        ;;
+      "Upload log for support")
+        omarchy-upload-install-log
+        ;;
+      "Exit (recommended)" | "")
+        echo -e "\e[33m[Omarchy] Installation aborted. For support, contact @tiredkebab on X (Twitter).\e[0m"
+        exit 1
+        ;;
     esac
   done
 }

@@ -113,8 +113,7 @@ back_to() {
   fi
 }
 
-# ---- Menu list (no changes, brootha, why you still read it? DHH really knows it better, we got no need to dive there.
-# You can literally just star this repo and stop spending your time reading code. Don't be like me, go touch the grass ) -----
+# ---- Menu list -----
 
 show_learn_menu() {
   case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash')" in
@@ -147,27 +146,27 @@ show_capture_menu() {
 }
 
 show_screenshot_menu() {
-  case "$(menu "Screenshot" $'  Region\n  Window\n  Display')" in
-  *Region*) omarchy-cmd-screenshot ;;
-  *Window*) omarchy-cmd-screenshot window ;;
-  *Display*) omarchy-cmd-screenshot output ;;
+  case $(menu "Screenshot" $'  Snap with Editing\n  Straight to Clipboard') in
+  *Editing*) omarchy-cmd-screenshot smart ;;
+  *Clipboard*) omarchy-cmd-screenshot smart clipboard ;;
   *) show_capture_menu ;;
   esac
 }
 
 show_screenrecord_menu() {
-  case "$(menu "Screenrecord" $'  Region\n  Region + Audio\n  Display\n  Display + Audio')" in
-  *"Region + Audio"*) omarchy-cmd-screenrecord region audio ;;
-  *Region*) omarchy-cmd-screenrecord ;;
-  *"Display + Audio"*) omarchy-cmd-screenrecord output audio ;;
-  *Display*) omarchy-cmd-screenrecord output ;;
-  *) show_capture_menu ;;
+  omarchy-cmd-screenrecord --stop-recording && exit 0
+
+  case $(menu "Screenrecord" $'  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam') in
+  *"With desktop audio") omarchy-cmd-screenrecord --with-desktop-audio ;;
+  *"With desktop + microphone audio") omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio ;;
+  *"With desktop + microphone audio + webcam") omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio --with-webcam ;;
+  *) back_to show_capture_menu ;;
   esac
 }
 
 show_share_menu() {
-  case "$(menu "Share" $'  Clipboard\n  File \n  Folder')" in
-  *Clipboard*) terminal bash -c "omarchy-cmd-share clipboard" ;;
+  case $(menu "Share" $'  Clipboard\n  File \n  Folder') in
+  *Clipboard*) omarchy-cmd-share clipboard ;;
   *File*) terminal bash -c "omarchy-cmd-share file" ;;
   *Folder*) terminal bash -c "omarchy-cmd-share folder" ;;
   *) back_to show_trigger_menu ;;
@@ -231,15 +230,15 @@ show_setup_menu() {
   options+=$'\n'"  Security"
   options+=$'\n'"  Config"
 
-  case "$(menu "Setup" "$options")" in
-  *Audio*) $TERMINAL --class=Wiremix -e wiremix ;;
+  case $(menu "Setup" "$options") in
+  *Audio*) omarchy-launch-or-focus-tui wiremix ;;
   *Wifi*)
     rfkill unblock wifi
     omarchy-launch-wifi
     ;;
   *Bluetooth*)
     rfkill unblock bluetooth
-    blueberry
+    omarchy-launch-bluetooth
     ;;
   *Power*) show_setup_power_menu ;;
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
@@ -286,10 +285,9 @@ show_setup_security_menu() {
 }
 
 show_install_menu() {
-  case "$(menu "Install" $'󰣇  Package\n󰣇  AUR\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n  Gaming')" in
+  case $(menu "Install" $'󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
   *AUR*) terminal omarchy-pkg-aur-install ;;
-  *AppImage*) present_terminal omarchy-appimage-install ;;
   *Web*) present_terminal omarchy-webapp-install ;;
   *TUI*) present_terminal omarchy-tui-install ;;
   *Service*) show_install_service_menu ;;
@@ -298,6 +296,7 @@ show_install_menu() {
   *Editor*) show_install_editor_menu ;;
   *Terminal*) show_install_terminal_menu ;;
   *AI*) show_install_ai_menu ;;
+  *Windows*) present_terminal "omarchy-windows-vm install" ;;
   *Gaming*) show_install_gaming_menu ;;
   *) show_main_menu ;;
   esac
@@ -314,9 +313,9 @@ show_install_service_menu() {
 }
 
 show_install_editor_menu() {
-  case "$(menu "Install" $'  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs')" in
-  *VSCode*) install_and_launch "VSCode" "visual-studio-code-bin" "code" ;;
-  *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
+  case $(menu "Install" $'  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs') in
+  *VSCode*) present_terminal omarchy-install-vscode ;;
+  *Cursor*) aur_install_and_launch "Cursor" "cursor-bin" "cursor" ;;
   *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
   *Sublime*) aur_install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
   *Helix*) install "Helix" "helix" ;;
@@ -342,23 +341,25 @@ show_install_ai_menu() {
       echo ollama
   )
 
-  case "$(menu "Install" $'󱚤  Claude Code\n󱚤  Gemini [AUR]\n󱚤  OpenAI Codex [AUR]\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush\n󱚤  opencode')" in
-  *Claude*) install "Claude Code" "claude-code" ;;
+  case $(menu "Install" $'󱚤  Claude Code\n󱚤  Cursor CLI\n󱚤  Gemini\n󱚤  OpenAI Codex\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush\n󱚤  opencode') in
+  *Claude*) aur_install "Claude Code" "claude-code" ;;
+  *Cursor*) aur_install "Cursor CLI" "cursor-cli" ;;
   *OpenAI*) aur_install "OpenAI Codex" "openai-codex-bin" ;;
   *Gemini*) aur_install "Gemini" "gemini-cli" ;;
-  *Studio*) install "LM Studio" "lmstudio" ;;
+  *Studio*) aur_install "LM Studio" "lmstudio" ;;
   *Ollama*) install "Ollama" "$ollama_pkg" ;;
-  *Crush*) install "Crush" "crush-bin" ;;
-  *opencode*) install "opencode" "opencode" ;;
+  *Crush*) aur_install "Crush" "crush-bin" ;;
+  *opencode*) aur_install "opencode" "opencode" ;;
   *) show_install_menu ;;
   esac
 }
 
 show_install_gaming_menu() {
-  case "$(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft')" in
+  case $(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]') in
   *Steam*) present_terminal omarchy-install-steam ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
   *Minecraft*) aur_install_and_launch "Minecraft [AUR]" "minecraft-launcher" "minecraft-launcher" ;;
+  *Xbox*) present_terminal omarchy-install-xbox-controllers ;;
   *) show_install_menu ;;
   esac
 }
@@ -373,11 +374,12 @@ show_install_style_menu() {
 }
 
 show_install_font_menu() {
-  case "$(menu "Install" $'  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono' "-w 350")" in
+  case $(menu "Install" $'  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono\n  Iosevka' "-w 350") in
   *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
   *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
   *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
   *Bistream*) install_font "Bistream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
+  *Iosevka*) install_font "Iosevka" "ttf-iosevka-nerd" "Iosevka Nerd Font Mono" ;;
   *) show_install_menu ;;
   esac
 }
@@ -428,12 +430,12 @@ show_install_elixir_menu() {
 }
 
 show_remove_menu() {
-  case "$(menu "Remove" $'󰣇  Package\n  AppImage\n  Web App\n  TUI\n󰸌  Theme\n󰈷  Fingerprint\n  Fido2')" in
+  case $(menu "Remove" $'󰣇  Package\n  Web App\n  TUI\n󰸌  Theme\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2') in
   *Package*) terminal omarchy-pkg-remove ;;
-  *AppImage*) present_terminal omarchy-appimage-remove ;;
   *Web*) present_terminal omarchy-webapp-remove ;;
   *TUI*) present_terminal omarchy-tui-remove ;;
   *Theme*) present_terminal omarchy-theme-remove ;;
+  *Windows*) present_terminal "omarchy-windows-vm remove" ;;
   *Fingerprint*) present_terminal "omarchy-setup-fingerprint --remove" ;;
   *Fido2*) present_terminal "omarchy-setup-fido2 --remove" ;;
   *) show_main_menu ;;
@@ -441,23 +443,26 @@ show_remove_menu() {
 }
 
 show_update_menu() {
-  case "$(menu "Update" $' Omarchy\n Branch\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Password\n  Timezone')" in
+  case $(menu "Update" $' Omarchy\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time') in
   *Omarchy*) present_terminal omarchy-update ;;
-  *Branch*) show_update_branch_menu ;;
+  *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
   *Themes*) present_terminal omarchy-theme-update ;;
   *Process*) show_update_process_menu ;;
   *Hardware*) show_update_hardware_menu ;;
-  *Timezone*) omarchy-cmd-tzupdate ;;
+  *Firmware*) present_terminal omarchy-update-firmware ;;
+  *Timezone*) present_terminal omarchy-tz-select ;;
+  *Time*) present_terminal omarchy-update-time ;;
   *Password*) show_update_password_menu ;;
   *) show_main_menu ;;
   esac
 }
 
-show_update_branch_menu() {
-  case "$(menu "Branch" $'main\ndev' "" "$(omarchy-version-branch)")" in
-  *main*) present_terminal "omarchy-update-branch main" ;;
-  *dev*) present_terminal "omarchy-update-branch dev" ;;
+show_update_channel_menu() {
+  case $(menu "Update channel" $'🟢 Stable\n🟡 Edge\n🔴 Dev') in
+  *Stable*) present_terminal "omarchy-channel-set stable" ;;
+  *Edge*) present_terminal "omarchy-channel-set edge" ;;
+  *Dev*) present_terminal "omarchy-channel-set dev" ;;
   *) show_update_menu ;;
   esac
 }
@@ -488,7 +493,7 @@ show_update_config_menu() {
 }
 
 show_update_hardware_menu() {
-  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  case $(menu "Restart" $'  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth') in
   *Audio*) present_terminal omarchy-restart-pipewire ;;
   *Wi-Fi*) present_terminal omarchy-restart-wifi ;;
   *Bluetooth*) present_terminal omarchy-restart-bluetooth ;;
@@ -505,13 +510,12 @@ show_update_password_menu() {
 }
 
 show_system_menu() {
-  case "$(menu "System" $'  Lock\n󱄄  Screensaver\n󰤄  Suspend\n  Relaunch\n󰜉  Restart\n󰐥  Shutdown')" in
+  case $(menu "System" $'  Lock\n󱄄  Screensaver\n󰤄  Suspend\n󰜉  Restart\n󰐥  Shutdown') in
   *Lock*) omarchy-lock-screen ;;
   *Screensaver*) omarchy-launch-screensaver force ;;
   *Suspend*) systemctl suspend ;;
-  *Relaunch*) uwsm stop ;;
-  *Restart*) systemctl reboot ;;
-  *Shutdown*) systemctl poweroff ;;
+  *Restart*) omarchy-cmd-reboot ;;
+  *Shutdown*) omarchy-cmd-shutdown ;;
   *) back_to show_main_menu ;;
   esac
 }

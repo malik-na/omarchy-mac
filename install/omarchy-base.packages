@@ -1,4 +1,4 @@
-# Omarchy core package list installed via install/packages.sh
+# Omarchy core package list installed via install/packaging/base.sh
 # This file is also used by the ISO builder when determining needs
 
 
@@ -6,22 +6,23 @@
 # --- Omarchy core package list ---
 # These packages are always installed (required for a working system):
 gum
-asahi-desktop-meta
 linux-asahi
+asahi-desktop-meta
 linux-asahi-headers
 asahi-fwextract
 mesa
 mesa-utils
 mesa-demos
 fwupd
-nvme-cli
+#nvme-cli  # not needed: NVMe hardware not supported on target platforms
 grub
 efibootmgr
 alacritty
 avahi
 bash-completion
 bat
-blueberry
+bluetui
+bolt
 brightnessctl
 fcitx5
 fcitx5-gtk
@@ -37,6 +38,7 @@ polkit-gnome
 qt5-wayland
 waybar
 btop
+bluetui
 cargo
 clang
 cups
@@ -48,27 +50,31 @@ docker-buildx
 docker-compose
 dust
 evince
+exfatprogs
 eza
 fastfetch
 fd
 ffmpegthumbnailer
 fzf
+ghostty
 github-cli
 gnome-calculator
 gnome-keyring
 gnome-themes-extra
 gvfs-mtp
+gvfs-nfs
 gvfs-smb
 hypridle
 hyprland
-hyprland-qtutils
+hyprland-guiutils
+hyprland-preview-share-picker
 hyprlock
 hyprpicker
-hyprshot
 hyprsunset
 imagemagick
 impala
 imv
+inxi
 inetutils
 jq
 kdenlive
@@ -76,12 +82,12 @@ kvantum-qt5
 lazydocker
 lazygit
 less
-libreoffice
+#libreoffice
 llvm
 localsend
 luarocks
 mako
-man
+man-db
 mariadb-libs
 mise
 mpv
@@ -89,7 +95,7 @@ noto-fonts-cjk
 noto-fonts-emoji
 noto-fonts-extra
 nss-mdns
-obs-studio
+#obs-studio
 #obsidian
 pamixer
 pinta
@@ -114,6 +120,7 @@ swayosd
 system-config-printer
 tldr
 tree-sitter-cli
+tobi-try
 ttf-cascadia-mono-nerd
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
@@ -122,6 +129,7 @@ tzupdate
 ufw
 ufw-docker
 unzip
+usage
 uwsm
 fuzzel
 wf-recorder
@@ -129,12 +137,11 @@ whois
 wireless-regdb
 wiremix
 wireplumber
-wl-clip-persist
 wl-clipboard
-wl-screenrec
 woff2-font-awesome
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
+xdg-terminal-exec
 xmlstarlet
 xournalpp
 yaru-icon-theme
