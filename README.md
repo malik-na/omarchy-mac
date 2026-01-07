@@ -83,3 +83,18 @@ Join [Omarchy Mac Discord server](https://discord.gg/KNQRk7dMzy) for updates and
 
 ## Contributors
 
+Thanks to everyone who has contributed to Omarchy Mac! 🎉
+
+- [tayowrld](https://github.com/tayowrld)
+- [Owen Singh (itsOwen)](https://github.com/itsOwen)
+- [Matthias Millhoff](https://github.com/embeatz)
+- [George Dobreff](https://github.com/georgedobreff)
+- [Luke Van](https://github.com/lukevanlukevan)
+- [Wésley Guimarães](https://github.com/wesguima)
+- [Vince Picone](https://github.com/vpicone)
+- [Oleh Khomei](https://github.com/varyform)
+- [Mike Deufel](https://github.com/MDeufel13)
+- [Gwynspring](https://github.com/Gwynspring)
+- [DinMon](https://github.com/DinMon)
+- [Aslkhon](https://github.com/Aslkhon)
+
