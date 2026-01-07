@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Xbox Controller Support for Omarchy
+# Note: This script is designed for x86_64 systems with Xbox controller hardware.
+
+show_arm_notice() {
+  cat << 'EOF'
+
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ⚠️  Xbox Controller Drivers Not Available on ARM64         ║
+║                                                               ║
+║   The xpadneo driver requires x86_64 Linux kernel headers    ║
+║   and is not compatible with Apple Silicon/ARM64.            ║
+║                                                               ║
+║   Xbox controllers on Apple Silicon:                          ║
+║   • Most Xbox controllers work via Bluetooth without drivers ║
+║   • Try pairing directly: Settings → Bluetooth               ║
+║   • For USB: May work natively with Linux kernel support     ║
+║                                                               ║
+║   If your controller doesn't work:                            ║
+║   • Check kernel modules: lsmod | grep xpad                   ║
+║   • Test with: jstest /dev/input/js0                          ║
+║   • Install generic gamepad tools: sudo pacman -S jstest-gtk  ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+EOF
+}
+
+# Check architecture
+ARCH=$(uname -m)
+if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+  show_arm_notice
+  echo "Current architecture: $ARCH"
+  echo "Xbox controller driver installation is only available on x86_64 systems."
+  echo
+  echo "Try connecting your Xbox controller via Bluetooth or USB to see if it"
+  echo "works natively with the Linux kernel."
+  exit 1
+fi
+
+# If somehow on ARM but got past check
+show_arm_notice
+exit 1

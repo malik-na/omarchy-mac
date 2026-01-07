@@ -13,7 +13,7 @@ ln -snf ~/.config/omarchy/themes/tokyo-night ~/.config/omarchy/current/theme
 ln -snf ~/.config/omarchy/current/theme/backgrounds/1-scenery-pink-lakeside-sunset-lake-landscape-scenic-panorama-7680x3215-144.png ~/.config/omarchy/current/background
 
 # Set specific app links for current theme
-ln -snf ~/.config/omarchy/current/theme/neovim.lua ~/.config/nvim/lua/plugins/theme.lua
+# ~/.config/omarchy/current/theme/neovim.lua -> ~/.config/nvim/lua/plugins/theme.lua is handled via omarchy-setup-nvim
 
 mkdir -p ~/.config/btop/themes
 ln -snf ~/.config/omarchy/current/theme/btop.theme ~/.config/btop/themes/current.theme
@@ -29,7 +29,7 @@ mkdir -p ~/.config/fuzzel
 cp -n ~/.local/share/omarchy/config/fuzzel/fuzzel.ini ~/.config/fuzzel/fuzzel.ini
 
 # Ensure all themes have fuzzel.ini files
-~/.local/share/omarchy/bin/omarchy-convert-themes-to-fuzzel
+~/.local/share/omarchy/bin/omarchy-mac-custom-theme-utility
 
 # Add managed policy directories for Chromium and Brave for theme changes
 sudo mkdir -p /etc/chromium/policies/managed
