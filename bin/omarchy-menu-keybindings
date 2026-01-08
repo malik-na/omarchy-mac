@@ -222,6 +222,7 @@ prioritize_entries() {
 
 output_keybindings() {
   build_keymap_cache
+}
 
 {
   dynamic_bindings
