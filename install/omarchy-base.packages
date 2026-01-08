@@ -48,6 +48,7 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
+dotnet-runtime-9.0
 dust
 evince
 exfatprogs
@@ -97,6 +98,7 @@ noto-fonts-extra
 nss-mdns
 #obs-studio
 #obsidian
+opencode-bin
 pamixer
 pinta
 playerctl
@@ -146,4 +148,5 @@ xmlstarlet
 xournalpp
 yaru-icon-theme
 yay
+yq
 zoxide

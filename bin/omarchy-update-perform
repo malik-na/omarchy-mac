@@ -2,6 +2,10 @@
 
 set -e
 
+# Ensure screensaver/sleep doesn't set in during updates
+hyprctl dispatch tagwindow +noidle &> /dev/null || true
+
+# Perform all update steps
 omarchy-update-time
 # Skip omarchy-update-keyring (basecamp repository specific, not used in Mac fork)
 # Save kernel version before updates to detect if it actually changes
@@ -12,3 +16,6 @@ omarchy-update-system-pkgs
 omarchy-migrate
 omarchy-hook post-update
 omarchy-update-restart
+
+# Re-enable screensaver/sleep after updates
+hyprctl dispatch tagwindow -- -noidle &> /dev/null || true
