@@ -1,45 +1,19 @@
 #!/bin/bash
 
-# Xbox Controller Support for Omarchy
-# Note: This script is designed for x86_64 systems with Xbox controller hardware.
+# Install support for using Xbox controllers with Steam/RetroArch/etc.
 
-show_arm_notice() {
-  cat << 'EOF'
+set -e
 
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   ⚠️  Xbox Controller Drivers Not Available on ARM64         ║
-║                                                               ║
-║   The xpadneo driver requires x86_64 Linux kernel headers    ║
-║   and is not compatible with Apple Silicon/ARM64.            ║
-║                                                               ║
-║   Xbox controllers on Apple Silicon:                          ║
-║   • Most Xbox controllers work via Bluetooth without drivers ║
-║   • Try pairing directly: Settings → Bluetooth               ║
-║   • For USB: May work natively with Linux kernel support     ║
-║                                                               ║
-║   If your controller doesn't work:                            ║
-║   • Check kernel modules: lsmod | grep xpad                   ║
-║   • Test with: jstest /dev/input/js0                          ║
-║   • Install generic gamepad tools: sudo pacman -S jstest-gtk  ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
+# Install xpadneo to ensure controllers work out of the box
+sudo pacman -S --noconfirm --needed linux-headers
+yay -S --noconfirm xpadneo-dkms
 
-EOF
-}
+# Prevent xpad/xpadneo driver conflict
+echo blacklist xpad | sudo tee /etc/modprobe.d/blacklist-xpad.conf >/dev/null
+echo hid_xpadneo | sudo tee /etc/modules-load.d/xpadneo.conf >/dev/null
 
-# Check architecture
-ARCH=$(uname -m)
-if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-  show_arm_notice
-  echo "Current architecture: $ARCH"
-  echo "Xbox controller driver installation is only available on x86_64 systems."
-  echo
-  echo "Try connecting your Xbox controller via Bluetooth or USB to see if it"
-  echo "works natively with the Linux kernel."
-  exit 1
-fi
+# Give user access to game controllers
+sudo usermod -a -G input $USER
 
-# If somehow on ARM but got past check
-show_arm_notice
-exit 1
+# Modules need to be loaded
+gum confirm "Install requires reboot. Ready?" && sudo reboot now
