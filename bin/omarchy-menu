@@ -155,13 +155,41 @@ show_screenshot_menu() {
   esac
 }
 
+get_webcam_list() {
+  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
+    if [[ "$line" != $'\t'* && -n "$line" ]]; then
+      local name="$line"
+      IFS= read -r device || break
+      device=$(echo "$device" | tr -d '\t' | head -1)
+      [[ -n "$device" ]] && echo "$device  $name"
+    fi
+  done
+}
+
+show_webcam_select_menu() {
+  local devices=$(get_webcam_list)
+  local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
+
+  if [[ -z "$devices" || "$count" -eq 0 ]]; then
+    notify-send "No webcam devices found" -u critical -t 3000
+    return 1
+  fi
+
+  if [[ "$count" -eq 1 ]]; then
+    echo "$devices" | awk '{print $1}'
+  else
+    menu "Select Webcam" "$devices" | awk '{print $1}'
+  fi
+}
+
 show_screenrecord_menu() {
-  case "$(menu "Screenrecord" $'  Region\n  Region + Audio\n  Display\n  Display + Audio')" in
+  case "$(menu \"Screenrecord\" $'\uf03d  Region\\n\uf03d  Region + Audio\\n\uf03d  Display\\n\uf03d  Display + Audio')" in
   *"Region + Audio"*) omarchy-cmd-screenrecord region audio ;;
   *Region*) omarchy-cmd-screenrecord ;;
   *"Display + Audio"*) omarchy-cmd-screenrecord output audio ;;
   *Display*) omarchy-cmd-screenrecord output ;;
   *) show_capture_menu ;;
+
   esac
 }
 
