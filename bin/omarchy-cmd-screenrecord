@@ -86,22 +86,32 @@ start_screenrecording() {
 
   [[ -n "$audio_devices" ]] && audio_args+="-a $audio_devices"
 
-  gpu-screen-recorder -w portal -f 60 -fallback-cpu-encoding yes -o "$filename" $audio_args -ac aac &
+  # Prefer wf-recorder on Wayland (better support for wlroots/Asahi). If not
+  # available, fall back to gpu-screen-recorder for systems that still use it.
+  if command -v wf-recorder >/dev/null 2>&1; then
+    # Note: wf-recorder cannot composite an on-screen webcam overlay into the
+    # recorded video. If --with-webcam is used, the overlay will be shown but
+    # not embedded in the output file.
+    wf-recorder -f "$filename" $audio_args &
+  else
+    gpu-screen-recorder -w portal -f 60 -fallback-cpu-encoding yes -o "$filename" $audio_args -ac aac &
+  fi
   toggle_screenrecording_indicator
 }
 
 stop_screenrecording() {
-  pkill -SIGINT -f "^gpu-screen-recorder"  # SIGINT required to save video properly
+  # Try to gracefully stop either wf-recorder or gpu-screen-recorder
+  pkill -SIGINT -f "\b(wf-recorder|gpu-screen-recorder)\b" 2>/dev/null || true
 
   # Wait a maximum of 5 seconds to finish before hard killing
   local count=0
-  while pgrep -f "^gpu-screen-recorder" >/dev/null && [ $count -lt 50 ]; do
+  while pgrep -f "\b(wf-recorder|gpu-screen-recorder)\b" >/dev/null && [ $count -lt 50 ]; do
     sleep 0.1
     count=$((count + 1))
   done
 
-  if pgrep -f "^gpu-screen-recorder" >/dev/null; then
-    pkill -9 -f "^gpu-screen-recorder"
+  if pgrep -f "\b(wf-recorder|gpu-screen-recorder)\b" >/dev/null; then
+    pkill -9 -f "\b(wf-recorder|gpu-screen-recorder)\b" 2>/dev/null || true
     cleanup_webcam
     notify-send "Screen recording error" "Recording process had to be force-killed. Video may be corrupted." -u critical -t 5000
   else
@@ -116,7 +126,7 @@ toggle_screenrecording_indicator() {
 }
 
 screenrecording_active() {
-  pgrep -f "^gpu-screen-recorder" >/dev/null || pgrep -f "WebcamOverlay" >/dev/null
+  pgrep -f "\b(wf-recorder|gpu-screen-recorder)\b" >/dev/null || pgrep -f "WebcamOverlay" >/dev/null
 }
 
 if screenrecording_active; then
