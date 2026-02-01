@@ -1,6 +1,9 @@
-# Omarchy Mac — Dual Boot Installation
+A screenshot to help identify the project:
 
-A concise, beginner-friendly guide to install Omarchy Mac (Arch Linux + Omarchy) alongside macOS on Apple Silicon (M1/M2).
+![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
+
+# Omarchy Mac — Dual Boot Installation
+A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy) alongside macOS on Apple Silicon (M1/M2).
 
 [![License](https://img.shields.io/github/license/malik-na/omarchy-mac)](LICENSE) [![Stars](https://img.shields.io/github/stars/malik-na/omarchy-mac?style=social)](https://github.com/malik-na/omarchy-mac/stargazers)
 
