@@ -253,6 +253,7 @@ show_setup_menu() {
 
   [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
   [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
+  options+=$'\n'"  Keyboard Layout"
 
   options+=$'\n'"  Defaults"
   options+=$'\n'"󰱔  DNS"
@@ -273,6 +274,7 @@ show_setup_menu() {
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
   *Input*) open_in_editor ~/.config/hypr/input.conf ;;
+  *Keyboard*) present_terminal omarchy-setup-keyboard ;;
   *Defaults*) open_in_editor ~/.config/uwsm/default ;;
   *DNS*) present_terminal omarchy-setup-dns ;;
   *Security*) show_setup_security_menu ;;
