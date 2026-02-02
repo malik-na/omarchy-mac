@@ -7,30 +7,13 @@
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 
-sudo cp -f ~/.local/share/omarchy/default/pacman/pacman.conf /etc/pacman.conf
-
-# Detect host architecture to choose appropriate mirrorlist for aarch64 (Asahi/Arch Linux ARM)
-ARCH="$(uname -m)"
-
 if [[ $1 == "edge" ]]; then
-  if [[ "$ARCH" == "aarch64" ]]; then
-    # For aarch64 systems (Asahi/Arch Linux ARM), use the bundled Arch Linux ARM mirrorlist
-    sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
-  else
-    sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist-edge /etc/pacman.d/mirrorlist
-  fi
+  sudo cp -f ~/.local/share/omarchy/default/pacman/pacman-edge.conf /etc/pacman.conf
+  sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist-edge /etc/pacman.d/mirrorlist
   echo "Setting channel to edge"
 else
-  # Stable channel: prefer the stable mirrorlist if present. For aarch64, use the Arch Linux ARM mirrorlist.
-  if [[ "$ARCH" == "aarch64" ]]; then
-    sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
-  else
-    if [[ -f ~/.local/share/omarchy/default/pacman/mirrorlist-stable ]]; then
-      sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist-stable /etc/pacman.d/mirrorlist
-    else
-      sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
-    fi
-  fi
+  sudo cp -f ~/.local/share/omarchy/default/pacman/pacman-stable.conf /etc/pacman.conf
+  sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist-stable /etc/pacman.d/mirrorlist
   echo "Setting channel to stable"
 fi
 
