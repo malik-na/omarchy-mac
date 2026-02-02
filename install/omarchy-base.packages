@@ -37,6 +37,7 @@ nvim
 polkit-gnome
 qt5-wayland
 waybar
+widevine
 btop
 bluetui
 cargo
