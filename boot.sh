@@ -92,6 +92,7 @@ if command -v gum &>/dev/null; then
         --padding "1 2" \
         "$ansi_art" \
         "$(gum style --foreground 212 --bold 'OMARCHY MAC BOOTSTRAP')"
+
 else
     echo -e "\n$ansi_art\n"
 fi
