@@ -40,5 +40,38 @@ for p in "${FILES[@]}"; do
   fi
 done
 
+# If a resolved TERMINAL value is available, replace literal $TERMINAL with its value
+resolved_terminal="${TERMINAL:-}"
+# Try to source uwsm default if available and terminal not set
+if [ -z "$resolved_terminal" ] && [ -f "$HOME/.config/uwsm/default" ]; then
+  # shellcheck disable=SC1090
+  . "$HOME/.config/uwsm/default"
+  resolved_terminal="${TERMINAL:-}"
+fi
+
+if [ -n "$resolved_terminal" ]; then
+  echo "Resolving \$TERMINAL to '$resolved_terminal' in user fuzzel configs"
+  replace_resolved() {
+    local f="$1"
+    if [ -f "$f" ] && grep -q "^terminal=\\\$TERMINAL$" "$f"; then
+      backup "$f"
+      # Replace literal $TERMINAL with resolved terminal name
+      sed -i "s|^terminal=\\\$TERMINAL$|terminal=${resolved_terminal}|" "$f" 2>/dev/null || true
+      echo "Resolved $f"
+    fi
+  }
+
+  for p in "${FILES[@]}"; do
+    if [ -f "$p" ]; then
+      replace_resolved "$p"
+    elif [ -d "$p" ]; then
+      for f in "$p"/*.ini; do
+        [ -f "$f" ] || continue
+        replace_resolved "$f"
+      done
+    fi
+  done
+fi
+
 touch "$STATE_DIR/1768950000_replace_fuzzel_terminal_foot_with_terminal_var.sh"
 echo "Migration complete."
