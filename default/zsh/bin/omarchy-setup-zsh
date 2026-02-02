@@ -1,0 +1,39 @@
+#!/bin/bash
+set -e
+
+ZSHRC="${HOME}/.zshrc"
+BASHRC="${HOME}/.bashrc"
+ZSHRC_TEMPLATE="/usr/share/omarchy-zsh/templates/zshrc"
+BASHRC_TEMPLATE="/usr/share/omarchy-zsh/templates/bashrc"
+ZSHRC_BACKUP="${HOME}/.zshrc.backup-$(date +%Y%m%d-%H%M%S)"
+BASHRC_BACKUP="${HOME}/.bashrc.backup-$(date +%Y%m%d-%H%M%S)"
+
+echo "Setting zsh as your default shell..."
+
+# Install .zshrc
+if [ -f "${ZSHRC}" ]; then
+  cp "${ZSHRC}" "${ZSHRC_BACKUP}"
+fi
+
+cp "${ZSHRC_TEMPLATE}" "${ZSHRC}"
+
+# Install bash auto-launch
+if [ -f "${BASHRC}" ]; then
+  cp "${BASHRC}" "${BASHRC_BACKUP}"
+fi
+
+cp "${BASHRC_TEMPLATE}" "${BASHRC}"
+
+echo ""
+echo -e "\033[32m✓ zsh setup complete\033[0m"
+if [ -f "${ZSHRC_BACKUP}" ]; then
+  echo "  - Original .zshrc backed up to:"
+  echo "    ${ZSHRC_BACKUP}"
+  echo ""
+fi
+if [ -f "${BASHRC_BACKUP}" ]; then
+  echo "  - Original .bashrc backed up to:"
+  echo "    ${BASHRC_BACKUP}"
+  echo ""
+fi
+echo "Restart your terminal to activate zsh"
