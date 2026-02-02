@@ -5,7 +5,7 @@
 set -euo pipefail
 
 STATE_DIR="$HOME/.local/state/omarchy/migrations"
-STATE_FILE="$STATE_DIR/1770000002_install_1password_aarch64.sh"
+STATE_FILE="$STATE_DIR/1770000002.sh"
 
 # Only run on aarch64
 if [ "$(uname -m)" != "aarch64" ]; then

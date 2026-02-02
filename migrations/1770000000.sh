@@ -21,6 +21,6 @@ fi
 
 # Mark migration as complete
 mkdir -p "$HOME/.local/state/omarchy/migrations"
-touch "$HOME/.local/state/omarchy/migrations/1770000000_install_widevine_for_drm_streaming.sh"
+touch "$HOME/.local/state/omarchy/migrations/1770000000.sh"
 
 echo "Migration complete."
