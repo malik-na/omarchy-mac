@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Setup zsh as the default interactive shell for Omarchy
+# This configures zsh with Omarchy customizations and optionally auto-launches it from bash
+
+set -euo pipefail
+
+ZSHRC="${HOME}/.zshrc"
+BASHRC="${HOME}/.bashrc"
+ZSHRC_TEMPLATE="${HOME}/.local/share/omarchy/default/zsh/templates/zshrc"
+BASHRC_TEMPLATE="${HOME}/.local/share/omarchy/default/zsh/templates/bashrc"
+ZSHRC_BACKUP="${HOME}/.zshrc.backup-$(date +%Y%m%d-%H%M%S)"
+BASHRC_BACKUP="${HOME}/.bashrc.backup-$(date +%Y%m%d-%H%M%S)"
+BASHRC_DEFAULT="${HOME}/.local/share/omarchy/default/bashrc"
+
+# Check if zsh is installed
+if ! command -v zsh &> /dev/null; then
+    echo "Error: zsh is not installed. Please install it first:"
+    echo "  yay -S zsh"
+    exit 1
+fi
+
+echo "Setting up zsh for Omarchy..."
+echo ""
+
+# Install .zshrc template (adapted for Omarchy paths)
+if [ -f "${ZSHRC}" ]; then
+    cp "${ZSHRC}" "${ZSHRC_BACKUP}"
+    echo "✓ Backed up existing .zshrc to:"
+    echo "  ${ZSHRC_BACKUP}"
+    echo ""
+fi
+
+# Create .zshrc from template, replacing package paths with Omarchy paths
+cat > "${ZSHRC}" << 'EOF'
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+# Load omarchy-zsh configuration
+if [[ -d ~/.local/share/omarchy/default/zsh/conf.d ]]; then
+  for config in ~/.local/share/omarchy/default/zsh/conf.d/*.zsh; do
+    [[ -f "$config" ]] && source "$config"
+  done
+fi
+
+# Load omarchy-zsh functions and aliases
+if [[ -d ~/.local/share/omarchy/default/zsh/functions ]]; then
+  for func in ~/.local/share/omarchy/default/zsh/functions/*.zsh; do
+    [[ -f "$func" ]] && source "$func"
+  done
+fi
+
+# Add your own customizations below
+
+EOF
+
+echo "✓ Created .zshrc with Omarchy zsh configuration"
+echo ""
+
+# Ask user if they want bash to auto-launch zsh
+echo "Would you like bash to automatically launch zsh in interactive terminals?"
+echo "This keeps bash as your default shell (safer for scripts) but uses zsh interactively."
+echo ""
+read -p "Auto-launch zsh from bash? [Y/n] " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+    # Backup existing .bashrc
+    if [ -f "${BASHRC}" ]; then
+        cp "${BASHRC}" "${BASHRC_BACKUP}"
+        echo "✓ Backed up existing .bashrc to:"
+        echo "  ${BASHRC_BACKUP}"
+        echo ""
+    fi
+
+    # Check if .bashrc already has the auto-launch code
+    if grep -q "Auto-launch zsh shell" "${BASHRC}" 2>/dev/null; then
+        echo "✓ Bash auto-launch already configured"
+    else
+        # Read the existing bashrc
+        if [ -f "${BASHRC}" ]; then
+            EXISTING_BASHRC=$(cat "${BASHRC}")
+        else
+            EXISTING_BASHRC=$(cat "${BASHRC_DEFAULT}")
+        fi
+
+        # Create new bashrc with auto-launch at the top (after interactive check)
+        cat > "${BASHRC}" << 'BASHEOF'
+# If not running interactively, don't do anything (leave this at the top of this file)
+[[ $- != *i* ]] && return
+
+# Auto-launch zsh shell if in interactive bash
+if command -v zsh &> /dev/null; then
+  if [[ $(ps --no-header --pid=$PPID --format=comm) != "zsh" && -z ${BASH_EXECUTION_STRING} && ${SHLVL} == 1 ]]
+  then
+    shopt -q login_shell && LOGIN_OPTION='--login' || LOGIN_OPTION=''
+    exec zsh $LOGIN_OPTION
+  fi
+fi
+
+BASHEOF
+
+        # Append the rest of the existing bashrc (skip the first line if it's the interactive check)
+        echo "$EXISTING_BASHRC" | sed '/^\[.*!= \*i\*.*return$/d' >> "${BASHRC}"
+
+        echo "✓ Configured bash to auto-launch zsh"
+    fi
+    echo ""
+fi
+
+echo -e "\033[32m✓ zsh setup complete!\033[0m"
+echo ""
+echo "Available keybindings:"
+echo "  Ctrl+Alt+F  - Search files/directories"
+echo "  Ctrl+Alt+L  - Search Git Log"
+echo "  Ctrl+R      - Search command history"
+echo "  Ctrl+T      - Search files in current directory"
+echo "  Ctrl+V      - Search Variables"
+echo "  Alt+C       - cd into selected directory"
+echo ""
+echo "To start using zsh, either:"
+echo "  1. Restart your terminal, or"
+echo "  2. Run: exec zsh"
+echo ""
