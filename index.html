@@ -1,11 +1,154 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Omarchy Mac</title>
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.6.1/github-markdown.min.css"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+    />
+    <style>
+        :root {
+            --bg: #f6f8fa;
+            --panel: #ffffff;
+            --border: #d0d7de;
+            --text: #24292f;
+            --muted: #57606a;
+            --code-bg: #f6f8fa;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .topbar {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        .hero {
+            display: grid;
+            gap: 12px;
+        }
+
+        .title {
+            margin: 0;
+            font: 700 20px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font: 400 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+
+        .install {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .install code {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: inline-block;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .links a {
+            color: var(--muted);
+            text-decoration: none;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        .content {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 24px auto;
+        }
+
+        .markdown-body {
+            box-sizing: border-box;
+            padding: 28px 24px;
+        }
+
+        @media (max-width: 600px) {
+            .markdown-body {
+                padding: 22px 16px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Omarchy Mac</h1>
-    <p>Install:</p>
-    <code>wget -qO- https://malik-na.github.io/omarchy-mac/boot.sh | bash</code>
+    <div class="topbar">
+        <div class="wrap hero">
+            <h1 class="title">Omarchy Mac</h1>
+            <p class="subtitle">Project documentation (rendered from README.md)</p>
+            <div class="install">
+                <code>wget -qO- https://malik-na.github.io/omarchy-mac/boot.sh | bash</code>
+            </div>
+            <div class="links">
+                <a href="https://github.com/malik-na/omarchy-mac" target="_blank" rel="noreferrer noopener">GitHub</a>
+                |
+                <a href="README.md">README.md</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="wrap content">
+        <article id="readme" class="markdown-body">Loading README.md...</article>
+    </div>
+
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+    ></script>
+    <script>
+        (async () => {
+            const container = document.getElementById("readme");
+            try {
+                const res = await fetch("README.md");
+                if (!res.ok) throw new Error(`fetch README.md failed (${res.status})`);
+                const markdown = await res.text();
+
+                // Keep GFM behavior but avoid e-mail mangling.
+                container.innerHTML = marked.parse(markdown, { gfm: true, mangle: false });
+
+                // Open external links in a new tab.
+                for (const a of container.querySelectorAll("a[href]")) {
+                    const href = a.getAttribute("href") || "";
+                    if (/^https?:\\/\\//i.test(href)) {
+                        a.target = "_blank";
+                        a.rel = "noreferrer noopener";
+                    }
+                }
+            } catch (err) {
+                container.innerHTML =
+                    "<h1>Omarchy Mac</h1><p>Could not render README.md.</p><pre></pre>";
+                container.querySelector("pre").textContent = String(err);
+            }
+        })();
+    </script>
 </body>
 </html>

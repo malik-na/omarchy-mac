@@ -28,6 +28,8 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/
+          cp README.md _site/
+          cp LICENSE _site/
           cp install.sh _site/
           cp boot.sh _site/
           cp bootstrap.sh _site/
