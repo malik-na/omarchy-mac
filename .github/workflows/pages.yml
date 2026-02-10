@@ -43,6 +43,8 @@ jobs:
           # Copy any additional assets
           [ -f icon.png ] && cp icon.png _site/ || true
           [ -f logo.svg ] && cp logo.svg _site/ || true
+          # upload-pages-artifact dereferences symlinks; dangling ones make tar fail.
+          find _site -xtype l -delete
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
