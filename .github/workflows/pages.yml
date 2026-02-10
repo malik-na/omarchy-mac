@@ -37,7 +37,7 @@ jobs:
           cp -r install _site/
           cp -r migrations _site/
           cp -r applications _site/
-          cp -r autostart _site/
+          [ -d autostart ] && cp -r autostart _site/ || true
           cp version _site/
           cp .nojekyll _site/
           # Copy any additional assets
