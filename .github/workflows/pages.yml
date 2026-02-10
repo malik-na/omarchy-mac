@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/
+          cp readme.js _site/
           cp README.md _site/
           cp LICENSE _site/
           cp install.sh _site/
@@ -45,6 +46,8 @@ jobs:
           # Copy any additional assets
           [ -f icon.png ] && cp icon.png _site/ || true
           [ -f logo.svg ] && cp logo.svg _site/ || true
+          curl -fsSL "https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.6.1/github-markdown.min.css" -o _site/github-markdown.min.css
+          curl -fsSL "https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" -o _site/marked.min.js
           # upload-pages-artifact dereferences symlinks; dangling ones make tar fail.
           find _site -xtype l -delete
 

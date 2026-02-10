@@ -6,9 +6,7 @@
     <title>Omarchy Mac</title>
     <link
         rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.6.1/github-markdown.min.css"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
+        href="github-markdown.min.css"
     />
     <style>
         :root {
@@ -119,66 +117,7 @@
         <article id="readme" class="markdown-body">Loading README.md...</article>
     </div>
 
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
-    ></script>
-    <script>
-        (async () => {
-            const container = document.getElementById("readme");
-            try {
-                const res = await fetch("README.md");
-                if (!res.ok) throw new Error(`fetch README.md failed (${res.status})`);
-                const markdown = await res.text();
-
-                // Keep GFM behavior but avoid e-mail mangling.
-                container.innerHTML = marked.parse(markdown, { gfm: true, mangle: false });
-
-                // Add GitHub-ish heading IDs so the README TOC links work.
-                const slugCounts = new Map();
-                const githubSlug = (value) =>
-                    value
-                        .trim()
-                        .toLowerCase()
-                        .normalize("NFKD")
-                        // Normalize common dash characters to ASCII hyphen.
-                        .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-                        // Drop diacritics.
-                        .replace(/[\u0300-\u036f]/g, "")
-                        // Keep alnum, spaces, and hyphens (do not collapse spaces).
-                        .replace(/[^a-z0-9 -]/g, "")
-                        .replace(/ /g, "-");
-
-                for (const heading of container.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
-                    if (heading.id) continue;
-                    const base = githubSlug(heading.textContent || "");
-                    if (!base) continue;
-                    const n = slugCounts.get(base) || 0;
-                    slugCounts.set(base, n + 1);
-                    heading.id = n === 0 ? base : `${base}-${n}`;
-                }
-
-                // Open external links in a new tab.
-                for (const a of container.querySelectorAll("a[href]")) {
-                    const href = a.getAttribute("href") || "";
-                    if (/^https?:\\/\\//i.test(href)) {
-                        a.target = "_blank";
-                        a.rel = "noreferrer noopener";
-                    }
-                }
-
-                // If the page is opened with a hash, jump after we inject IDs.
-                if (location.hash.length > 1) {
-                    const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
-                    if (target) target.scrollIntoView();
-                }
-            } catch (err) {
-                container.innerHTML =
-                    "<h1>Omarchy Mac</h1><p>Could not render README.md.</p><pre></pre>";
-                container.querySelector("pre").textContent = String(err);
-            }
-        })();
-    </script>
+    <script src="marked.min.js" defer></script>
+    <script src="readme.js" defer></script>
 </body>
 </html>
