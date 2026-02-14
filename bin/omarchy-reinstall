@@ -11,23 +11,22 @@ echo -e "This will reinstall all the default Omarchy packages and reset all defa
 
 if gum confirm "Are you sure you want to reinstall and lose all config changes?"; then
   echo "Resetting Omarchy repository"
-  git clone "https://github.com/basecamp/omarchy.git" ~/.local/share/omarchy-new >/dev/null
-  rm -rf $OMARCHY_PATH
-  mv ~/.local/share/omarchy-new $OMARCHY_PATH
+  git clone --branch fedora "https://github.com/malik-na/omarchy-mac.git" ~/.local/share/omarchy-new >/dev/null
+  rm -rf "$OMARCHY_PATH"
+  mv ~/.local/share/omarchy-new "$OMARCHY_PATH"
 
   echo "Reinstalling missing Omarchy packages"
-  mapfile -t packages < <(grep -v '^#' "$OMARCHY_PATH/install/omarchy-base.packages" | grep -v '^$')
-  sudo pacman -Syu --noconfirm --needed "${packages[@]}"
+  mapfile -t packages < <(grep -v '^#' "$OMARCHY_PATH/install/omarchy-base.packages.fedora" | grep -v '^$')
+  sudo dnf install -y "${packages[@]}"
 
   echo "Resetting all Omarchy configs"
   cp -R ~/.local/share/omarchy/config/* ~/.config/
   cp ~/.local/share/omarchy/default/bashrc ~/.bashrc
   echo '[[ -f ~/.bashrc ]] && . ~/.bashrc' | tee ~/.bash_profile >/dev/null
 
-  $(bash $OMARCHY_PATH/install/config/theme.sh)
-  $(bash $OMARCHY_PATH/install/config/git.sh)
+  bash "$OMARCHY_PATH/install/config/theme.sh"
+  bash "$OMARCHY_PATH/install/config/git.sh"
 
-  omarchy-refresh-limine
   omarchy-refresh-plymouth
   omarchy-lazyvim-setup
 fi

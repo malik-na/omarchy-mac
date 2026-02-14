@@ -1,20 +1,28 @@
 #!/bin/bash
 
-set -e
+set -u
 
 FIRST_RUN_MODE=~/.local/state/omarchy/first-run.mode
 
 if [[ -f "$FIRST_RUN_MODE" ]]; then
   rm -f "$FIRST_RUN_MODE"
 
-  bash "$OMARCHY_PATH/install/first-run/battery-monitor.sh"
-  bash "$OMARCHY_PATH/install/first-run/cleanup-reboot-sudoers.sh"
-  bash "$OMARCHY_PATH/install/first-run/firewall.sh"
-  bash "$OMARCHY_PATH/install/first-run/dns-resolver.sh"
-  bash "$OMARCHY_PATH/install/first-run/gnome-theme.sh"
-  bash "$OMARCHY_PATH/install/first-run/elephant.sh"
-  sudo rm -f /etc/sudoers.d/first-run
+  run_step() {
+    local step="$1"
+    if ! bash "$step"; then
+      echo "[WARN] First-run step failed: $step" >&2
+    fi
+  }
 
-  bash "$OMARCHY_PATH/install/first-run/welcome.sh"
-  bash "$OMARCHY_PATH/install/first-run/wifi.sh"
+  run_step "$OMARCHY_PATH/install/first-run/battery-monitor.sh"
+  run_step "$OMARCHY_PATH/install/first-run/cleanup-reboot-sudoers.sh"
+  run_step "$OMARCHY_PATH/install/first-run/firewall.sh"
+  run_step "$OMARCHY_PATH/install/first-run/dns-resolver.sh"
+  run_step "$OMARCHY_PATH/install/first-run/gnome-theme.sh"
+  run_step "$OMARCHY_PATH/install/first-run/elephant.sh"
+
+  sudo rm -f /etc/sudoers.d/first-run || true
+
+  run_step "$OMARCHY_PATH/install/first-run/welcome.sh"
+  run_step "$OMARCHY_PATH/install/first-run/wifi.sh"
 fi

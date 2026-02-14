@@ -35,7 +35,7 @@ export PATH="$HOME/.local/share/omarchy/bin:$PATH"
 
 require_fuzzel() {
   if ! command -v fuzzel >/dev/null 2>&1; then
-    notify-send "Omarchy menu" "Install fuzzel before use this utility. Try: pacman -S fuzzel"
+    notify-send "Omarchy menu" "Install fuzzel before use this utility. Try: sudo dnf install fuzzel"
     echo "fuzzel not found; please install 'fuzzel'." >&2
     exit 127
   fi
@@ -93,12 +93,12 @@ open_in_editor() {
   omarchy-launch-editor "$1"
 }
 
-install() { present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm $2"; }
-install_and_launch() { present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm $2 && setsid gtk-launch $3"; }
-install_font() { present_terminal "echo 'Installing $1...'; sudo pacman -S --noconfirm --needed $2 && sleep 2 && omarchy-font-set '$3'"; }
+install() { present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2"; }
+install_and_launch() { present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2 && setsid gtk-launch $3"; }
+install_font() { present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2 && sleep 2 && omarchy-font-set '$3'"; }
 install_terminal() { present_terminal "omarchy-install-terminal $1"; }
-aur_install() { present_terminal "echo 'Installing $1 from AUR...'; yay -S --noconfirm $2"; }
-aur_install_and_launch() { present_terminal "echo 'Installing $1 from AUR...'; yay -S --noconfirm $2 && setsid gtk-launch $3"; }
+aur_install() { present_terminal "echo 'Installing $1 from Fedora repos...'; omarchy-pkg-add $2"; }
+aur_install_and_launch() { present_terminal "echo 'Installing $1 from Fedora repos...'; omarchy-pkg-add $2 && setsid gtk-launch $3"; }
 
 # ---- Backs logic -------------------------------------------
 BACK_TO_EXIT=false
@@ -285,9 +285,9 @@ show_setup_security_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" $'󰣇  Package\n󰣇  AUR\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
+  case $(menu "Install" $'󰣇  Package\n󰣇  Extra Package\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
-  *AUR*) terminal omarchy-pkg-aur-install ;;
+  *Extra*) terminal omarchy-pkg-aur-install ;;
   *Web*) present_terminal omarchy-webapp-install ;;
   *TUI*) present_terminal omarchy-tui-install ;;
   *Service*) show_install_service_menu ;;
@@ -355,10 +355,10 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]') in
+  case $(menu "Install" $'  Steam\n  RetroArch\n󰍳  Minecraft\n󰖺  Xbox Controller') in
   *Steam*) present_terminal omarchy-install-steam ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
-  *Minecraft*) aur_install_and_launch "Minecraft [AUR]" "minecraft-launcher" "minecraft-launcher" ;;
+  *Minecraft*) aur_install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
   *Xbox*) present_terminal omarchy-install-xbox-controllers ;;
   *) show_install_menu ;;
   esac

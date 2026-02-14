@@ -1,0 +1,148 @@
+# Fedora Asahi Porting Plan and Progress
+
+Date: 2026-02-14
+Target: Fedora Asahi Remix on aarch64 (Fedora Minimal base)
+Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no longer a supported runtime path.
+
+## Goals
+
+- Make install and runtime reliable on Fedora Asahi Minimal.
+- Remove active Arch-only execution paths from installer/update/runtime workflows.
+- Keep migration and update behavior safe when old Arch-oriented scripts still exist in the repository.
+
+## Phase Status
+
+- Phase 1 (install blockers): completed
+- Phase 2 (first-run/runtime parity): completed
+- Phase 3 (updates/migrations hardening): completed
+
+## Implemented Changes
+
+### Phase 1 - Install Blockers (Completed)
+
+- Fedora-only gating and branch selection:
+  - `boot.sh`
+  - `install.sh`
+  - `install/preflight/guard.sh`
+- Removed Arch-only install execution paths:
+  - `install/preflight/all.sh`
+  - `install/packaging/all.sh`
+  - `install/login/all.sh`
+  - `install/post-install/all.sh`
+- Fedora-safe package helper baseline:
+  - `install/helpers/packages.sh` (rewritten for Fedora-only behavior)
+  - `install/helpers/distro.sh`
+  - `bin/omarchy-pkg-add`
+- First-run firewall/sudoers conversion from UFW to firewalld:
+  - `install/preflight/first-run-mode.sh`
+  - `install/first-run/firewall.sh`
+  - `bin/omarchy-cmd-first-run`
+- Guarded optional components and theme paths to avoid hard failures on minimal systems:
+  - `install/first-run/elephant.sh`
+  - `install/first-run/gnome-theme.sh`
+  - `install/config/theme.sh`
+  - `install/config/hardware/network.sh`
+  - `install/config/hardware/keyboard-backlight.sh`
+  - `install/config/hardware/set-wireless-regdom.sh`
+  - `install/helpers/presentation.sh`
+
+### Phase 2 - Runtime Parity on Fedora Minimal (Completed)
+
+- Fedora-native update flow:
+  - `bin/omarchy-update-system-pkgs` (DNF upgrade + autoremove)
+  - `bin/omarchy-update-perform` (RPM kernel version snapshot)
+  - `bin/omarchy-update-restart` (RPM kernel comparison)
+- Fedora package utility conversion:
+  - `bin/omarchy-pkg-install`
+  - `bin/omarchy-pkg-remove`
+  - `bin/omarchy-pkg-drop`
+  - `bin/omarchy-pkg-present`
+  - `bin/omarchy-pkg-missing`
+  - `bin/omarchy-pkg-aur-install` (redirect to Fedora repo install)
+  - `bin/omarchy-pkg-aur-accessible` (disabled on Fedora)
+- Menu install actions switched away from pacman/yay:
+  - `bin/omarchy-menu`
+- Fedora minimal prerequisites added to base package list:
+  - `install/omarchy-base.packages.fedora` (`firewalld`, `python3-pip`, `flatpak`)
+- Dev environment installer update for Fedora PHP stack:
+  - `bin/omarchy-install-dev-env`
+
+### Phase 3 - Migration and Update Hardening (Completed)
+
+- Distro-safe migrations:
+  - `bin/omarchy-migrate`
+    - Detects Arch-only migrations by pattern and skips them on Fedora.
+    - Records skipped migrations under `~/.local/state/omarchy/migrations/skipped`.
+  - `install/preflight/migrations.sh`
+    - Initializes migration state and classifies historical Arch-only migrations as skipped on fresh install.
+- Fedora-safe channel/version scripts:
+  - `bin/omarchy-branch-set` (adds `fedora` branch support)
+  - `bin/omarchy-channel-set` (no pacman repo refresh; persists channel state)
+  - `bin/omarchy-version-channel` (reads state/git branch, no `/etc/pacman*`)
+  - `bin/omarchy-version-pkgs` (reads DNF history instead of `pacman.log`)
+  - `bin/omarchy-update-keyring` (explicit Fedora no-op)
+
+## Progress Summary
+
+- Installer flow is now Fedora Asahi aarch64 constrained.
+- Critical first-run failures from UFW/pacman assumptions are removed.
+- Runtime package and update commands are DNF/RPM based.
+- Migration execution is protected from historical Arch-only migration scripts.
+- Channel/version reporting no longer depends on pacman files.
+
+## Verification Runbook
+
+- Syntax checks:
+  - `bash -n boot.sh install.sh`
+  - `bash -lc 'for f in bin/* install/**/*.sh; do bash -n "$f" || echo "SYNTAX_ERROR $f"; done'`
+- Fedora guard check:
+  - `bash install/preflight/guard.sh`
+- Spot-check removed Arch assumptions in hardened scripts:
+  - `rg -n "pacman|yay|paru|/etc/pacman|pacman.log|pacman-key" bin/omarchy-migrate bin/omarchy-channel-set bin/omarchy-version-channel bin/omarchy-version-pkgs bin/omarchy-update-keyring`
+
+## Remaining TODOs
+
+- Completed: removed inactive Arch-only install/login/preflight scripts from active repository paths.
+- Completed: replaced README with Fedora Asahi-only installation and support policy.
+- Completed: added Fedora compatibility smoke test at `tests/test-fedora-asahi-compatibility.sh`.
+- P1 (high): add end-to-end Fedora minimal integration test run (install + first-run + update + migrate).
+- P2 (medium): verify every optional menu installer target resolves to a Fedora package or has a graceful fallback.
+- P3 (low): continue pruning historical Arch-only docs that are kept only for archive context.
+
+## Notes
+
+- This document tracks execution-level changes already applied in the repository.
+- Future work should keep Fedora Asahi aarch64 as the only supported environment unless project direction changes.
+
+## Package Availability Validation (2026-02-14)
+
+- Base package set in `install/omarchy-base.packages.fedora` validated against current Fedora repositories:
+  - Total: 61
+  - Missing: 0
+- Fix applied:
+  - Replaced `jetbrains-mono-nf-fonts` with `jetbrains-mono-fonts`.
+- Manual install path validation:
+  - `lazydocker` URL generation fixed to use versioned GitHub release assets.
+  - `uwsm` installation updated to `dnf install` with git fallback (`pip3 install --user git+https://github.com/Vladimir-csp/uwsm.git`).
+  - `terminaltexteffects` PyPI endpoint reachable.
+  - Flatpak IDs for Typora and LocalSend validated on flathub.
+  - `swayosd` remains repository-dependent; installer now checks availability before install and skips cleanly when unavailable.
+
+## Fedora Minimal DE Hardening (2026-02-14)
+
+- Added preflight guard for essential DE package availability:
+  - `install/preflight/fedora-required-pkgs.sh`
+  - wired into `install/preflight/all.sh`
+- Added `lxpolkit` and `uwsm` to Fedora package list and guarded desktop startup paths:
+  - `install/omarchy-base.packages.fedora`
+  - `default/hypr/autostart.conf`
+- Added runtime fallback wrapper for `uwsm-app` to avoid launcher breakage when UWSM helper is absent:
+  - `bin/uwsm-app`
+- Improved login/session resilience:
+  - `install/login/sddm.sh` picks `hyprland` session when `hyprland-uwsm.desktop` is unavailable.
+  - `install/login/plymouth.sh` uses `uwsm start -- hyprland.desktop` only when `uwsm` exists; otherwise starts `hyprland` directly.
+- Added command fallbacks for missing optional TUI launchers:
+  - `bin/omarchy-launch-wifi` (impala -> nm-connection-editor -> nmtui)
+  - `bin/omarchy-launch-bluetooth` (bluetui -> blueman-manager -> bluetoothctl)
+  - `bin/omarchy-launch-walker` (walker -> fuzzel fallback)
+  - `bin/omarchy-lock-screen` (hyprlock -> loginctl)

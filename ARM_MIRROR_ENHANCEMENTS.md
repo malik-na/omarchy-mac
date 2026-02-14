@@ -1,5 +1,7 @@
 # ARM Mirror Setup Enhancement
 
+> Historical note: this document describes Arch mirror tooling that has been retired from the Fedora Asahi-only runtime path.
+
 ## Summary of Improvements
 
 The `set-arm-mirrors.sh` script has been significantly enhanced with the following improvements:

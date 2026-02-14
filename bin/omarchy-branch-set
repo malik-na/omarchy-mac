@@ -1,13 +1,14 @@
 #!/bin/bash
 
 if (($# == 0)); then
-  echo "Usage: omarchy-branch-set [main|dev]"
+  echo "Usage: omarchy-branch-set [fedora|main|dev]"
   exit 1
 else
   branch="$1"
 fi
 
 case "$branch" in
+  "fedora") git -C $OMARCHY_PATH switch fedora ;;
   "main") git -C $OMARCHY_PATH switch main ;;
   "dev") git -C $OMARCHY_PATH switch dev ;;
   *) echo "Unknown branch: $branch"; exit 1; ;;

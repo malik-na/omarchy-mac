@@ -7,11 +7,17 @@ else
   channel="$1"
 fi
 
+STATE_DIR="$HOME/.local/state/omarchy"
+STATE_FILE="$STATE_DIR/channel"
+
 case "$channel" in
-"stable") omarchy-branch-set "master" && omarchy-refresh-pacman "stable" ;;
-"edge") omarchy-branch-set "master" && omarchy-refresh-pacman "edge" ;;
-"dev") omarchy-branch-set "dev" && omarchy-refresh-pacman "edge" ;;
+"stable") omarchy-branch-set "fedora" ;;
+"edge") omarchy-branch-set "fedora" ;;
+"dev") omarchy-branch-set "dev" ;;
 *) echo "Unknown channel: $channel"; exit 1; ;;
 esac
+
+mkdir -p "$STATE_DIR"
+echo "$channel" > "$STATE_FILE"
 
 omarchy-update -y

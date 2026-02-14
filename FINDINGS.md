@@ -1,5 +1,7 @@
 # Omarchy Fedora Port — Feasibility Verification Findings
 
+> Historical note: this assessment predates the Fedora-only cleanup. Current status and implementation details live in `FEDORA_ASAHI_PORTING_PLAN.md`.
+
 > **Date:** January 4, 2026  
 > **Machine:** Fedora Asahi Remix 42 (Forty Two [Adams])  
 > **Kernel:** 6.14.2-401.asahi.fc42.aarch64+16k  

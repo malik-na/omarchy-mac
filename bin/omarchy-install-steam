@@ -30,5 +30,5 @@ EOF
 fi
 
 echo "Now pick dependencies matching your graphics card"
-sudo pacman -S steam
+sudo dnf install -y steam
 setsid gtk-launch steam >/dev/null 2>&1 &

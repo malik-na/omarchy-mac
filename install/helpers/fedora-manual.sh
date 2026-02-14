@@ -12,26 +12,42 @@ fi
 # 1. lazydocker (GitHub binary)
 if ! command -v lazydocker &>/dev/null; then
   echo "Installing lazydocker (GitHub binary)..."
-  # Map architecture: aarch64 -> arm64, x86_64 -> x86_64
-  ARCH=$(uname -m)
-  if [[ "$ARCH" == "aarch64" ]]; then
-    ARCH="arm64"
-  fi
-  LAZYDOCKER_URL="https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_$(uname -s)_${ARCH}.tar.gz"
-  tmpdir=$(mktemp -d)
-  if curl -fL "$LAZYDOCKER_URL" -o "$tmpdir/lazydocker.tar.gz" && tar -xzf "$tmpdir/lazydocker.tar.gz" -C "$tmpdir"; then
-    sudo mv "$tmpdir/lazydocker" /usr/local/bin/
-    sudo chmod +x /usr/local/bin/lazydocker
+  OS_NAME=$(uname -s)
+  ARCH_NAME=$(uname -m)
+  case "$ARCH_NAME" in
+    aarch64) ARCH_NAME="arm64" ;;
+    x86_64) ARCH_NAME="x86_64" ;;
+  esac
+
+  latest_tag=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazydocker/releases/latest | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p' | head -1)
+
+  if [[ -z "$latest_tag" ]]; then
+    echo "[WARN] Could not determine lazydocker latest version, skipping..."
   else
-    echo "[WARN] Failed to install lazydocker, skipping..."
+    LAZYDOCKER_URL="https://github.com/jesseduffield/lazydocker/releases/download/${latest_tag}/lazydocker_${latest_tag#v}_${OS_NAME}_${ARCH_NAME}.tar.gz"
+
+    tmpdir=$(mktemp -d)
+    if curl -fL "$LAZYDOCKER_URL" -o "$tmpdir/lazydocker.tar.gz" && tar -xzf "$tmpdir/lazydocker.tar.gz" -C "$tmpdir"; then
+      sudo mv "$tmpdir/lazydocker" /usr/local/bin/
+      sudo chmod +x /usr/local/bin/lazydocker
+    else
+      echo "[WARN] Failed to install lazydocker, skipping..."
+    fi
+    rm -rf "$tmpdir"
   fi
-  rm -rf "$tmpdir"
 fi
 
-# 2. uwsm (pip)
+# 2. uwsm
 if ! command -v uwsm &>/dev/null; then
-  echo "Installing uwsm (pip)..."
-  pip3 install --user uwsm
+  echo "Installing uwsm..."
+
+  if sudo dnf install -y uwsm; then
+    :
+  elif command -v pip3 >/dev/null 2>&1 && pip3 install --user git+https://github.com/Vladimir-csp/uwsm.git; then
+    :
+  else
+    echo "[WARN] Failed to install uwsm automatically."
+  fi
 fi
 
 # 2b. terminaltexteffects (tte) - for install animations
@@ -62,7 +78,11 @@ fi
 if ! command -v swayosd-server &>/dev/null; then
   echo "Installing swayosd (COPR or build from source)..."
   sudo dnf copr enable -y atim/swayosd || true
-  sudo dnf install -y swayosd || echo "[WARN] swayosd not found in COPR, please build from source."
+  if dnf list --available swayosd &>/dev/null; then
+    sudo dnf install -y swayosd
+  else
+    echo "[WARN] swayosd not found in enabled repositories, skipping automatic install."
+  fi
 fi
 
 # 7. satty (build from source)

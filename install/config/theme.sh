@@ -1,7 +1,11 @@
 #!/bin/bash
 # Set links for Nautilius action icons
-sudo ln -snf /usr/share/icons/Adwaita/symbolic/actions/go-previous-symbolic.svg /usr/share/icons/Yaru/scalable/actions/go-previous-symbolic.svg
-sudo ln -snf /usr/share/icons/Adwaita/symbolic/actions/go-next-symbolic.svg /usr/share/icons/Yaru/scalable/actions/go-next-symbolic.svg
+if [[ -d /usr/share/icons/Yaru/scalable/actions ]]; then
+  sudo ln -snf /usr/share/icons/Adwaita/symbolic/actions/go-previous-symbolic.svg /usr/share/icons/Yaru/scalable/actions/go-previous-symbolic.svg
+  sudo ln -snf /usr/share/icons/Adwaita/symbolic/actions/go-next-symbolic.svg /usr/share/icons/Yaru/scalable/actions/go-next-symbolic.svg
+else
+  echo "[SKIP] Yaru icon directory not present"
+fi
 
 # Setup theme links
 mkdir -p ~/.config/omarchy/themes

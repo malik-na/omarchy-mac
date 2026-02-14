@@ -5,7 +5,7 @@
 # Ensure brightnessctl is installed
 if ! command -v brightnessctl &>/dev/null; then
   echo "Installing brightnessctl..."
-  sudo pacman -S brightnessctl --noconfirm
+  sudo dnf install -y brightnessctl
 fi
 
 # Setup sudo-less control for brightnessctl

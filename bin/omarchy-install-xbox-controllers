@@ -21,7 +21,7 @@ show_arm_notice() {
 ║   If your controller doesn't work:                            ║
 ║   • Check kernel modules: lsmod | grep xpad                   ║
 ║   • Test with: jstest /dev/input/js0                          ║
-║   • Install generic gamepad tools: sudo pacman -S jstest-gtk  ║
+║   • Install generic gamepad tools: sudo dnf install jstest-gtk ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 

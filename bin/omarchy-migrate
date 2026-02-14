@@ -1,5 +1,17 @@
 #!/bin/bash
 
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+OMARCHY_INSTALL="${OMARCHY_INSTALL:-$OMARCHY_PATH/install}"
+
+if [[ -f "$OMARCHY_INSTALL/helpers/distro.sh" ]]; then
+  source "$OMARCHY_INSTALL/helpers/distro.sh"
+fi
+
+is_arch_only_migration() {
+  local file="$1"
+  grep -Eq "\\bpacman\\b|\\byay\\b|\\bparu\\b|/etc/pacman|mkinitcpio|limine|pacman-key|omarchy-refresh-pacman|linux-asahi|install/config/hardware/(fix-fkeys|intel|nvidia|fix-surface-keyboard|fix-bcm43xx|fix-apple-t2|fix-apple-spi-keyboard|fix-apple-bcm43xx|fix-apple-bcm4360|fix-apple-suspend-nvme)\\.sh" "$file"
+}
+
 # Where we store an empty file for each migration that has already been performed.
 STATE_DIR="$HOME/.local/state/omarchy/migrations"
 mkdir -p "$STATE_DIR"
@@ -12,12 +24,18 @@ for file in ~/.local/share/omarchy/migrations/*.sh; do
   filename=$(basename "$file")
 
   if [[ ! -f "$STATE_DIR/$filename" && ! -f "$STATE_DIR/skipped/$filename" ]]; then
+    if is_fedora && is_arch_only_migration "$file"; then
+      echo -e "\e[33m\nSkipping Arch-only migration (${filename%.sh}) on Fedora\e[0m"
+      touch "$STATE_DIR/skipped/$filename"
+      continue
+    fi
+
     echo -e "\e[32m\nRunning migration (${filename%.sh})\e[0m"
 
-    if bash $file; then
+    if bash "$file"; then
       touch "$STATE_DIR/$filename"
     else
-      if gum confirm "Migration ${filename%.sh} failed. Skip and continue?"; then
+      if command -v gum >/dev/null 2>&1 && gum confirm "Migration ${filename%.sh} failed. Skip and continue?"; then
         touch "$STATE_DIR/skipped/$filename"
       else
         exit 1

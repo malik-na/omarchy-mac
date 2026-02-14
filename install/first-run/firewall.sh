@@ -1,21 +1,18 @@
 #!/bin/bash
-# Allow nothing in, everything out
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+if ! command -v firewall-cmd >/dev/null 2>&1; then
+  echo "[WARN] firewalld is not available; skipping firewall setup"
+  exit 0
+fi
 
-# Allow ports for LocalSend
-sudo ufw allow 53317/udp
-sudo ufw allow 53317/tcp
+if ! systemctl is-enabled firewalld >/dev/null 2>&1; then
+  sudo systemctl enable --now firewalld
+fi
 
-# Allow Docker containers to use DNS on host
-sudo ufw allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'
+# LocalSend discovery and transfer ports
+sudo firewall-cmd --permanent --add-port=53317/udp
+sudo firewall-cmd --permanent --add-port=53317/tcp
 
-# Turn on the firewall
-sudo ufw --force enable
+# Allow Docker containers to use DNS on host bridge
+sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="172.16.0.0/12" destination address="172.17.0.1" port protocol="udp" port="53" accept'
 
-# Enable UFW systemd service to start on boot
-sudo systemctl enable ufw
-
-# Turn on Docker protections
-sudo ufw-docker install
-sudo ufw reload
+sudo firewall-cmd --reload

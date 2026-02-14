@@ -1,4 +1,17 @@
 #!/bin/bash
 
 rfkill unblock wifi
-omarchy-launch-or-focus-tui impala
+
+if command -v impala >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui impala
+fi
+
+if command -v nm-connection-editor >/dev/null 2>&1; then
+  exec setsid uwsm-app -- nm-connection-editor >/dev/null 2>&1
+fi
+
+if command -v nmtui >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui nmtui
+fi
+
+notify-send "Wi-Fi" "No supported Wi-Fi UI found (impala/nm-connection-editor/nmtui)."

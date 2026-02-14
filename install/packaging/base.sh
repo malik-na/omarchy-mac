@@ -2,12 +2,7 @@
 source "$OMARCHY_INSTALL/helpers/packages.sh"
 
 
-# Select package list based on distro
-if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
-  package_file="$OMARCHY_INSTALL/omarchy-base.packages.fedora"
-else
-  package_file="$OMARCHY_INSTALL/omarchy-base.packages"
-fi
+package_file="$OMARCHY_INSTALL/omarchy-base.packages.fedora"
 
 core_packages=()
 optional_packages=()
@@ -41,18 +36,12 @@ packages=("${core_packages[@]}" "${selected_optional_pkgs[@]}")
 echo "\e[34m[Omarchy] Checking package availability...\e[0m"
 unavailable_pkgs=()
 for pkg in "${packages[@]}"; do
-  if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
-    if ! fedora_package_installed "$pkg" && ! dnf list --available "$pkg" &>/dev/null; then
-      unavailable_pkgs+=("$pkg")
-    fi
-  else
-    if ! omarchy_package_known_to_any_manager "$pkg"; then
-      unavailable_pkgs+=("$pkg")
-    fi
+  if ! fedora_package_installed "$pkg" && ! dnf list --available "$pkg" &>/dev/null; then
+    unavailable_pkgs+=("$pkg")
   fi
 done
 if ((${#unavailable_pkgs[@]} > 0)); then
-  echo "\e[33m[Warning] The following packages were not found in pacman, yay, or paru metadata and may fail to install:\e[0m"
+  echo "\e[33m[Warning] The following packages were not found in Fedora repositories and may fail to install:\e[0m"
   for pkg in "${unavailable_pkgs[@]}"; do
     echo "  - $pkg"
   done
@@ -71,18 +60,10 @@ for pkg in "${packages[@]}"; do
     echo "[OK] $pkg"
   else
     echo "[FAILED] $pkg"
-    if [[ "$OMARCHY_DISTRO" == "fedora" ]]; then
-      if dnf list --available "$pkg" &>/dev/null; then
-        failed_packages+=("$pkg")
-      else
-        failed_packages+=("$pkg (not found in dnf)")
-      fi
+    if dnf list --available "$pkg" &>/dev/null; then
+      failed_packages+=("$pkg")
     else
-      if omarchy_package_known_to_any_manager "$pkg"; then
-        failed_packages+=("$pkg")
-      else
-        failed_packages+=("$pkg (not found in pacman/yay/paru)")
-      fi
+      failed_packages+=("$pkg (not found in dnf)")
     fi
   fi
 done

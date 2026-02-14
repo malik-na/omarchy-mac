@@ -1,13 +1,11 @@
 #!/bin/bash
 
 # Distro detection and environment setup
-# Sets OMARCHY_DISTRO to 'arch' or 'fedora'
+# Sets OMARCHY_DISTRO to 'fedora' when supported
 
 detect_distro() {
   if [[ -f /etc/fedora-release ]]; then
     echo "fedora"
-  elif [[ -f /etc/arch-release ]]; then
-    echo "arch"
   else
     echo "unknown"
   fi
@@ -23,9 +21,9 @@ is_fedora() {
   [[ "$OMARCHY_DISTRO" == "fedora" ]]
 }
 
-# Helper to check if running on Arch
+# Helper kept for compatibility with existing scripts
 is_arch() {
-  [[ "$OMARCHY_DISTRO" == "arch" ]]
+  return 1
 }
 
 # Check if running on Fedora Asahi specifically
@@ -33,9 +31,9 @@ is_fedora_asahi() {
   is_fedora && grep -q "asahi" /proc/version 2>/dev/null
 }
 
-# Check if running on Arch Asahi (Asahi Alarm)
+# Helper kept for compatibility with existing scripts
 is_arch_asahi() {
-  is_arch && grep -q "asahi" /proc/version 2>/dev/null
+  return 1
 }
 
 echo "Distro: $OMARCHY_DISTRO"

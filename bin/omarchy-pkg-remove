@@ -1,21 +1,14 @@
 #!/bin/bash
 
-fzf_args=(
-  --multi
-  --preview 'yay -Qi {1}'
-  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
-  --preview-label-pos='bottom'
-  --preview-window 'down:65%:wrap'
-  --bind 'alt-p:toggle-preview'
-  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
-  --bind 'alt-k:preview-up,alt-j:preview-down'
-  --color 'pointer:red,marker:red'
-)
-
-pkg_names=$(yay -Qqe | fzf "${fzf_args[@]}")
+if (($# > 0)); then
+  pkg_names="$*"
+elif command -v gum >/dev/null 2>&1; then
+  pkg_names=$(gum input --placeholder "Enter installed package names to remove")
+else
+  read -r -p "Enter installed package names to remove: " pkg_names
+fi
 
 if [[ -n "$pkg_names" ]]; then
-  # Convert newline-separated selections to space-separated for yay
-  echo "$pkg_names" | tr '\n' ' ' | xargs sudo pacman -Rns --noconfirm
+  sudo dnf remove -y $pkg_names
   omarchy-show-done
 fi

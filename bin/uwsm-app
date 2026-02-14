@@ -1,0 +1,23 @@
+#!/bin/bash
+
+self_path=$(readlink -f "$0")
+
+if command -v which >/dev/null 2>&1; then
+  while IFS= read -r candidate; do
+    candidate_path=$(readlink -f "$candidate" 2>/dev/null || true)
+    if [[ -n "$candidate_path" && "$candidate_path" != "$self_path" ]]; then
+      exec "$candidate" "$@"
+    fi
+  done < <(which -a uwsm-app 2>/dev/null)
+fi
+
+if [[ "$1" == "--" ]]; then
+  shift
+fi
+
+if (($# == 0)); then
+  echo "uwsm-app fallback: missing command" >&2
+  exit 1
+fi
+
+exec "$@"

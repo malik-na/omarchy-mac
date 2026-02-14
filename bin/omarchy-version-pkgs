@@ -1,3 +1,9 @@
 #!/bin/bash
 
-date -d "$(grep upgraded /var/log/pacman.log | tail -1 | sed -E 's/\[([^]]+)\].*/\1/')" "+%A, %B %d %Y at %H:%M"
+last_transaction=$(dnf history list --reverse 2>/dev/null | awk 'NR>2 && $1 ~ /^[0-9]+$/ {print; exit}')
+
+if [[ -n "$last_transaction" ]]; then
+  echo "$last_transaction"
+else
+  echo "No DNF transaction history found"
+fi

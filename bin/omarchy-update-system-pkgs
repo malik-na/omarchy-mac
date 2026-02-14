@@ -2,25 +2,10 @@
 
 set -e
 
-# Used in package emergencies if a bad package has been pushed and we can't revoke.
-# Requires manually installing the good package using sudo pacman -U <url>
-#ignored_packages=$(omarchy-pkg-ignored)
+echo -e "\e[32m\nUpdate system packages\e[0m"
+sudo dnf upgrade -y --refresh
+echo
 
-echo -e "\e[32m\nUpdate system packages (including AUR)\e[0m"
-if omarchy-pkg-aur-accessible; then
-  [[ -n $ignored_packages ]] && echo "yay -Syu --noconfirm --ignore \"$ignored_packages\""
-  yay -Syu --noconfirm --ignore "$ignored_packages"
-  echo
-else
-  echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
-  echo
-fi
-
-orphans=$(pacman -Qtdq || true)
-if [[ -n $orphans ]]; then
-  echo -e "\e[32m\nRemove orphan system packages\e[0m"
-  for pkg in $orphans; do
-    sudo pacman -Rs --noconfirm "$pkg" || true
-  done
-  echo
-fi
+echo -e "\e[32m\nRemove unused packages\e[0m"
+sudo dnf autoremove -y || true
+echo

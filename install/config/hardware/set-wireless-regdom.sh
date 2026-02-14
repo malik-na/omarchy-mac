@@ -7,6 +7,11 @@ fi
 
 # If the region is already set, we're done
 if [ ! -n "${WIRELESS_REGDOM}" ]; then
+  if [[ ! -d /etc/conf.d ]]; then
+    echo "[SKIP] /etc/conf.d not present; skipping wireless-regdom config"
+    exit 0
+  fi
+
   # Get the current timezone
   if [ -e "/etc/localtime" ]; then
     TIMEZONE=$(readlink -f /etc/localtime)

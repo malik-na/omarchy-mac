@@ -18,16 +18,6 @@ run_logged $OMARCHY_INSTALL/config/fast-shutdown.sh
 run_logged $OMARCHY_INSTALL/config/sudoless-asdcontrol.sh
 run_logged $OMARCHY_INSTALL/config/hardware/network.sh
 run_logged $OMARCHY_INSTALL/config/hardware/set-wireless-regdom.sh
-
-# Only run x86_64-specific hardware scripts on x86_64
-ARCH="$(uname -m)"
-if [[ "$ARCH" == "x86_64" ]]; then
-  run_logged $OMARCHY_INSTALL/config/hardware/fix-fkeys.sh
-  run_logged $OMARCHY_INSTALL/config/hardware/nvidia.sh
-  run_logged $OMARCHY_INSTALL/config/hardware/fix-apple-bcm4360.sh
-  run_logged $OMARCHY_INSTALL/config/hardware/fix-apple-spi-keyboard.sh
-  run_logged $OMARCHY_INSTALL/config/hardware/fix-apple-t2.sh
-fi
 run_logged $OMARCHY_INSTALL/config/hardware/bluetooth.sh
 run_logged $OMARCHY_INSTALL/config/hardware/printer.sh
 run_logged $OMARCHY_INSTALL/config/hardware/usb-autosuspend.sh

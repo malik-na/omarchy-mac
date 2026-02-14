@@ -2,7 +2,7 @@
 
 # Compare kernel version before and after updates
 kernel_before=$(cat /tmp/omarchy-kernel-before 2>/dev/null)
-kernel_after=$(pacman -Q linux-asahi 2>/dev/null | awk '{print $2}')
+kernel_after=$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-core 2>/dev/null | sort -V | tail -1)
 rm -f /tmp/omarchy-kernel-before
 
 if [ -n "$kernel_before" ] && [ "$kernel_before" != "$kernel_after" ]; then

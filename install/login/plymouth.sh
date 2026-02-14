@@ -96,6 +96,11 @@ CCODE
 fi
 
 if [ ! -f /etc/systemd/system/omarchy-seamless-login.service ]; then
+  SESSION_EXEC="hyprland"
+  if command -v uwsm >/dev/null 2>&1; then
+    SESSION_EXEC="uwsm start -- hyprland.desktop"
+  fi
+
   cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
 [Unit]
 Description=Omarchy Seamless Auto-Login
@@ -106,7 +111,7 @@ PartOf=graphical.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/seamless-login uwsm start -- hyprland.desktop
+ExecStart=/usr/local/bin/seamless-login ${SESSION_EXEC}
 Restart=always
 RestartSec=2
 StartLimitIntervalSec=30

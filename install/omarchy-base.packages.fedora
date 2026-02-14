@@ -3,6 +3,9 @@
 
 # Desktop
 hyprland
+hypridle
+hyprlock
+hyprsunset
 waybar
 fuzzel
 mako
@@ -59,20 +62,25 @@ plymouth
 cups
 snapper
 ImageMagick
+firewalld
+python3-pip
+flatpak
 
 # Display Manager
 sddm
 libsecret
 gnome-keyring
+lxpolkit
 
 # Fonts
 google-noto-fonts-common
 google-noto-sans-cjk-fonts
 google-noto-emoji-fonts
 cascadia-mono-nf-fonts
-jetbrains-mono-nf-fonts
+jetbrains-mono-fonts
 
 # Input Methods
 fcitx5
 fcitx5-gtk
 fcitx5-qt5
+uwsm

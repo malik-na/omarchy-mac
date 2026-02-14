@@ -3,8 +3,7 @@
 sudo cp ~/.local/share/omarchy/default/plymouth/* /usr/share/plymouth/themes/omarchy/
 sudo plymouth-set-default-theme omarchy
 
-if command -v limine-mkinitcpio &>/dev/null; then
-  sudo limine-mkinitcpio
-else
-  sudo mkinitcpio -P
-fi
+for kernel in /lib/modules/*; do
+  kver=$(basename "$kernel")
+  sudo dracut --force "/boot/initramfs-$kver.img" "$kver"
+done

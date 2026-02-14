@@ -1,7 +1,16 @@
 #!/bin/bash
 
+if ! command -v walker >/dev/null 2>&1; then
+  if command -v fuzzel >/dev/null 2>&1; then
+    exec fuzzel --dmenu
+  fi
+
+  notify-send "Launcher" "Walker is not installed and no fallback launcher is available."
+  exit 1
+fi
+
 # Ensure elephant is running before launching walker
-if ! pgrep -x elephant > /dev/null; then
+if command -v elephant >/dev/null 2>&1 && ! pgrep -x elephant > /dev/null; then
   setsid uwsm-app -- elephant &
 fi
 

@@ -1,4 +1,17 @@
 #!/bin/bash
 
 rfkill unblock bluetooth
-exec omarchy-launch-or-focus-tui bluetui
+
+if command -v bluetui >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui bluetui
+fi
+
+if command -v blueman-manager >/dev/null 2>&1; then
+  exec setsid uwsm-app -- blueman-manager >/dev/null 2>&1
+fi
+
+if command -v bluetoothctl >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui bluetoothctl
+fi
+
+notify-send "Bluetooth" "No supported Bluetooth UI found (bluetui/blueman-manager/bluetoothctl)."

@@ -1,7 +1,11 @@
 #!/bin/bash
 # Ensure we have gum available
 if ! command -v gum &>/dev/null; then
-  sudo pacman -S --needed --noconfirm gum
+  if [[ -x "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/fedora-gum.sh" ]]; then
+    bash "${OMARCHY_INSTALL:-$HOME/.local/share/omarchy/install}/helpers/fedora-gum.sh"
+  else
+    sudo dnf install -y gum
+  fi
 fi
 
 # Get terminal size from /dev/tty (works in all scenarios: direct, sourced, or piped)

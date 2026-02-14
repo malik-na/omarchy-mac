@@ -1,7 +1,13 @@
 #!/bin/bash
 
 # Lock the screen
-pidof hyprlock || hyprlock &
+if command -v hyprlock >/dev/null 2>&1; then
+  pidof hyprlock || hyprlock &
+elif command -v loginctl >/dev/null 2>&1; then
+  loginctl lock-session
+else
+  notify-send "Lock" "No screen lock utility available (hyprlock/loginctl)."
+fi
 
 # Set keyboard layout to default (first layout)
 hyprctl switchxkblayout all 0 > /dev/null 2>&1
