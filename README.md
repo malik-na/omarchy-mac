@@ -43,9 +43,9 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 ## Runtime Fixes (2026-02-14)
 
 - Resolved Fedora font mismatch by switching default UI/terminal font family references to `JetBrains Mono`.
-- Default browser setup is now dynamic (uses installed browser desktop entry instead of forcing Chromium).
+- Fedora defaults now prioritize Chromium as the system browser (`chromium-browser.desktop` on Fedora).
 - Wi-Fi/Bluetooth setup launchers now use robust fallbacks (`impala` -> `nm-connection-editor` -> `nmtui` -> `nmcli` -> `iwctl`, and `bluetui` -> `blueman-manager` -> `bluetoothctl`).
-- Webapp launchers now gracefully handle Firefox-only systems when no Chromium-based browser is present.
+- Webapp launchers now open as separate app windows (`--new-window --app=...`) instead of reusing regular browser tabs.
 - Power profile menu now works with wrapper commands and degrades safely when `powerprofilesctl` is missing.
 - Media keys now route through `omarchy-media-control`, with fallback control paths when `swayosd-client` is unavailable.
 - Launcher keybind reliability was fixed by routing `Super+Space` through `omarchy-launch-walker`, correcting `fuzzel` launch prefix to `uwsm-app --`, and preventing stale `fuzzel --dmenu` lockups.
@@ -55,7 +55,7 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 ```bash
 bash tests/test-fedora-asahi-compatibility.sh
 bash install/preflight/fedora-required-pkgs.sh
-bash -lc 'command -v firefox nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
+bash -lc 'command -v chromium-browser nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
 bash -lc 'xdg-settings get default-web-browser'
 ```
 

@@ -183,12 +183,14 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - `Super+Space` now uses `omarchy-launch-walker` wrapper in defaults and user bindings.
   - Fixed fuzzel launcher config to use `launch-prefix=uwsm-app --`.
   - Updated walker fallback to avoid non-interactive `fuzzel --dmenu` lockups and added clipboard-mode fallback behavior.
-  - Fedora package baseline updated to include: `firefox`, `power-profiles-daemon`, `NetworkManager-tui`, `nm-connection-editor`, `blueman`.
+  - Fedora package baseline updated to include: `chromium`, `power-profiles-daemon`, `NetworkManager-tui`, `nm-connection-editor`, `blueman`.
+  - Browser default selection now explicitly supports Fedora's Chromium desktop id (`chromium-browser.desktop`) and prioritizes Chromium on Fedora.
+  - Webapp launcher now uses separate app windows (`--new-window --app=...`) so webapps do not reuse tabbed browser windows.
 - Verification completed on target Fedora Asahi machine:
   - Script syntax checks passed for updated launcher/control scripts.
   - `tests/test-fedora-asahi-compatibility.sh` passed.
-  - Verified commands present: `nmtui`, `nm-connection-editor`, `blueman-manager`, `bluetoothctl`, `powerprofilesctl`, `firefox`.
-  - Verified browser default: `org.mozilla.firefox.desktop`.
+  - Verified commands present: `nmtui`, `nm-connection-editor`, `blueman-manager`, `bluetoothctl`, `powerprofilesctl`, `chromium-browser`.
+  - Verified browser default: `chromium-browser.desktop`.
   - Verified power profile wrappers and `powerprofilesctl` set/get flow.
 
 ## Required Next Steps (Root Session)

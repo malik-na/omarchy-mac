@@ -48,13 +48,14 @@ pick_default_desktop() {
   fi
 
   for candidate in \
-    org.mozilla.firefox.desktop \
-    firefox.desktop \
+    chromium-browser.desktop \
     chromium.desktop \
     google-chrome.desktop \
     brave-browser.desktop \
     microsoft-edge.desktop \
-    vivaldi-stable.desktop; do
+    vivaldi-stable.desktop \
+    org.mozilla.firefox.desktop \
+    firefox.desktop; do
     if resolve_desktop_file "$candidate" >/dev/null; then
       printf "%s\n" "$candidate"
       return 0
@@ -67,7 +68,7 @@ pick_default_desktop() {
 pick_chromium_desktop() {
   local candidate
 
-  for candidate in chromium.desktop google-chrome.desktop brave-browser.desktop microsoft-edge.desktop vivaldi-stable.desktop; do
+  for candidate in chromium-browser.desktop chromium.desktop google-chrome.desktop brave-browser.desktop microsoft-edge.desktop vivaldi-stable.desktop; do
     if resolve_desktop_file "$candidate" >/dev/null; then
       printf "%s\n" "$candidate"
       return 0
@@ -91,7 +92,7 @@ elif [[ -n "$default_desktop" ]]; then
 fi
 
 if [[ -z "$browser_exec" ]]; then
-  for candidate in chromium google-chrome brave-browser microsoft-edge vivaldi firefox; do
+  for candidate in chromium-browser chromium google-chrome brave-browser microsoft-edge vivaldi firefox; do
     if command -v "$candidate" >/dev/null 2>&1; then
       browser_exec="$candidate"
       break
@@ -105,7 +106,11 @@ if [[ -z "$browser_exec" ]]; then
 fi
 
 if [[ $browser_exec =~ (chromium|chrome|brave|edge|opera|vivaldi|helium) ]]; then
-  exec setsid uwsm-app -- "$browser_exec" --app="$url" "$@"
+  exec setsid uwsm-app -- "$browser_exec" --new-window --app="$url" "$@"
+fi
+
+if [[ $browser_exec =~ firefox ]]; then
+  exec setsid uwsm-app -- "$browser_exec" --new-window "$url" "$@"
 fi
 
 exec setsid uwsm-app -- "$browser_exec" "$url" "$@"

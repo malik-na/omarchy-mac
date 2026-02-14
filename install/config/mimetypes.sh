@@ -18,6 +18,7 @@ choose_browser_desktop() {
   local candidate
 
   for candidate in \
+    chromium-browser.desktop \
     chromium.desktop \
     google-chrome.desktop \
     brave-browser.desktop \

@@ -43,6 +43,7 @@ pick_desktop_id() {
   fi
 
   for candidate in \
+    chromium-browser.desktop \
     chromium.desktop \
     google-chrome.desktop \
     brave-browser.desktop \
@@ -76,7 +77,7 @@ if [[ -n "$desktop_id" ]]; then
 fi
 
 if [[ -z "$browser_exec" ]]; then
-  for candidate in firefox chromium google-chrome brave-browser microsoft-edge vivaldi; do
+  for candidate in chromium-browser chromium firefox google-chrome brave-browser microsoft-edge vivaldi; do
     if command -v "$candidate" >/dev/null 2>&1; then
       browser_exec="$candidate"
       break
