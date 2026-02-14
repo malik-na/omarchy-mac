@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if (($# == 0)); then
+  echo "Usage: omarchy-powerprofiles-set <profile>"
+  exit 1
+fi
+
+if command -v powerprofilesctl >/dev/null 2>&1; then
+  exec powerprofilesctl set "$1"
+fi
+
+notify-send "Power profile" "powerprofilesctl is not installed. Install power-profiles-daemon."
+exit 1

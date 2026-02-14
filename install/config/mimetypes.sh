@@ -13,10 +13,35 @@ xdg-mime default imv.desktop image/tiff
 # Open PDFs with the Document Viewer
 xdg-mime default org.gnome.Evince.desktop application/pdf
 
-# Use Chromium as the default browser
-xdg-settings set default-web-browser chromium.desktop
-xdg-mime default chromium.desktop x-scheme-handler/http
-xdg-mime default chromium.desktop x-scheme-handler/https
+# Set default browser based on installed desktop entries
+choose_browser_desktop() {
+  local candidate
+
+  for candidate in \
+    chromium.desktop \
+    google-chrome.desktop \
+    brave-browser.desktop \
+    microsoft-edge.desktop \
+    vivaldi-stable.desktop \
+    org.mozilla.firefox.desktop \
+    firefox.desktop; do
+    if [[ -f "$HOME/.local/share/applications/$candidate" || -f "/usr/local/share/applications/$candidate" || -f "/usr/share/applications/$candidate" ]]; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+browser_desktop="$(choose_browser_desktop || true)"
+if [[ -n "$browser_desktop" ]]; then
+  xdg-settings set default-web-browser "$browser_desktop"
+  xdg-mime default "$browser_desktop" x-scheme-handler/http
+  xdg-mime default "$browser_desktop" x-scheme-handler/https
+else
+  echo "[WARN] No supported browser desktop file found; skipping default browser setup"
+fi
 
 # Open video files with mpv
 xdg-mime default mpv.desktop video/mp4

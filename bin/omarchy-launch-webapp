@@ -1,10 +1,111 @@
 #!/bin/bash
 
-browser=$(xdg-settings get default-web-browser)
+if (($# == 0)); then
+  echo "Usage: omarchy-launch-webapp <url> [args...]"
+  exit 1
+fi
 
-case $browser in
-google-chrome* | brave-browser* | microsoft-edge* | opera* | vivaldi* | helium*) ;;
-*) browser="chromium.desktop" ;;
-esac
+desktop_paths=(
+  "$HOME/.local/share/applications"
+  "$HOME/.nix-profile/share/applications"
+  "/usr/local/share/applications"
+  "/usr/share/applications"
+)
 
-exec setsid uwsm-app -- $(sed -n 's/^Exec=\([^ ]*\).*/\1/p' {~/.local,~/.nix-profile,/usr}/share/applications/$browser 2>/dev/null | head -1) --app="$1" "${@:2}"
+resolve_desktop_file() {
+  local desktop_id="$1"
+
+  for base in "${desktop_paths[@]}"; do
+    if [[ -f "$base/$desktop_id" ]]; then
+      printf "%s\n" "$base/$desktop_id"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_exec() {
+  local desktop_id="$1"
+  local file
+  local exec_line
+
+  file="$(resolve_desktop_file "$desktop_id")" || return 1
+  exec_line="$(sed -n 's/^Exec=//p' "$file" | head -n1)"
+  exec_line="${exec_line%% *}"
+  [[ -n "$exec_line" ]] || return 1
+  printf "%s\n" "$exec_line"
+}
+
+pick_default_desktop() {
+  local configured
+  local candidate
+
+  configured="$(xdg-settings get default-web-browser 2>/dev/null || true)"
+  if [[ -n "$configured" ]] && resolve_desktop_file "$configured" >/dev/null; then
+    printf "%s\n" "$configured"
+    return 0
+  fi
+
+  for candidate in \
+    org.mozilla.firefox.desktop \
+    firefox.desktop \
+    chromium.desktop \
+    google-chrome.desktop \
+    brave-browser.desktop \
+    microsoft-edge.desktop \
+    vivaldi-stable.desktop; do
+    if resolve_desktop_file "$candidate" >/dev/null; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+pick_chromium_desktop() {
+  local candidate
+
+  for candidate in chromium.desktop google-chrome.desktop brave-browser.desktop microsoft-edge.desktop vivaldi-stable.desktop; do
+    if resolve_desktop_file "$candidate" >/dev/null; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+url="$1"
+shift
+
+default_desktop="$(pick_default_desktop 2>/dev/null || true)"
+chromium_desktop="$(pick_chromium_desktop 2>/dev/null || true)"
+
+browser_exec=""
+if [[ -n "$chromium_desktop" ]]; then
+  browser_exec="$(resolve_exec "$chromium_desktop" 2>/dev/null || true)"
+elif [[ -n "$default_desktop" ]]; then
+  browser_exec="$(resolve_exec "$default_desktop" 2>/dev/null || true)"
+fi
+
+if [[ -z "$browser_exec" ]]; then
+  for candidate in chromium google-chrome brave-browser microsoft-edge vivaldi firefox; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser_exec="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$browser_exec" ]]; then
+  notify-send "Webapp" "No supported browser found. Install Firefox or Chromium."
+  exit 1
+fi
+
+if [[ $browser_exec =~ (chromium|chrome|brave|edge|opera|vivaldi|helium) ]]; then
+  exec setsid uwsm-app -- "$browser_exec" --app="$url" "$@"
+fi
+
+exec setsid uwsm-app -- "$browser_exec" "$url" "$@"

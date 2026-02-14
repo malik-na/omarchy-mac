@@ -1,5 +1,9 @@
 #!/bin/bash
 
-powerprofilesctl list |
-  awk '/^\s*[* ]\s*[a-zA-Z0-9\-]+:$/ { gsub(/^[*[:space:]]+|:$/,""); print }' |
-  tac
+if command -v powerprofilesctl >/dev/null 2>&1; then
+  powerprofilesctl list |
+    awk '/^\s*[* ]\s*[a-zA-Z0-9\-]+:$/ { gsub(/^[*[:space:]]+|:$/,""); print }' |
+    tac
+else
+  printf "balanced\n"
+fi

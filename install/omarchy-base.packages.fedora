@@ -15,6 +15,7 @@ wf-recorder
 wl-clipboard
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
+firefox
 
 # Terminal
 alacritty
@@ -65,6 +66,10 @@ ImageMagick
 firewalld
 python3-pip
 flatpak
+power-profiles-daemon
+NetworkManager-tui
+nm-connection-editor
+blueman
 
 # Display Manager
 sddm

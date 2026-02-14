@@ -1,7 +1,93 @@
 #!/bin/bash
 
-default_browser=$(xdg-settings get default-web-browser)
-browser_exec=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' {~/.local,~/.nix-profile,/usr}/share/applications/$default_browser 2>/dev/null | head -1)
+desktop_paths=(
+  "$HOME/.local/share/applications"
+  "$HOME/.nix-profile/share/applications"
+  "/usr/local/share/applications"
+  "/usr/share/applications"
+)
+
+resolve_desktop_file() {
+  local desktop_id="$1"
+
+  for base in "${desktop_paths[@]}"; do
+    if [[ -f "$base/$desktop_id" ]]; then
+      printf "%s\n" "$base/$desktop_id"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_exec() {
+  local desktop_id="$1"
+  local file
+  local exec_line
+
+  file="$(resolve_desktop_file "$desktop_id")" || return 1
+  exec_line="$(sed -n 's/^Exec=//p' "$file" | head -n1)"
+  exec_line="${exec_line%% *}"
+  [[ -n "$exec_line" ]] || return 1
+  printf "%s\n" "$exec_line"
+}
+
+pick_desktop_id() {
+  local configured
+  local candidate
+
+  configured="$(xdg-settings get default-web-browser 2>/dev/null || true)"
+  if [[ -n "$configured" ]] && resolve_desktop_file "$configured" >/dev/null; then
+    printf "%s\n" "$configured"
+    return 0
+  fi
+
+  for candidate in \
+    chromium.desktop \
+    google-chrome.desktop \
+    brave-browser.desktop \
+    microsoft-edge.desktop \
+    vivaldi-stable.desktop \
+    org.mozilla.firefox.desktop \
+    firefox.desktop; do
+    if resolve_desktop_file "$candidate" >/dev/null; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+want_private=false
+pass_args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--private" ]]; then
+    want_private=true
+  else
+    pass_args+=("$arg")
+  fi
+done
+
+browser_exec=""
+desktop_id="$(pick_desktop_id 2>/dev/null || true)"
+if [[ -n "$desktop_id" ]]; then
+  browser_exec="$(resolve_exec "$desktop_id" 2>/dev/null || true)"
+fi
+
+if [[ -z "$browser_exec" ]]; then
+  for candidate in firefox chromium google-chrome brave-browser microsoft-edge vivaldi; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser_exec="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$browser_exec" ]]; then
+  notify-send "Browser" "No supported browser found. Install Firefox or Chromium."
+  exit 1
+fi
 
 if [[ $browser_exec =~ (firefox|zen|librewolf|mullvad) ]]; then
   private_flag="--private-window"
@@ -11,4 +97,8 @@ else
   private_flag="--incognito"
 fi
 
-exec setsid uwsm-app -- "$browser_exec" "${@/--private/$private_flag}"
+if [[ "$want_private" == true ]]; then
+  pass_args=("$private_flag" "${pass_args[@]}")
+fi
+
+exec setsid uwsm-app -- "$browser_exec" "${pass_args[@]}"

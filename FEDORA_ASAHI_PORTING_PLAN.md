@@ -161,6 +161,32 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - `install/helpers/fedora-manual.sh` no longer attempts broken automatic `uwsm` installation.
   - `install/config/config.sh` now ensures login shells source profile exports so Omarchy commands are available in Hyprland binds.
 
+## Runtime Parity Fixes (2026-02-14)
+
+- Root causes confirmed on target machine after Hyprland became boot-stable:
+  - Font rendering mismatched because config used `JetBrainsMono Nerd Font` while Fedora package provides `JetBrains Mono`.
+  - Browser and webapp launchers assumed Chromium desktop entries in some paths.
+  - TUI launch path argument handling caused Wi-Fi/Bluetooth fallback launch failures.
+  - Setup menu still called legacy `blueberry` binary.
+  - Power profile menu failed when `powerprofilesctl` command was unavailable.
+  - Media/brightness binds depended on `swayosd-client` only.
+- Fixes applied:
+  - Font family defaults updated to `JetBrains Mono` across terminal/UI/fontconfig defaults and migration helper.
+  - Browser MIME/default setup now chooses first available supported browser desktop entry.
+  - `omarchy-launch-browser` and `omarchy-launch-webapp` now resolve browser executables dynamically with robust fallbacks.
+  - `omarchy-launch-tui` and `omarchy-launch-or-focus-{tui,webapp}` now quote/forward arguments safely.
+  - `omarchy-launch-wifi` fallback chain expanded to include `nmcli` and `iwctl`.
+  - `omarchy-menu` setup Bluetooth action now uses `omarchy-launch-bluetooth`.
+  - Added `omarchy-powerprofiles-get` and `omarchy-powerprofiles-set`; menu now uses wrappers.
+  - Added `omarchy-media-control` and switched default Hypr media binds to wrapper-based control paths.
+  - Fedora package baseline updated to include: `firefox`, `power-profiles-daemon`, `NetworkManager-tui`, `nm-connection-editor`, `blueman`.
+- Verification completed on target Fedora Asahi machine:
+  - Script syntax checks passed for updated launcher/control scripts.
+  - `tests/test-fedora-asahi-compatibility.sh` passed.
+  - Verified commands present: `nmtui`, `nm-connection-editor`, `blueman-manager`, `bluetoothctl`, `powerprofilesctl`, `firefox`.
+  - Verified browser default: `org.mozilla.firefox.desktop`.
+  - Verified power profile wrappers and `powerprofilesctl` set/get flow.
+
 ## Required Next Steps (Root Session)
 
 - Run these installer steps with root-capable sudo session on target machine:

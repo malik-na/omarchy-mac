@@ -1,6 +1,12 @@
 #!/bin/bash
 
-APP_ID="org.omarchy.$(basename $1)"
-LAUNCH_COMMAND="omarchy-launch-tui $@"
+if (($# == 0)); then
+  echo "Usage: omarchy-launch-or-focus-tui <command> [args...]"
+  exit 1
+fi
+
+APP_ID="org.omarchy.$(basename "$1")"
+printf -v escaped_args '%q ' "$@"
+LAUNCH_COMMAND="omarchy-launch-tui ${escaped_args% }"
 
 exec omarchy-launch-or-focus "$APP_ID" "$LAUNCH_COMMAND"

@@ -14,4 +14,12 @@ if command -v nmtui >/dev/null 2>&1; then
   exec omarchy-launch-or-focus-tui nmtui
 fi
 
-notify-send "Wi-Fi" "No supported Wi-Fi UI found (impala/nm-connection-editor/nmtui)."
+if command -v nmcli >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui nmcli device wifi
+fi
+
+if command -v iwctl >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui iwctl
+fi
+
+notify-send "Wi-Fi" "No supported Wi-Fi UI found (impala/nm-connection-editor/nmtui/nmcli/iwctl)."

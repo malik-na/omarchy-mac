@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if (($# < 2)); then
+  echo "Usage: omarchy-media-control <output-volume|input-volume|brightness|playerctl> <action>"
+  exit 1
+fi
+
+target="$1"
+action="$2"
+
+run_brightness() {
+  local value="$1"
+  if ! brightnessctl set "$value" >/dev/null 2>&1; then
+    sudo -n brightnessctl set "$value" >/dev/null
+  fi
+}
+
+if command -v swayosd-client >/dev/null 2>&1; then
+  monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true).name' 2>/dev/null | head -n1 || true)"
+  cmd=(swayosd-client)
+  if [[ -n "$monitor" ]]; then
+    cmd+=(--monitor "$monitor")
+  fi
+
+  case "$target" in
+  output-volume) exec "${cmd[@]}" --output-volume "$action" ;;
+  input-volume) exec "${cmd[@]}" --input-volume "$action" ;;
+  brightness) exec "${cmd[@]}" --brightness "$action" ;;
+  playerctl) exec "${cmd[@]}" --playerctl "$action" ;;
+  *)
+    echo "Unknown target: $target"
+    exit 1
+    ;;
+  esac
+fi
+
+case "$target:$action" in
+output-volume:raise) pamixer -i 5 ;;
+output-volume:lower) pamixer -d 5 ;;
+output-volume:mute-toggle) pamixer -t ;;
+output-volume:+1) pamixer -i 1 ;;
+output-volume:-1) pamixer -d 1 ;;
+input-volume:mute-toggle) pamixer --default-source -t ;;
+brightness:raise) run_brightness +5% ;;
+brightness:lower) run_brightness 5%- ;;
+brightness:+1) run_brightness +1% ;;
+brightness:-1) run_brightness 1%- ;;
+playerctl:next) playerctl next ;;
+playerctl:play-pause) playerctl play-pause ;;
+playerctl:previous) playerctl previous ;;
+*)
+  echo "Unsupported action: $target $action"
+  exit 1
+  ;;
+esac

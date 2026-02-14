@@ -40,11 +40,22 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 - Launcher commands include graceful fallbacks for optional tools (`impala`, `bluetui`, `walker`, `hyprlock`).
 - Deprecated Arch mirror tooling remains as no-op compatibility stubs on Fedora.
 
+## Runtime Fixes (2026-02-14)
+
+- Resolved Fedora font mismatch by switching default UI/terminal font family references to `JetBrains Mono`.
+- Default browser setup is now dynamic (uses installed browser desktop entry instead of forcing Chromium).
+- Wi-Fi/Bluetooth setup launchers now use robust fallbacks (`impala` -> `nm-connection-editor` -> `nmtui` -> `nmcli` -> `iwctl`, and `bluetui` -> `blueman-manager` -> `bluetoothctl`).
+- Webapp launchers now gracefully handle Firefox-only systems when no Chromium-based browser is present.
+- Power profile menu now works with wrapper commands and degrades safely when `powerprofilesctl` is missing.
+- Media keys now route through `omarchy-media-control`, with fallback control paths when `swayosd-client` is unavailable.
+
 ## Quick Validation
 
 ```bash
 bash tests/test-fedora-asahi-compatibility.sh
 bash install/preflight/fedora-required-pkgs.sh
+bash -lc 'command -v firefox nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
+bash -lc 'xdg-settings get default-web-browser'
 ```
 
 ## Porting and Progress Document

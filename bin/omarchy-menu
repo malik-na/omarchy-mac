@@ -238,7 +238,7 @@ show_setup_menu() {
     ;;
   *Bluetooth*)
     rfkill unblock bluetooth
-    blueberry
+    omarchy-launch-bluetooth
     ;;
   *Power*) show_setup_power_menu ;;
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
@@ -254,11 +254,11 @@ show_setup_menu() {
 
 show_setup_power_menu() {
   local profile
-  profile="$(menu "Power Profile" "$(omarchy-powerprofiles-list)" "" "$(powerprofilesctl get)")"
+  profile="$(menu "Power Profile" "$(omarchy-powerprofiles-list)" "" "$(omarchy-powerprofiles-get)")"
   if [[ "$profile" == "CNCLD" || -z "$profile" ]]; then
     back_to show_setup_menu
   else
-    powerprofilesctl set "$profile"
+    omarchy-powerprofiles-set "$profile"
   fi
 }
 
