@@ -2,7 +2,7 @@
 
 # Lock the screen
 if command -v hyprlock >/dev/null 2>&1; then
-  pidof hyprlock || hyprlock &
+  pidof hyprlock >/dev/null 2>&1 || setsid uwsm-app -- hyprlock &
 elif command -v loginctl >/dev/null 2>&1; then
   loginctl lock-session
 else

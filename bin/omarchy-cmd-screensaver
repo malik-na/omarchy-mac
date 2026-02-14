@@ -22,6 +22,15 @@ hyprctl keyword cursor:invisible true &>/dev/null
 
 tty=$(tty 2>/dev/null)
 
+if ! command -v tte >/dev/null 2>&1; then
+  if [[ -x "$HOME/.local/bin/tte" ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+  else
+    notify-send "Screensaver" "terminaltexteffects (tte) is not installed."
+    exit 1
+  fi
+fi
+
 while true; do
   tte -i ~/.config/omarchy/branding/screensaver.txt \
     --frame-rate 120 --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c\

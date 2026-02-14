@@ -1,8 +1,12 @@
 #!/bin/bash
 
-# Exit early if we don't have the tte show
+# Ensure terminaltexteffects command is reachable
 if ! command -v tte &>/dev/null; then
-  exit 1
+  if [[ -x "$HOME/.local/bin/tte" ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+  else
+    exec omarchy-lock-screen
+  fi
 fi
 
 # Exit early if screensave is already running

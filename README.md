@@ -49,6 +49,7 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 - Power profile menu now works with wrapper commands and degrades safely when `powerprofilesctl` is missing.
 - Media keys now route through `omarchy-media-control`, with fallback control paths when `swayosd-client` is unavailable.
 - Launcher keybind reliability was fixed by routing `Super+Space` through `omarchy-launch-walker`, correcting `fuzzel` launch prefix to `uwsm-app --`, and preventing stale `fuzzel --dmenu` lockups.
+- Lock/idle/nightlight stack was repaired by installing `hyprlock`/`hypridle`/`hyprsunset`, fixing autostart behavior, and hardening fallback scripts for screensaver + PATH handling.
 
 ## Quick Validation
 
@@ -56,6 +57,7 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 bash tests/test-fedora-asahi-compatibility.sh
 bash install/preflight/fedora-required-pkgs.sh
 bash -lc 'command -v chromium-browser nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
+bash -lc 'command -v hyprlock hypridle hyprsunset tte'
 bash -lc 'xdg-settings get default-web-browser'
 ```
 

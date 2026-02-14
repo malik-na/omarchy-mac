@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if ! command -v hypridle >/dev/null 2>&1; then
+  notify-send "Idle" "hypridle is not installed."
+  exit 1
+fi
+
 if pgrep -x hypridle >/dev/null; then
   pkill -x hypridle
   notify-send "Stop locking computer when idle"

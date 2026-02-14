@@ -186,12 +186,18 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - Fedora package baseline updated to include: `chromium`, `power-profiles-daemon`, `NetworkManager-tui`, `nm-connection-editor`, `blueman`.
   - Browser default selection now explicitly supports Fedora's Chromium desktop id (`chromium-browser.desktop`) and prioritizes Chromium on Fedora.
   - Webapp launcher now uses separate app windows (`--new-window --app=...`) so webapps do not reuse tabbed browser windows.
+  - Installed and aligned `hyprlock`, `hypridle`, and `hyprsunset` with the active Hyprland package stack to avoid ABI mismatch failures.
+  - Removed accidental autostart `hyprlock` execution on login and added guarded `hyprsunset` autostart.
+  - `omarchy-lock-screen` now launches hyprlock through `uwsm-app` for session-compatible lock startup.
+  - Screensaver launch path now prefers `~/.local/bin/tte` when needed and falls back to lock if terminaltexteffects is unavailable.
+  - `install/config/config.sh` now ensures `~/.local/bin` is included in login profile PATH.
 - Verification completed on target Fedora Asahi machine:
   - Script syntax checks passed for updated launcher/control scripts.
   - `tests/test-fedora-asahi-compatibility.sh` passed.
   - Verified commands present: `nmtui`, `nm-connection-editor`, `blueman-manager`, `bluetoothctl`, `powerprofilesctl`, `chromium-browser`.
   - Verified browser default: `chromium-browser.desktop`.
   - Verified power profile wrappers and `powerprofilesctl` set/get flow.
+  - Verified lock/idle/nightlight/screensaver behavior through Hyprland dispatch: `hyprlock` starts, `hypridle` starts, `hyprsunset` responds to temperature toggle, and screensaver window (`org.omarchy.screensaver`) launches with `tte`.
 
 ## Required Next Steps (Root Session)
 
