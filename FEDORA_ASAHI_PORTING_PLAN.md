@@ -170,6 +170,7 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - Setup menu still called legacy `blueberry` binary.
   - Power profile menu failed when `powerprofilesctl` command was unavailable.
   - Media/brightness binds depended on `swayosd-client` only.
+  - App launcher/menu keybind path regressed because `Super+Space` directly invoked `fuzzel` and fallback `fuzzel --dmenu` could remain locked.
 - Fixes applied:
   - Font family defaults updated to `JetBrains Mono` across terminal/UI/fontconfig defaults and migration helper.
   - Browser MIME/default setup now chooses first available supported browser desktop entry.
@@ -179,6 +180,9 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - `omarchy-menu` setup Bluetooth action now uses `omarchy-launch-bluetooth`.
   - Added `omarchy-powerprofiles-get` and `omarchy-powerprofiles-set`; menu now uses wrappers.
   - Added `omarchy-media-control` and switched default Hypr media binds to wrapper-based control paths.
+  - `Super+Space` now uses `omarchy-launch-walker` wrapper in defaults and user bindings.
+  - Fixed fuzzel launcher config to use `launch-prefix=uwsm-app --`.
+  - Updated walker fallback to avoid non-interactive `fuzzel --dmenu` lockups and added clipboard-mode fallback behavior.
   - Fedora package baseline updated to include: `firefox`, `power-profiles-daemon`, `NetworkManager-tui`, `nm-connection-editor`, `blueman`.
 - Verification completed on target Fedora Asahi machine:
   - Script syntax checks passed for updated launcher/control scripts.

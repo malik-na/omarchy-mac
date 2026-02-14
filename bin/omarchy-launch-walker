@@ -1,8 +1,21 @@
 #!/bin/bash
 
 if ! command -v walker >/dev/null 2>&1; then
+  if [[ "${1:-}" == "-m" && "${2:-}" == "clipboard" ]]; then
+    if command -v cliphist >/dev/null 2>&1; then
+      selection="$(cliphist list | fuzzel --dmenu --prompt='Clipboard> ' || true)"
+      if [[ -n "$selection" ]]; then
+        cliphist decode <<<"$selection" | wl-copy
+      fi
+      exit 0
+    fi
+
+    notify-send "Clipboard" "Walker is not installed and cliphist is unavailable."
+    exit 1
+  fi
+
   if command -v fuzzel >/dev/null 2>&1; then
-    exec fuzzel --dmenu
+    exec fuzzel
   fi
 
   notify-send "Launcher" "Walker is not installed and no fallback launcher is available."

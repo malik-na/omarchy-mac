@@ -48,6 +48,7 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 - Webapp launchers now gracefully handle Firefox-only systems when no Chromium-based browser is present.
 - Power profile menu now works with wrapper commands and degrades safely when `powerprofilesctl` is missing.
 - Media keys now route through `omarchy-media-control`, with fallback control paths when `swayosd-client` is unavailable.
+- Launcher keybind reliability was fixed by routing `Super+Space` through `omarchy-launch-walker`, correcting `fuzzel` launch prefix to `uwsm-app --`, and preventing stale `fuzzel --dmenu` lockups.
 
 ## Quick Validation
 
