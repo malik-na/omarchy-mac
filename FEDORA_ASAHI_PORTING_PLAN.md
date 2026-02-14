@@ -123,7 +123,7 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - Replaced `jetbrains-mono-nf-fonts` with `jetbrains-mono-fonts`.
 - Manual install path validation:
   - `lazydocker` URL generation fixed to use versioned GitHub release assets.
-  - `uwsm` installation updated to `dnf install` with git fallback (`pip3 install --user git+https://github.com/Vladimir-csp/uwsm.git`).
+  - `uwsm` installation path was tested and later removed from required/automatic install flow after Fedora 42 package/source issues.
   - `terminaltexteffects` PyPI endpoint reachable.
   - Flatpak IDs for Typora and LocalSend validated on flathub.
   - `swayosd` remains repository-dependent; installer now checks availability before install and skips cleanly when unavailable.
@@ -133,7 +133,7 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
 - Added preflight guard for essential DE package availability:
   - `install/preflight/fedora-required-pkgs.sh`
   - wired into `install/preflight/all.sh`
-- Added `lxpolkit` and `uwsm` to Fedora package list and guarded desktop startup paths:
+- Added `lxpolkit` to Fedora package list and guarded desktop startup paths:
   - `install/omarchy-base.packages.fedora`
   - `default/hypr/autostart.conf`
 - Added runtime fallback wrapper for `uwsm-app` to avoid launcher breakage when UWSM helper is absent:
@@ -146,3 +146,36 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - `bin/omarchy-launch-bluetooth` (bluetui -> blueman-manager -> bluetoothctl)
   - `bin/omarchy-launch-walker` (walker -> fuzzel fallback)
   - `bin/omarchy-lock-screen` (hyprlock -> loginctl)
+
+## Session Reliability Fixes (2026-02-14)
+
+- Root causes confirmed on target Fedora Asahi machine:
+  - `sddm` and `omarchy-seamless-login` were enabled at the same time, causing tty/session contention.
+  - `uwsm` was unavailable from enabled repositories, and pip/git fallback install path failed.
+  - PATH for login sessions did not consistently include `~/.local/share/omarchy/bin`, which broke most Hyprland keybind commands.
+- Fixes applied:
+  - `install/login/all.sh` switched to SDDM-only login path on Fedora (no seamless-login execution in active flow).
+  - `install/login/sddm.sh` now disables/removes legacy seamless-login units and restores `getty@tty1`.
+  - `install/preflight/dnf.sh` now enables required COPR repositories in all install modes.
+  - `install/omarchy-base.packages.fedora` no longer requires `uwsm`.
+  - `install/helpers/fedora-manual.sh` no longer attempts broken automatic `uwsm` installation.
+  - `install/config/config.sh` now ensures login shells source profile exports so Omarchy commands are available in Hyprland binds.
+
+## Required Next Steps (Root Session)
+
+- Run these installer steps with root-capable sudo session on target machine:
+  - `bash install/preflight/dnf.sh`
+  - `bash install/login/sddm.sh`
+  - `bash install/config/config.sh`
+- Reboot after scripts complete:
+  - `sudo reboot`
+- Post-reboot verification checklist:
+  - `systemctl is-enabled sddm.service` -> `enabled`
+  - `systemctl is-enabled omarchy-seamless-login.service` -> `disabled` or `not-found`
+  - `journalctl -b -u sddm.service --no-pager -n 120` -> no `Failed to take control of "/dev/tty1"`
+  - `bash -lc 'echo "$PATH"'` -> includes `~/.local/share/omarchy/bin`
+  - `bash -lc 'command -v omarchy-menu omarchy-cmd-terminal-cwd uwsm-app'`
+- Functional desktop checks in Hyprland session:
+  - `SUPER+RETURN` opens terminal
+  - app launcher opens and launches apps
+  - no blank session with non-working keybinds

@@ -37,20 +37,7 @@ if ! command -v lazydocker &>/dev/null; then
   fi
 fi
 
-# 2. uwsm
-if ! command -v uwsm &>/dev/null; then
-  echo "Installing uwsm..."
-
-  if sudo dnf install -y uwsm; then
-    :
-  elif command -v pip3 >/dev/null 2>&1 && pip3 install --user git+https://github.com/Vladimir-csp/uwsm.git; then
-    :
-  else
-    echo "[WARN] Failed to install uwsm automatically."
-  fi
-fi
-
-# 2b. terminaltexteffects (tte) - for install animations
+# 2. terminaltexteffects (tte) - for install animations
 if ! command -v tte &>/dev/null; then
   echo "Installing terminaltexteffects (pip)..."
   pip3 install --user terminaltexteffects

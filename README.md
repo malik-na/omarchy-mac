@@ -34,7 +34,9 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 ## Fedora Minimal Safeguards
 
 - Preflight now validates essential DE/runtime package availability before install continues.
-- Login/session startup now falls back safely when UWSM-specific desktop entries are missing.
+- Login/session startup uses an SDDM-only path on Fedora to avoid tty/session conflicts.
+- Installer restores legacy seamless-login changes that can break SDDM autologin on upgraded systems.
+- Installer ensures Omarchy command path is available in login shells used by Hyprland sessions.
 - Launcher commands include graceful fallbacks for optional tools (`impala`, `bluetui`, `walker`, `hyprlock`).
 - Deprecated Arch mirror tooling remains as no-op compatibility stubs on Fedora.
 
