@@ -1,4 +1,3 @@
-A screenshot to help identify the project:
 
 ![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
 
