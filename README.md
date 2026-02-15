@@ -51,6 +51,12 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 - Launcher keybind reliability was fixed by routing `Super+Space` through `omarchy-launch-walker`, correcting `fuzzel` launch prefix to `uwsm-app --`, and preventing stale `fuzzel --dmenu` lockups.
 - Lock/idle/nightlight stack was repaired by installing `hyprlock`/`hypridle`/`hyprsunset`, fixing autostart behavior, and hardening fallback scripts for screensaver + PATH handling.
 
+## Startup + Config Fixes (2026-02-15)
+
+- Ghostty defaults were corrected for current upstream config validation (removed unsupported `gtk-toolbar-style`, fixed invalid shell integration feature list, and fixed split-resize keybind trigger names).
+- Ghostty migration `1763633307.sh` now inserts valid split resize keybinds (`down/up/left/right`) instead of invalid `arrow_*` trigger names.
+- Waybar startup in Hyprland was hardened against restricted login `PATH` by launching with an explicit known-good path and fallback (`uwsm-app -- waybar || waybar`).
+
 ## Quick Validation
 
 ```bash

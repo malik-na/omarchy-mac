@@ -217,3 +217,16 @@ Scope: `omarchy-mac` only supports Fedora Asahi aarch64. Arch/Asahi Alarm is no 
   - `SUPER+RETURN` opens terminal
   - app launcher opens and launches apps
   - no blank session with non-working keybinds
+
+## Config/Autostart Validation Fixes (2026-02-15)
+
+- Root causes confirmed after runtime validation on target setup:
+  - Ghostty default config included removed/invalid keys (`gtk-toolbar-style`, `shell-integration-features = no-cursor,ssh-env`) and invalid key trigger names (`arrow_*`).
+  - Hyprland autostart launched Waybar with a bare `uwsm-app -- waybar`; on some sessions, startup `PATH` omitted `/usr/sbin`, so both `uwsm-app` and `waybar` failed to resolve.
+- Fixes applied:
+  - `config/ghostty/config` updated to remove unsupported GTK toolbar setting, use valid shell integration feature value, and correct split resize keybind triggers to `down/up/left/right`.
+  - `migrations/1763633307.sh` updated to insert corrected split resize keybind triggers.
+  - `default/hypr/autostart.conf` now starts Waybar through a guarded shell line that exports a known-good PATH and falls back to direct `waybar` launch if `uwsm-app` fails.
+- Verification:
+  - `ghostty +validate-config --config-file=.../config/ghostty/config` returns clean.
+  - Simulated restricted `PATH` test confirms updated Waybar autostart command resolves `uwsm-app`/`waybar` correctly.
