@@ -79,23 +79,26 @@ Follow these steps after the installer has finished and you have booted into the
 Run these commands (replace placeholders where indicated):
 
 ```bash
+
+#Login as root with username and password 'root'
+
 # Configure Wi‑Fi (if required)
 nmtui
 
 # Update packages
-sudo pacman -Syu
+pacman -Syu
 
 # Install essential packages
-sudo pacman -S --needed sudo git base-devel chromium
+pacman -S --needed sudo git base-devel chromium
 
 # Enable en_US.UTF-8 locale
-sudo nano /etc/locale.gen   # uncomment en_US.UTF-8
-sudo locale-gen
-echo 'LANG=en_US.UTF-8' | sudo tee /etc/locale.conf
+nano /etc/locale.gen   # uncomment en_US.UTF-8
+locale-gen
+echo 'LANG=en_US.UTF-8' | tee /etc/locale.conf
 locale
 
 # Reboot to apply changes
-sudo reboot
+reboot
 ```
 
 Notes
@@ -109,11 +112,11 @@ Create a non‑root user and enable sudo for the wheel group:
 
 ```bash
 # Replace <username> with your chosen name
-sudo useradd -m -G wheel <username>
-sudo passwd <username>
+useradd -m -G wheel <username>
+passwd <username>
 
 # Enable wheel in sudoers
-sudo EDITOR=nano visudo
+EDITOR=nano visudo
 # Uncomment: %wheel ALL=(ALL:ALL) ALL
 
 # Switch to your user
