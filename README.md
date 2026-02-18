@@ -82,5 +82,4 @@ See `FEDORA_ASAHI_PORTING_PLAN.md` for:
 
 ## Support
 
-- Omarchy Discord: https://omarchy.org/discord
 - Omarchy Mac Discord: https://discord.gg/KNQRk7dMzy
