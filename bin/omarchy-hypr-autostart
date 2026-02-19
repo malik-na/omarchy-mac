@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -u
+
+export PATH="$HOME/.local/share/omarchy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+launch_uwsm() {
+  local app="$1"
+  shift
+
+  if ! command -v "$app" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  uwsm-app -- "$app" "$@" >/dev/null 2>&1 || setsid "$app" "$@" >/dev/null 2>&1 &
+}
+
+ensure_background_link() {
+  local background_link="$HOME/.config/omarchy/current/background"
+  local theme_backgrounds="$HOME/.config/omarchy/current/theme/backgrounds"
+  local backgrounds=()
+
+  if [[ -e "$background_link" ]]; then
+    return 0
+  fi
+
+  backgrounds=("$theme_backgrounds"/*)
+  if [[ -e "${backgrounds[0]:-}" ]]; then
+    ln -nsf "${backgrounds[0]}" "$background_link"
+  fi
+}
+
+launch_uwsm hypridle
+launch_uwsm hyprsunset
+launch_uwsm mako
+launch_uwsm fcitx5
+
+ensure_background_link
+if [[ -e "$HOME/.config/omarchy/current/background" ]]; then
+  launch_uwsm swaybg -i "$HOME/.config/omarchy/current/background" -m fill
+fi
+
+launch_uwsm swayosd-server
+
+if command -v lxpolkit >/dev/null 2>&1; then
+  setsid lxpolkit >/dev/null 2>&1 &
+elif [[ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]]; then
+  setsid /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &
+fi
+
+if command -v waybar >/dev/null 2>&1 && ! pgrep -x waybar >/dev/null 2>&1; then
+  launch_uwsm waybar
+fi
+
+if command -v omarchy-lock-screen >/dev/null 2>&1; then
+  setsid bash -lc 'sleep 1; omarchy-lock-screen' >/dev/null 2>&1 &
+fi

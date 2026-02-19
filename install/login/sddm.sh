@@ -12,6 +12,14 @@ sudo systemctl enable getty@tty1.service >/dev/null 2>&1 || true
 
 sudo mkdir -p /etc/sddm.conf.d
 
+AUTOLOGIN_USER="${SUDO_USER:-$USER}"
+if [[ "$AUTOLOGIN_USER" == "root" ]] || [[ -z "$AUTOLOGIN_USER" ]]; then
+  AUTOLOGIN_USER="$(logname 2>/dev/null || true)"
+fi
+if [[ "$AUTOLOGIN_USER" == "root" ]] || [[ -z "$AUTOLOGIN_USER" ]]; then
+  AUTOLOGIN_USER="$(awk -F: '$3>=1000 && $3<65534 {print $1; exit}' /etc/passwd)"
+fi
+
 SESSION_NAME="hyprland-uwsm"
 if [[ ! -f /usr/share/wayland-sessions/hyprland-uwsm.desktop ]] && [[ -f /usr/share/wayland-sessions/hyprland.desktop ]]; then
   SESSION_NAME="hyprland"
@@ -19,9 +27,11 @@ fi
 
 cat <<EOF | sudo tee /etc/sddm.conf.d/autologin.conf >/dev/null
 [Autologin]
-User=$USER
+User=$AUTOLOGIN_USER
 Session=$SESSION_NAME
+EOF
 
+cat <<EOF | sudo tee /etc/sddm.conf.d/theme.conf >/dev/null
 [Theme]
 Current=breeze
 EOF
