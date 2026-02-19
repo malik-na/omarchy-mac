@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Locks the system using hyprlock, but not before ensuring 1password has also been locked, and the screensaver stopped.
+
 # Lock the screen
 if command -v hyprlock >/dev/null 2>&1; then
   pidof hyprlock >/dev/null 2>&1 || setsid uwsm-app -- hyprlock &

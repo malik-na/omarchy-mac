@@ -5,6 +5,7 @@ run_logged $OMARCHY_INSTALL/config/theme.sh
 run_logged $OMARCHY_INSTALL/config/branding.sh
 run_logged $OMARCHY_INSTALL/config/git.sh
 run_logged $OMARCHY_INSTALL/config/gpg.sh
+run_logged $OMARCHY_INSTALL/config/zsh.sh
 run_logged $OMARCHY_INSTALL/config/timezones.sh
 run_logged $OMARCHY_INSTALL/config/increase-sudo-tries.sh
 run_logged $OMARCHY_INSTALL/config/increase-lockout-limit.sh
@@ -17,6 +18,8 @@ run_logged $OMARCHY_INSTALL/config/mimetypes.sh
 run_logged $OMARCHY_INSTALL/config/localdb.sh
 run_logged $OMARCHY_INSTALL/config/fast-shutdown.sh
 run_logged $OMARCHY_INSTALL/config/sudoless-asdcontrol.sh
+run_logged $OMARCHY_INSTALL/config/input-group.sh
+run_logged $OMARCHY_INSTALL/config/omarchy-ai-skill.sh
 run_logged $OMARCHY_INSTALL/config/hardware/network.sh
 run_logged $OMARCHY_INSTALL/config/hardware/set-wireless-regdom.sh
 run_logged $OMARCHY_INSTALL/config/hardware/bluetooth.sh
