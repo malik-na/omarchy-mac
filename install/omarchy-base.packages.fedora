@@ -20,6 +20,7 @@ chromium
 # Terminal
 xdg-terminal-exec
 alacritty
+starship
 btop
 fzf
 ripgrep

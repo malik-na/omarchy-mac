@@ -72,6 +72,28 @@ if ! command -v swayosd-server &>/dev/null; then
   fi
 fi
 
+# 6b. starship (fallback if package install missed it)
+if ! command -v starship &>/dev/null; then
+  echo "Installing starship (fallback path)..."
+  if dnf list --available starship &>/dev/null; then
+    sudo dnf install -y starship || true
+  fi
+
+  if ! command -v starship &>/dev/null && command -v cargo &>/dev/null; then
+    cargo install --locked starship || echo "[WARN] starship fallback install failed, continuing..."
+  fi
+fi
+
+# 6c. eza (optional)
+if ! command -v eza &>/dev/null; then
+  if dnf list --available eza &>/dev/null; then
+    echo "Installing eza (optional)..."
+    sudo dnf install -y eza || echo "[WARN] Optional eza install failed, continuing..."
+  else
+    echo "[INFO] Optional eza package is unavailable on this Fedora release"
+  fi
+fi
+
 # 7. satty (build from source)
 if ! command -v satty &>/dev/null; then
   echo "[WARN] satty not available in repos. Please build from source: https://github.com/marvinborner/satty"
