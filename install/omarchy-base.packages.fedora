@@ -18,6 +18,7 @@ xdg-desktop-portal-gtk
 chromium
 
 # Terminal
+xdg-terminal-exec
 alacritty
 btop
 fzf
