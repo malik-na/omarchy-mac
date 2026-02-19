@@ -15,6 +15,7 @@ wf-recorder
 wl-clipboard
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
+qt5-wayland
 chromium
 
 # Terminal
