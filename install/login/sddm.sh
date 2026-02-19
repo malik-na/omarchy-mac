@@ -17,8 +17,7 @@ if [[ ! -f /usr/share/wayland-sessions/hyprland-uwsm.desktop ]] && [[ -f /usr/sh
   SESSION_NAME="hyprland"
 fi
 
-if [ ! -f /etc/sddm.conf.d/autologin.conf ]; then
-  cat <<EOF | sudo tee /etc/sddm.conf.d/autologin.conf
+cat <<EOF | sudo tee /etc/sddm.conf.d/autologin.conf >/dev/null
 [Autologin]
 User=$USER
 Session=$SESSION_NAME
@@ -26,7 +25,8 @@ Session=$SESSION_NAME
 [Theme]
 Current=breeze
 EOF
-fi
+
+sudo systemctl set-default graphical.target
 
 # Don't use chrootable here as --now will cause issues for manual installs
 sudo systemctl enable sddm.service
