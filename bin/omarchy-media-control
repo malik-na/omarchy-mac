@@ -3,19 +3,90 @@
 set -euo pipefail
 
 if (($# < 2)); then
-  echo "Usage: omarchy-media-control <output-volume|input-volume|brightness|playerctl> <action>"
+  echo "Usage: omarchy-media-control <output-volume|input-volume|brightness|keyboard-brightness|playerctl> <action>"
   exit 1
 fi
 
 target="$1"
 action="$2"
+keyboard_notification_id_file="${XDG_RUNTIME_DIR:-/tmp}/omarchy-keyboard-backlight.notify-id"
 
 run_brightness() {
   local value="$1"
-  if ! brightnessctl set "$value" >/dev/null 2>&1; then
-    sudo -n brightnessctl set "$value" >/dev/null
+  if ! brightnessctl --class=backlight set "$value" >/dev/null 2>&1; then
+    sudo -n brightnessctl --class=backlight set "$value" >/dev/null
   fi
 }
+
+run_keyboard_brightness() {
+  local value="$1"
+  if ! brightnessctl --device=kbd_backlight set "$value" >/dev/null 2>&1; then
+    sudo -n brightnessctl --device=kbd_backlight set "$value" >/dev/null
+  fi
+}
+
+keyboard_brightness_metrics() {
+  local current max progress percent
+
+  current="$(brightnessctl --device=kbd_backlight g 2>/dev/null || sudo -n brightnessctl --device=kbd_backlight g 2>/dev/null || true)"
+  max="$(brightnessctl --device=kbd_backlight m 2>/dev/null || sudo -n brightnessctl --device=kbd_backlight m 2>/dev/null || true)"
+  [[ -n "$current" && -n "$max" && "$max" != "0" ]] || return 1
+
+  progress="$(awk -v c="$current" -v m="$max" 'BEGIN { printf "%.2f", c / m }')"
+  percent="$(awk -v c="$current" -v m="$max" 'BEGIN { printf "%d", (c * 100) / m }')"
+
+  printf '%s %s\n' "$progress" "$percent"
+}
+
+display_brightness_metrics() {
+  local info current max progress percent
+
+  info="$(brightnessctl --class=backlight -m 2>/dev/null || sudo -n brightnessctl --class=backlight -m 2>/dev/null || true)"
+  [[ -n "$info" ]] || return 1
+
+  current="$(awk -F, 'NR==1 {print $3}' <<<"$info")"
+  max="$(awk -F, 'NR==1 {print $5}' <<<"$info")"
+  [[ -n "$current" && -n "$max" && "$max" != "0" ]] || return 1
+
+  progress="$(awk -v c="$current" -v m="$max" 'BEGIN { printf "%.2f", c / m }')"
+  percent="$(awk -v c="$current" -v m="$max" 'BEGIN { printf "%d", (c * 100) / m }')"
+
+  printf '%s %s\n' "$progress" "$percent"
+}
+
+notify_keyboard_backlight() {
+  local percent="$1"
+  local replace_id=0
+  local new_id=""
+
+  if [[ -f "$keyboard_notification_id_file" ]]; then
+    read -r replace_id < "$keyboard_notification_id_file" || replace_id=0
+    [[ "$replace_id" =~ ^[0-9]+$ ]] || replace_id=0
+  fi
+
+  new_id="$(notify-send -p -r "$replace_id" -a omarchy-media-control "Keyboard Backlight" "${percent}%" -u low -t 800 2>/dev/null || true)"
+  if [[ "$new_id" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$new_id" > "$keyboard_notification_id_file"
+  fi
+}
+
+if [[ "$target" == "keyboard-brightness" ]]; then
+  case "$action" in
+  raise) run_keyboard_brightness +5% ;;
+  lower) run_keyboard_brightness 5%- ;;
+  +1) run_keyboard_brightness +1% ;;
+  -1) run_keyboard_brightness 1%- ;;
+  *)
+    echo "Unsupported action: $target $action"
+    exit 1
+    ;;
+  esac
+
+  if read -r _ percent < <(keyboard_brightness_metrics); then
+    notify_keyboard_backlight "$percent"
+  fi
+  exit 0
+fi
 
 if command -v swayosd-client >/dev/null 2>&1; then
   if ! pgrep -x swayosd-server >/dev/null 2>&1 && command -v swayosd-server >/dev/null 2>&1; then
@@ -33,11 +104,31 @@ if command -v swayosd-client >/dev/null 2>&1; then
     cmd+=(--monitor "$monitor")
   fi
 
+  if [[ "$target" == "brightness" ]]; then
+    case "$action" in
+    raise) run_brightness +5% ;;
+    lower) run_brightness 5%- ;;
+    +1) run_brightness +1% ;;
+    -1) run_brightness 1%- ;;
+    *)
+      echo "Unsupported action: $target $action"
+      exit 1
+      ;;
+    esac
+
+    if read -r progress percent < <(display_brightness_metrics); then
+      "${cmd[@]}" \
+        --custom-icon display-brightness-symbolic \
+        --custom-progress "$progress" \
+        --custom-progress-text "${percent}%" >/dev/null 2>&1 || true
+    fi
+    exit 0
+  fi
+
   osd_args=()
   case "$target" in
   output-volume) osd_args=(--output-volume "$action") ;;
   input-volume) osd_args=(--input-volume "$action") ;;
-  brightness) osd_args=(--brightness "$action") ;;
   playerctl) osd_args=(--playerctl "$action") ;;
   *)
     echo "Unknown target: $target"
@@ -61,6 +152,10 @@ brightness:raise) run_brightness +5% ;;
 brightness:lower) run_brightness 5%- ;;
 brightness:+1) run_brightness +1% ;;
 brightness:-1) run_brightness 1%- ;;
+keyboard-brightness:raise) run_keyboard_brightness +5% ;;
+keyboard-brightness:lower) run_keyboard_brightness 5%- ;;
+keyboard-brightness:+1) run_keyboard_brightness +1% ;;
+keyboard-brightness:-1) run_keyboard_brightness 1%- ;;
 playerctl:next) playerctl next ;;
 playerctl:play-pause) playerctl play-pause ;;
 playerctl:previous) playerctl previous ;;
