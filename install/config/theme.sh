@@ -37,7 +37,5 @@ cp -n ~/.local/share/omarchy/config/fuzzel/fuzzel.ini ~/.config/fuzzel/fuzzel.in
 
 # Add managed policy directories for Chromium and Brave for theme changes
 sudo mkdir -p /etc/chromium/policies/managed
-sudo chmod a+rw /etc/chromium/policies/managed
 
 sudo mkdir -p /etc/brave/policies/managed
-sudo chmod a+rw /etc/brave/policies/managed
