@@ -13,6 +13,7 @@ Unsupported targets:
 - Fedora Asahi Remix Minimal
 - Regular user with sudo privileges
 - Internet connectivity
+- `git` installed
 
 ## Install
 
@@ -56,6 +57,17 @@ The installer now enforces Fedora Asahi aarch64 in preflight checks.
 - Ghostty defaults were corrected for current upstream config validation (removed unsupported `gtk-toolbar-style`, fixed invalid shell integration feature list, and fixed split-resize keybind trigger names).
 - Ghostty migration `1763633307.sh` now inserts valid split resize keybinds (`down/up/left/right`) instead of invalid `arrow_*` trigger names.
 - Waybar startup in Hyprland was hardened against restricted login `PATH` by launching with an explicit known-good path and fallback (`uwsm-app -- waybar || waybar`).
+
+## Update Behavior
+
+- `omarchy-update` updates both the Omarchy repo and Fedora system packages (`dnf upgrade --refresh`).
+- Update availability in Waybar now tracks git branch divergence from the configured upstream branch, not only tags.
+- If your branch has no upstream tracking branch, `omarchy-update-available` reports that explicitly.
+- To review your current branch and upstream state:
+
+```bash
+git -C ~/.local/share/omarchy status -sb
+```
 
 ## Quick Validation
 
