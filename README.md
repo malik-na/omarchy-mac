@@ -15,6 +15,80 @@ Unsupported targets:
 - Internet connectivity
 - `git` installed
 
+## Fedora Minimal Prep (Before Install)
+
+If you are starting from a fresh Fedora Asahi Minimal TTY session, run these steps first.
+
+### 1) Set hostname
+
+```bash
+sudo hostnamectl set-hostname your-hostname
+```
+
+### 2) Create user, set passwords, and enable sudo
+
+```bash
+# Set root password (if not already set)
+sudo passwd root
+
+# Create your daily user
+sudo useradd -m -G wheel,audio,video,input youruser
+sudo passwd youruser
+
+# Ensure wheel has sudo access
+sudo bash -lc 'grep -q "^%wheel" /etc/sudoers || echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers'
+```
+
+### 3) Set language and keyboard layout
+
+```bash
+# Example: US English + US keymap
+sudo localectl set-locale LANG=en_US.UTF-8
+sudo localectl set-keymap us
+
+# Example alternatives:
+# sudo localectl set-locale LANG=de_DE.UTF-8
+# sudo localectl set-keymap de
+```
+
+### 4) Connect to Wi-Fi with `iwctl`
+
+```bash
+iwctl
+# inside iwctl:
+# device list
+# station wlan0 scan
+# station wlan0 get-networks
+# station wlan0 connect "Your SSID"
+# exit
+```
+
+### 5) Install Terminus console font and increase TTY font size
+
+```bash
+sudo dnf install -y terminus-fonts-console || sudo dnf install -y terminus-fonts
+
+# Try a larger Terminus font immediately in current TTY
+sudo setfont ter-v22n
+
+# Persist it across reboots
+sudo sed -i 's/^FONT=.*/FONT=ter-v22n/' /etc/vconsole.conf
+grep -q '^FONT=' /etc/vconsole.conf || echo 'FONT=ter-v22n' | sudo tee -a /etc/vconsole.conf
+```
+
+### 6) Increase desktop terminal font size after install (optional)
+
+```bash
+# Alacritty
+sed -i 's/^size = .*/size = 11/' ~/.config/alacritty/alacritty.toml
+
+# Kitty
+sed -i 's/^font_size .*/font_size        11.0/' ~/.config/kitty/kitty.conf
+
+# Ghostty
+sed -i 's/^font-size = .*/font-size = 11/' ~/.config/ghostty/config
+```
+
 ## Install
 
 ```bash
