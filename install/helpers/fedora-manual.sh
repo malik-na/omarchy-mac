@@ -56,7 +56,7 @@ if ! command -v typora &>/dev/null; then
 fi
 
 # 5. localsend (Flatpak)
-if ! command -v localsend &>/dev/null; then
+if ! command -v localsend &>/dev/null && ! flatpak info org.localsend.localsend_app &>/dev/null; then
   echo "Installing localsend (Flatpak)..."
   flatpak install -y flathub org.localsend.localsend_app
 fi
