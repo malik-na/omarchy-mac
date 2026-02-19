@@ -64,7 +64,7 @@ fi
 # 6. swayosd (COPR or build from source)
 if ! command -v swayosd-server &>/dev/null; then
   echo "Installing swayosd (COPR or build from source)..."
-  sudo dnf copr enable -y atim/swayosd || true
+  sudo dnf copr enable -y erikreider/swayosd || true
   if dnf list --available swayosd &>/dev/null; then
     sudo dnf install -y swayosd
   else

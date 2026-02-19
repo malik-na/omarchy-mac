@@ -20,6 +20,7 @@ COPR_REPOS=(
 # Optional COPR repos (may not be available for all Fedora versions)
 OPTIONAL_COPR_REPOS=(
   "atim/eza"
+  "erikreider/swayosd"
 )
 
 echo "Enabling required COPR repositories..."

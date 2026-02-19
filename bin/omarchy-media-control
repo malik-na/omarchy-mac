@@ -18,22 +18,36 @@ run_brightness() {
 }
 
 if command -v swayosd-client >/dev/null 2>&1; then
+  if ! pgrep -x swayosd-server >/dev/null 2>&1 && command -v swayosd-server >/dev/null 2>&1; then
+    if command -v uwsm-app >/dev/null 2>&1; then
+      setsid uwsm-app -- swayosd-server >/dev/null 2>&1 &
+    else
+      setsid swayosd-server >/dev/null 2>&1 &
+    fi
+    sleep 0.1
+  fi
+
   monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true).name' 2>/dev/null | head -n1 || true)"
   cmd=(swayosd-client)
   if [[ -n "$monitor" ]]; then
     cmd+=(--monitor "$monitor")
   fi
 
+  osd_args=()
   case "$target" in
-  output-volume) exec "${cmd[@]}" --output-volume "$action" ;;
-  input-volume) exec "${cmd[@]}" --input-volume "$action" ;;
-  brightness) exec "${cmd[@]}" --brightness "$action" ;;
-  playerctl) exec "${cmd[@]}" --playerctl "$action" ;;
+  output-volume) osd_args=(--output-volume "$action") ;;
+  input-volume) osd_args=(--input-volume "$action") ;;
+  brightness) osd_args=(--brightness "$action") ;;
+  playerctl) osd_args=(--playerctl "$action") ;;
   *)
     echo "Unknown target: $target"
     exit 1
     ;;
   esac
+
+  if "${cmd[@]}" "${osd_args[@]}" >/dev/null 2>&1; then
+    exit 0
+  fi
 fi
 
 case "$target:$action" in
