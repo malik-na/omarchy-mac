@@ -1,5 +1,6 @@
 #!/bin/bash
 run_logged $OMARCHY_INSTALL/config/config.sh
+run_logged $OMARCHY_INSTALL/config/xdg-user-dirs.sh
 run_logged $OMARCHY_INSTALL/config/theme.sh
 run_logged $OMARCHY_INSTALL/config/branding.sh
 run_logged $OMARCHY_INSTALL/config/git.sh
