@@ -37,6 +37,7 @@ nvim
 polkit-gnome
 qt5-wayland
 waybar
+widevine
 btop
 bluetui
 cargo
@@ -48,6 +49,7 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
+dotnet-runtime-9.0
 dust
 evince
 exfatprogs
@@ -82,7 +84,7 @@ kvantum-qt5
 lazydocker
 lazygit
 less
-libreoffice
+#libreoffice
 llvm
 localsend
 luarocks
@@ -97,6 +99,7 @@ noto-fonts-extra
 nss-mdns
 #obs-studio
 #obsidian
+opencode-bin
 pamixer
 pinta
 playerctl
@@ -132,6 +135,8 @@ unzip
 usage
 uwsm
 fuzzel
+grim
+wayfreeze
 wf-recorder
 whois
 wireless-regdb

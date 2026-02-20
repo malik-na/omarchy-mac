@@ -7,18 +7,14 @@ else
   echo "[SKIP] Yaru icon directory not present"
 fi
 
-# Setup theme links
+# Setup user theme folder
 mkdir -p ~/.config/omarchy/themes
-for f in ~/.local/share/omarchy/themes/*; do ln -nfs "$f" ~/.config/omarchy/themes/; done
 
 # Set initial theme
-mkdir -p ~/.config/omarchy/current
-ln -snf ~/.config/omarchy/themes/tokyo-night ~/.config/omarchy/current/theme
-ln -snf ~/.config/omarchy/current/theme/backgrounds/1-scenery-pink-lakeside-sunset-lake-landscape-scenic-panorama-7680x3215-144.png ~/.config/omarchy/current/background
+omarchy-theme-set "Tokyo Night"
+rm -rf ~/.config/chromium/SingletonLock # otherwise archiso will own the chromium singleton
 
 # Set specific app links for current theme
-# ~/.config/omarchy/current/theme/neovim.lua -> ~/.config/nvim/lua/plugins/theme.lua is handled via omarchy-setup-nvim
-
 mkdir -p ~/.config/btop/themes
 ln -snf ~/.config/omarchy/current/theme/btop.theme ~/.config/btop/themes/current.theme
 
@@ -37,7 +33,5 @@ cp -n ~/.local/share/omarchy/config/fuzzel/fuzzel.ini ~/.config/fuzzel/fuzzel.in
 
 # Add managed policy directories for Chromium and Brave for theme changes
 sudo mkdir -p /etc/chromium/policies/managed
-sudo chmod a+rw /etc/chromium/policies/managed
 
 sudo mkdir -p /etc/brave/policies/managed
-sudo chmod a+rw /etc/brave/policies/managed

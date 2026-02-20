@@ -13,7 +13,6 @@ if omarchy-cmd-present chromium || omarchy-cmd-present helium-browser || omarchy
   fi
 
   if omarchy-cmd-present chromium; then
-    rm -f /etc/chromium/policies/managed/color.json
     chromium --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
 
     if [[ -f ~/.config/omarchy/current/theme/light.mode ]]; then
@@ -24,7 +23,11 @@ if omarchy-cmd-present chromium || omarchy-cmd-present helium-browser || omarchy
   fi
 
   if omarchy-cmd-present brave; then
-    echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" | tee "/etc/brave/policies/managed/color.json" >/dev/null
-    brave --refresh-platform-policy --no-startup-window
+    if [[ -w /etc/brave/policies/managed ]]; then
+      echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" > /etc/brave/policies/managed/color.json
+      brave --refresh-platform-policy --no-startup-window
+    else
+      brave --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+    fi
   fi
 fi

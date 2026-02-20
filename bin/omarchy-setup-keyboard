@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Setup keyboard layout for Omarchy
+# Provides interactive keyboard layout configuration using the first-run script
+
+set -euo pipefail
+
+OMARCHY_PATH="${HOME}/.local/share/omarchy"
+KEYBOARD_SCRIPT="${OMARCHY_PATH}/install/first-run/keyboard-layout.sh"
+
+# Check if the keyboard layout script exists
+if [[ ! -f "$KEYBOARD_SCRIPT" ]]; then
+  echo "Error: Keyboard layout setup script not found at:"
+  echo "  $KEYBOARD_SCRIPT"
+  exit 1
+fi
+
+# Check if gum is installed
+if ! command -v gum &>/dev/null; then
+  echo "Error: gum is not installed. Please install it first:"
+  echo "  sudo pacman -S gum"
+  exit 1
+fi
+
+# Display current keyboard layout
+echo "Current keyboard layout configuration:"
+echo ""
+localectl status | grep -E "X11 Layout|VC Keymap" || echo "  Layout: (unset or default)"
+echo ""
+echo "Starting keyboard layout configuration..."
+echo ""
+
+# Run the keyboard layout configuration script
+# This will prompt the user to select their keyboard layout
+bash "$KEYBOARD_SCRIPT"
+
+echo ""
+echo "✓ Keyboard layout setup complete"
+echo ""
+echo "Note: The new layout will apply immediately to new applications."
+echo "For Hyprland keybindings, you may need to restart Hyprland (Super+Shift+E > Relaunch)"

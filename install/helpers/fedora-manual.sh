@@ -56,7 +56,7 @@ if ! command -v typora &>/dev/null; then
 fi
 
 # 5. localsend (Flatpak)
-if ! command -v localsend &>/dev/null; then
+if ! command -v localsend &>/dev/null && ! flatpak info org.localsend.localsend_app &>/dev/null; then
   echo "Installing localsend (Flatpak)..."
   flatpak install -y flathub org.localsend.localsend_app
 fi
@@ -64,11 +64,33 @@ fi
 # 6. swayosd (COPR or build from source)
 if ! command -v swayosd-server &>/dev/null; then
   echo "Installing swayosd (COPR or build from source)..."
-  sudo dnf copr enable -y atim/swayosd || true
+  sudo dnf copr enable -y erikreider/swayosd || true
   if dnf list --available swayosd &>/dev/null; then
     sudo dnf install -y swayosd
   else
     echo "[WARN] swayosd not found in enabled repositories, skipping automatic install."
+  fi
+fi
+
+# 6b. starship (fallback if package install missed it)
+if ! command -v starship &>/dev/null; then
+  echo "Installing starship (fallback path)..."
+  if dnf list --available starship &>/dev/null; then
+    sudo dnf install -y starship || true
+  fi
+
+  if ! command -v starship &>/dev/null && command -v cargo &>/dev/null; then
+    cargo install --locked starship || echo "[WARN] starship fallback install failed, continuing..."
+  fi
+fi
+
+# 6c. eza (optional)
+if ! command -v eza &>/dev/null; then
+  if dnf list --available eza &>/dev/null; then
+    echo "Installing eza (optional)..."
+    sudo dnf install -y eza || echo "[WARN] Optional eza install failed, continuing..."
+  else
+    echo "[INFO] Optional eza package is unavailable on this Fedora release"
   fi
 fi
 

@@ -9,16 +9,20 @@ hyprsunset
 waybar
 fuzzel
 mako
+swayosd
 swaybg
 slurp
 wf-recorder
 wl-clipboard
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
+qt5-wayland
 chromium
 
 # Terminal
+xdg-terminal-exec
 alacritty
+starship
 btop
 fzf
 ripgrep
@@ -58,6 +62,7 @@ gnome-calculator
 playerctl
 brightnessctl
 pamixer
+pavucontrol
 gum
 plymouth
 cups

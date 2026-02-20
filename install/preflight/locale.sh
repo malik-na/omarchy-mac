@@ -10,24 +10,31 @@ if [[ "$(locale | grep LANG=en_US.UTF-8)" ]] && [[ "$(locale | grep LC_ALL=en_US
   return 0
 fi
 
+# Use sudo only when not running as root
+if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+  SUDO=""
+else
+  SUDO="sudo"
+fi
+
 # Ensure en_US.UTF-8 locale is generated
 if ! locale -a | grep -q "en_US.utf8\|en_US.UTF-8"; then
   echo "Generating en_US.UTF-8 locale..."
 
   # Uncomment en_US.UTF-8 in locale.gen if it's commented
   if grep -q "^#en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
-    sudo sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+    ${SUDO:+$SUDO }sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
   elif ! grep -q "^en_US.UTF-8" /etc/locale.gen 2>/dev/null; then
     # Add en_US.UTF-8 if it doesn't exist at all
-    echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
+    echo "en_US.UTF-8 UTF-8" | ${SUDO:+$SUDO }tee -a /etc/locale.gen >/dev/null
   fi
 
   # Generate locales
-  sudo locale-gen >/dev/null 2>&1
+  ${SUDO:+$SUDO }locale-gen >/dev/null 2>&1
 fi
 
 # Set system locale
-echo "LANG=en_US.UTF-8" | sudo tee /etc/locale.conf >/dev/null
+echo "LANG=en_US.UTF-8" | ${SUDO:+$SUDO }tee /etc/locale.conf >/dev/null
 
 # Export locale variables for current session
 export LANG=en_US.UTF-8

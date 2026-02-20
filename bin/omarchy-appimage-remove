@@ -83,3 +83,6 @@ for APP_NAME in "${APP_NAMES[@]}"; do
 
   echo "Removed $APP_NAME"
 done
+
+update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1 || true

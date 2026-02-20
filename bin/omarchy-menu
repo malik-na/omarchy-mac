@@ -116,11 +116,11 @@ back_to() {
 # ---- Menu list -----
 
 show_learn_menu() {
-  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash')" in
+  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰖳  Fedora\n  Neovim\n󱆃  Bash')" in
   *Keybindings*) omarchy-menu-keybindings ;;
   *Omarchy*) omarchy-launch-webapp "https://learn.omacom.io/2/the-omarchy-manual" ;;
   *Hyprland*) omarchy-launch-webapp "https://wiki.hypr.land/" ;;
-  *Arch*) omarchy-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
+  *Fedora*) omarchy-launch-webapp "https://docs.fedoraproject.org/" ;;
   *Bash*) omarchy-launch-webapp "https://devhints.io/bash" ;;
   *Neovim*) omarchy-launch-webapp "https://www.lazyvim.org/keymaps" ;;
   *) show_main_menu ;;
@@ -231,7 +231,7 @@ show_setup_menu() {
   options+=$'\n'"  Config"
 
   case $(menu "Setup" "$options") in
-  *Audio*) omarchy-launch-or-focus-tui wiremix ;;
+  *Audio*) omarchy-launch-audio ;;
   *Wifi*)
     rfkill unblock wifi
     omarchy-launch-wifi
@@ -288,6 +288,7 @@ show_install_menu() {
   case $(menu "Install" $'󰣇  Package\n󰣇  Extra Package\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
   *Extra*) terminal omarchy-pkg-aur-install ;;
+  *AppImage*) present_terminal omarchy-appimage-install ;;
   *Web*) present_terminal omarchy-webapp-install ;;
   *TUI*) present_terminal omarchy-tui-install ;;
   *Service*) show_install_service_menu ;;

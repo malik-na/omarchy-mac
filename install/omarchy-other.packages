@@ -10,6 +10,7 @@ btrfs-progs
 dkms
 egl-wayland
 git
+grim
 gst-plugin-pipewire
 gtk4-layer-shell
 htop
@@ -38,6 +39,7 @@ pipewire-pulse
 qt6-wayland
 sassc
 snapper
+wayfreeze-git
 webp-pixbuf-loader
 wget
 yay-debug

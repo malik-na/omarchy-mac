@@ -6,4 +6,22 @@ if (($# == 0)); then
 fi
 
 app_id="org.omarchy.$(basename "$1")"
-exec setsid uwsm-app -- xdg-terminal-exec --app-id="$app_id" -- "$@"
+
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+  exec setsid uwsm-app -- xdg-terminal-exec --app-id="$app_id" -- "$@"
+fi
+
+if command -v alacritty >/dev/null 2>&1; then
+  exec setsid uwsm-app -- alacritty --class "$app_id" -e "$@"
+fi
+
+if command -v ghostty >/dev/null 2>&1; then
+  exec setsid uwsm-app -- ghostty --class "$app_id" -e "$@"
+fi
+
+if command -v kitty >/dev/null 2>&1; then
+  exec setsid uwsm-app -- kitty --class "$app_id" -- "$@"
+fi
+
+notify-send "Terminal launcher" "No supported terminal found (xdg-terminal-exec/alacritty/ghostty/kitty)."
+exit 1

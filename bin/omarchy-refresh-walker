@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Overwrite the user configs for the Walker application launcher (which also powers the Omarchy Menu) and restart the services.
+
 # Note: This script now manages fuzzel configuration for omarchy-mac-menu compatibility
 omarchy-refresh-config fuzzel/fuzzel.ini
 omarchy-refresh-config fuzzel/fuzzel.theme.ini
