@@ -10,7 +10,7 @@ description: >
   settings, display config, or any omarchy-* commands.
 ---
 
-# Omarchy Skill
+# Omarchy Mac Skill
 
 Manage Omarchy Mac systems on Fedora Asahi Remix Minimal (aarch64/Apple Silicon) with Hyprland.
 
@@ -20,7 +20,7 @@ This skill is for the Omarchy Mac fork and assumes:
 
 - Fedora Asahi Remix Minimal
 - Apple Silicon (M1/M2/M3/M4) running `aarch64`
-- Omarchy installed from `malik-na/omarchy-mac`
+- Omarchy Mac installed from `malik-na/omarchy-mac`
 
 Unsupported targets for this skill:
 - Arch / ALARM-based Omarchy installs
@@ -47,7 +47,7 @@ Unsupported targets for this skill:
 
 **NEVER modify anything in `~/.local/share/omarchy/`** - but READING is safe and encouraged.
 
-This directory contains Omarchy's source files managed by git. Any changes will be:
+This directory contains Omarchy Mac source files managed by git. Any changes will be:
 - Lost on next `omarchy-update`
 - Cause conflicts with upstream
 - Break the system's update mechanism
@@ -73,7 +73,7 @@ This directory contains Omarchy's source files managed by git. Any changes will 
 - `~/.config/omarchy/themes/<custom-name>/` - Custom themes (must be real directories)
 - `~/.config/omarchy/hooks/` - Custom automation hooks
 
-## System Architecture
+## Omarchy Mac Architecture
 
 Omarchy Mac is built on:
 
@@ -89,7 +89,7 @@ Omarchy Mac is built on:
 
 ## Command Discovery
 
-Omarchy provides ~145 commands following `omarchy-<category>-<action>` pattern.
+Omarchy Mac provides ~145 commands following `omarchy-<category>-<action>` pattern.
 
 ```bash
 # List all omarchy commands
@@ -311,7 +311,7 @@ omarchy-font-set <name>         # Change font
 
 ```bash
 omarchy-update                  # Full system update
-omarchy-version                 # Show Omarchy version
+omarchy-version                 # Show Omarchy Mac version
 omarchy-debug --no-sudo --print # Debug info (ALWAYS use these flags)
 omarchy-lock-screen             # Lock screen
 omarchy-cmd-shutdown            # Shutdown
@@ -354,7 +354,7 @@ When user requests system changes:
 
 ## Development (AI Agents)
 
-When contributing to Omarchy itself (e.g., fixing bugs, adding features), migrations are used to apply changes to existing installations.
+When contributing to Omarchy Mac itself (e.g., fixing bugs, adding features), migrations are used to apply changes to existing installations.
 
 ### Creating Migrations
 
