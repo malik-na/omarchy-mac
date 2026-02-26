@@ -9,7 +9,7 @@ Unsupported targets:
 
 ## Requirements
 
-- Apple Silicon Mac (M1/M2/M3/M4)
+- Apple Silicon Mac (M1/M2)
 - Fedora Asahi Remix Minimal
 - Regular user with sudo privileges
 - Internet connectivity
@@ -94,6 +94,7 @@ sed -i 's/^font-size = .*/font-size = 11/' ~/.config/ghostty/config
 ```bash
 git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
+git checkout fedora
 bash install.sh
 ```
 
