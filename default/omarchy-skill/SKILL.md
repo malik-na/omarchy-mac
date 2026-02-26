@@ -12,7 +12,20 @@ description: >
 
 # Omarchy Skill
 
-Manage [Omarchy](https://omarchy.org/) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Hyprland.
+Manage Omarchy Mac systems on Fedora Asahi Remix Minimal (aarch64/Apple Silicon) with Hyprland.
+
+## Target Platform
+
+This skill is for the Omarchy Mac fork and assumes:
+
+- Fedora Asahi Remix Minimal
+- Apple Silicon (M1/M2/M3/M4) running `aarch64`
+- Omarchy installed from `malik-na/omarchy-mac`
+
+Unsupported targets for this skill:
+- Arch / ALARM-based Omarchy installs
+- Non-Asahi Fedora installs
+- `x86_64` hosts
 
 ## When This Skill MUST Be Used
 
@@ -62,11 +75,11 @@ This directory contains Omarchy's source files managed by git. Any changes will 
 
 ## System Architecture
 
-Omarchy is built on:
+Omarchy Mac is built on:
 
 | Component | Purpose | Config Location |
 |-----------|---------|-----------------|
-| **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
+| **Fedora Asahi Remix Minimal** | Base OS | `/etc/`, `~/.config/` |
 | **Hyprland** | Wayland compositor/WM | `~/.config/hypr/` |
 | **Waybar** | Status bar | `~/.config/waybar/` |
 | **Walker** | App launcher | `~/.config/walker/` |
@@ -101,7 +114,7 @@ cat $(which omarchy-theme-set)
 | `omarchy-install-*` | Install optional software | `omarchy-install-docker-dbs` |
 | `omarchy-launch-*` | Launch apps | `omarchy-launch-browser` |
 | `omarchy-cmd-*` | System commands | `omarchy-cmd-screenshot` |
-| `omarchy-pkg-*` | Package management | `omarchy-pkg-install <pkg>` |
+| `omarchy-pkg-*` | Package management (dnf-backed) | `omarchy-pkg-install <pkg>` |
 | `omarchy-setup-*` | Initial setup tasks | `omarchy-setup-fingerprint` |
 | `omarchy-update-*` | System updates | `omarchy-update` |
 
@@ -336,7 +349,7 @@ When user requests system changes:
 2. **Is it a config edit?** Edit in `~/.config/`, never `~/.local/share/omarchy/`
 3. **Is it a theme customization?** Create a NEW custom theme directory
 4. **Is it automation?** Use hooks in `~/.config/omarchy/hooks/`
-5. **Is it a package install?** Use `yay`
+5. **Is it a package install?** Use `omarchy-pkg-install <pkg>` or `dnf`
 6. **Unsure if command exists?** Search with `compgen -c | grep omarchy`
 
 ## Development (AI Agents)
