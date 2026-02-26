@@ -94,9 +94,27 @@ if ! command -v eza &>/dev/null; then
   fi
 fi
 
-# 7. satty (build from source)
+# 7. satty (fallback install if base package step missed it)
 if ! command -v satty &>/dev/null; then
-  echo "[WARN] satty not available in repos. Please build from source: https://github.com/marvinborner/satty"
+  if dnf list --available satty &>/dev/null; then
+    echo "Installing satty (fallback path)..."
+    sudo dnf install -y satty || echo "[WARN] satty install failed, continuing..."
+  else
+    echo "[WARN] satty not available in enabled repos. Please build from source: https://github.com/marvinborner/satty"
+  fi
+fi
+
+# 7b. wayfreeze (optional enhancement for screenshot UX)
+if ! command -v wayfreeze &>/dev/null; then
+  if dnf list --available wayfreeze &>/dev/null; then
+    echo "Installing wayfreeze (optional)..."
+    sudo dnf install -y wayfreeze || echo "[WARN] Optional wayfreeze install failed, continuing..."
+  elif dnf list --available wayfreeze-git &>/dev/null; then
+    echo "Installing wayfreeze-git (optional)..."
+    sudo dnf install -y wayfreeze-git || echo "[WARN] Optional wayfreeze-git install failed, continuing..."
+  else
+    echo "[INFO] Optional wayfreeze package is unavailable on this Fedora release"
+  fi
 fi
 
 # 8. hyprland-guiutils (build from source)
