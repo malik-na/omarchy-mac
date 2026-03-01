@@ -25,6 +25,7 @@ chromium
 xdg-terminal-exec
 alacritty
 starship
+eza
 btop
 fzf
 ripgrep
