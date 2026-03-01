@@ -102,13 +102,4 @@ if [[ "$want_private" == true ]]; then
   pass_args=("$private_flag" "${pass_args[@]}")
 fi
 
-# Mitigate fullscreen green-tint artifacts seen on some Apple/Asahi systems
-# with Chromium-based browsers by disabling problematic GPU/video paths.
-if [[ "$browser_exec" =~ (chromium|chrome|brave|edge|vivaldi) ]] && [[ "$(uname -m)" =~ (aarch64|arm64) ]]; then
-  pass_args=(
-    --disable-features=Vulkan
-    "${pass_args[@]}"
-  )
-fi
-
 exec setsid uwsm-app -- "$browser_exec" "${pass_args[@]}"
