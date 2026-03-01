@@ -11,3 +11,6 @@ export EDITOR=nvim
 
 # Use a custom directory for screenrecordings (remember to make the directory!)
 # export OMARCHY_SCREENRECORD_DIR="$HOME/Videos/Screencasts"
+
+# Override launcher (fuzzel) font size
+# export OMARCHY_FUZZEL_FONT_SIZE=14
