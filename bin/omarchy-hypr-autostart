@@ -12,7 +12,9 @@ launch_uwsm() {
     return 0
   fi
 
-  uwsm-app -- "$app" "$@" >/dev/null 2>&1 || setsid "$app" "$@" >/dev/null 2>&1 &
+  if ! uwsm-app -- "$app" "$@" >/dev/null 2>&1; then
+    setsid "$app" "$@" >/dev/null 2>&1 &
+  fi
 }
 
 ensure_background_link() {
