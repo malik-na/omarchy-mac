@@ -116,7 +116,7 @@ back_to() {
 # ---- Menu list -----
 
 show_learn_menu() {
-  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰖳  Fedora\n  Neovim\n󱆃  Bash')" in
+  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n  Fedora\n  Neovim\n󱆃  Bash')" in
   *Keybindings*) omarchy-menu-keybindings ;;
   *Omarchy*) omarchy-launch-webapp "https://learn.omacom.io/2/the-omarchy-manual" ;;
   *Hyprland*) omarchy-launch-webapp "https://wiki.hypr.land/" ;;
