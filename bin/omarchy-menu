@@ -287,7 +287,7 @@ show_setup_security_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" $'󰣇  Package\n󰣇  Extra Package\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
+  case $(menu "Install" $'󰣇  Package\n󰣇  Extra Package (Fedora)\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
   *Extra*) terminal omarchy-pkg-aur-install ;;
   *AppImage*) present_terminal omarchy-appimage-install ;;
