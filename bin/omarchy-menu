@@ -222,14 +222,14 @@ show_setup_menu() {
   options+=$'\n'"󱐋  Power Profile"
   options+=$'\n'"󰍹  Monitors"
 
-  [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
-  [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
+  [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
 
-  options+=$'\n'"  Defaults"
+  options+=$'\n'"  Defaults"
   options+=$'\n'"  Info"
   options+=$'\n'"󰱔  DNS"
-  options+=$'\n'"  Security"
-  options+=$'\n'"  Config"
+  options+=$'\n'"  Security"
+  options+=$'\n'"  Config"
 
   case $(menu "Setup" "$options") in
   *Audio*) omarchy-launch-audio ;;
