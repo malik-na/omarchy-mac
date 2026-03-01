@@ -7,6 +7,8 @@ font_name="$1"
 
 if [[ -n "$font_name" ]]; then
   if fc-list | grep -iq "$font_name"; then
+    font_name_escaped=${font_name//&/\\&}
+
     if [[ -f ~/.config/alacritty/alacritty.toml ]]; then
       sed -i "s/family = \".*\"/family = \"$font_name\"/g" ~/.config/alacritty/alacritty.toml
     fi
@@ -24,6 +26,11 @@ if [[ -n "$font_name" ]]; then
     sed -i "s/font_family = .*/font_family = $font_name/g" ~/.config/hypr/hyprlock.conf
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/waybar/style.css
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/swayosd/style.css
+
+    if [[ -f ~/.config/fuzzel/fuzzel.ini ]]; then
+      sed -i -E "s|^font=.*$|font=${font_name_escaped}:size=14|" ~/.config/fuzzel/fuzzel.ini
+    fi
+
     xmlstarlet ed -L \
       -u '//match[@target="pattern"][test/string="monospace"]/edit[@name="family"]/string' \
       -v "$font_name" \

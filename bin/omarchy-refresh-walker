@@ -7,4 +7,13 @@ omarchy-refresh-config fuzzel/fuzzel.ini
 if [[ -f "$HOME/.local/share/omarchy/config/fuzzel/fuzzel.theme.ini" ]]; then
   omarchy-refresh-config fuzzel/fuzzel.theme.ini
 fi
+
+if [[ -f "$HOME/.config/fuzzel/fuzzel.ini" ]]; then
+  current_font=$(omarchy-font-current 2>/dev/null || true)
+  if [[ -n "$current_font" ]]; then
+    current_font_escaped=${current_font//&/\\&}
+    sed -i -E "s|^font=.*$|font=${current_font_escaped}:size=14|" "$HOME/.config/fuzzel/fuzzel.ini"
+  fi
+fi
+
 omarchy-restart-walker
