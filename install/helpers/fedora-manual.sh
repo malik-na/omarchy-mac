@@ -89,7 +89,14 @@ if ! command -v eza &>/dev/null; then
   if dnf list --available eza &>/dev/null; then
     echo "Installing eza (optional)..."
     sudo dnf install -y eza || echo "[WARN] Optional eza install failed, continuing..."
-  else
+  fi
+
+  if ! command -v eza &>/dev/null && command -v cargo &>/dev/null; then
+    echo "Installing eza via cargo (fallback path)..."
+    cargo install --locked eza || echo "[WARN] Optional eza cargo install failed, continuing..."
+  fi
+
+  if ! command -v eza &>/dev/null; then
     echo "[INFO] Optional eza package is unavailable on this Fedora release"
   fi
 fi
