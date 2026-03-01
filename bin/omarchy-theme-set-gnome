@@ -16,3 +16,6 @@ if [[ -f $GNOME_ICONS_THEME ]]; then
 else
   gsettings set org.gnome.desktop.interface icon-theme "Yaru-blue"
 fi
+
+# Ensure Nautilus picks up updated GTK/icon theme immediately.
+nautilus -q >/dev/null 2>&1 || true
