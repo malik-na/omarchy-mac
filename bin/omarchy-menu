@@ -77,7 +77,12 @@ menu() {
   # --dmenu — get from stdin and selected to stdout
   # --prompt — request header
   # --width - window's width (if empty, fuzzel would set default)
-  local args=(--dmenu --width 20 --placeholder "Go...")
+  local args=(--dmenu --placeholder "Go...")
+  if [[ -n "$width" ]]; then
+    args+=(--width "$width")
+  else
+    args+=(--width 20)
+  fi
 
   # Start. Fuzzel returns empty stroke on esc/cancel
   local choice
