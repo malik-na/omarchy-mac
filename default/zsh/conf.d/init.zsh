@@ -29,10 +29,18 @@ if command -v fzf &> /dev/null; then
   fzf-file-widget() {
     local fd_cmd=$(command -v fdfind || command -v fd || echo "fd")
     local current_token="${LBUFFER##* }"
-    # Remove leading/trailing quotes and expand variables, but don't add -- if empty
+    # Remove simple wrapping quotes and safely expand leading ~
     local expanded_token=""
     if [[ -n "$current_token" ]]; then
-      expanded_token=$(eval echo "$current_token" 2>/dev/null || echo "$current_token")
+      expanded_token="$current_token"
+      if [[ "$expanded_token" == \'*\' ]]; then
+        expanded_token="${expanded_token:1:-1}"
+      elif [[ "$expanded_token" == \"*\" ]]; then
+        expanded_token="${expanded_token:1:-1}"
+      fi
+      if [[ "$expanded_token" == "~"* ]]; then
+        expanded_token="${HOME}${expanded_token:1}"
+      fi
     fi
     
     local selected
