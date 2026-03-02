@@ -25,7 +25,7 @@ if [[ ! -f /usr/share/wayland-sessions/hyprland-uwsm.desktop ]] && [[ -f /usr/sh
   SESSION_NAME="hyprland"
 fi
 
-cat <<EOF | sudo tee /etc/sddm.conf.d/autologin.conf >/dev/null
+cat <<EOF | sudo tee /etc/sddm.conf.d/10-omarchy-autologin.conf >/dev/null
 [Autologin]
 User=$AUTOLOGIN_USER
 Session=$SESSION_NAME
