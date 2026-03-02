@@ -8,7 +8,7 @@ echo "Setting up zsh..."
 # Check if zsh is installed
 if ! command -v zsh &> /dev/null; then
     echo "Warning: zsh is not installed. Skipping zsh setup."
-    echo "You can install zsh later with: yay -S zsh"
+    echo "You can install zsh later with your package manager, for example on Fedora: sudo dnf install zsh"
     echo "Then run: omarchy-setup-zsh"
     exit 0
 fi
