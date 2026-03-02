@@ -1,6 +1,9 @@
 #!/bin/bash
 # Install optional proprietary/AUR apps (1Password, etc.)
 
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+OMARCHY_BIN="${OMARCHY_BIN:-$OMARCHY_PATH/bin}"
+
 # Only run on aarch64
 if [ "$(uname -m)" != "aarch64" ]; then
     echo "Skipping optional apps: not aarch64 architecture"
