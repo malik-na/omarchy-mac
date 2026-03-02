@@ -6,6 +6,9 @@ set -euo pipefail
 conf="/etc/vconsole.conf"
 hyprconf="$HOME/.config/hypr/input.conf"
 
+mkdir -p "$(dirname "$hyprconf")"
+touch "$hyprconf"
+
 set_or_insert_hypr_kv() {
   local key="$1"
   local value="$2"
