@@ -4,9 +4,9 @@
 # Omarchy Mac — Dual Boot Installation
 A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy) alongside macOS on Apple Silicon (M1/M2).
 
-**Omarchy Mac Fedora** is coming soon!
+**[Omarchy Mac Fedora](https://github.com/malik-na/omarchy-mac/tree/fedora-dev)** is coming soon!
 
-_This is not meant for Parallels or VMs_
+_This project is not optimized for Parallels or VMs_
 
 [![License](https://img.shields.io/github/license/malik-na/omarchy-mac)](LICENSE) [![Stars](https://img.shields.io/github/stars/malik-na/omarchy-mac?style=social)](https://github.com/malik-na/omarchy-mac/stargazers)
 
@@ -16,7 +16,7 @@ _This is not meant for Parallels or VMs_
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
 - External monitor guide — https://github.com/malik-na/omarchy-mac/discussions/73
-- Support — https://buymeacoffee.com/malik2015no
+- Support the project — https://buymeacoffee.com/malik2015no
 - Discord — https://discord.gg/KNQRk7dMzy
 
 ---
