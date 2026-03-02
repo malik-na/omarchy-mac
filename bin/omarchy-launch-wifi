@@ -22,24 +22,32 @@ find_impala() {
   return 1
 }
 
-if IMPALA_BIN=$(find_impala); then
-  exec omarchy-launch-or-focus-tui "$IMPALA_BIN"
+iwd_active() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet iwd; then
+    return 0
+  fi
+
+  pgrep -x iwd >/dev/null 2>&1
+}
+
+if iwd_active && IMPALA_BIN=$(find_impala); then
+  exec omarchy-launch-tui "$IMPALA_BIN"
+fi
+
+if command -v nmtui >/dev/null 2>&1; then
+  exec omarchy-launch-tui nmtui
 fi
 
 if command -v nm-connection-editor >/dev/null 2>&1; then
   exec setsid uwsm-app -- nm-connection-editor >/dev/null 2>&1
 fi
 
-if command -v nmtui >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui nmtui
-fi
-
 if command -v nmcli >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui nmcli device wifi
+  exec omarchy-launch-tui nmcli device wifi
 fi
 
-if command -v iwctl >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui iwctl
+if iwd_active && command -v iwctl >/dev/null 2>&1; then
+  exec omarchy-launch-tui iwctl
 fi
 
 notify-send "Wi-Fi" "No supported Wi-Fi UI found (impala/nm-connection-editor/nmtui/nmcli/iwctl)."

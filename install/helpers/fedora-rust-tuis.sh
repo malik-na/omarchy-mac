@@ -12,6 +12,48 @@ CPU_ARCH=$(uname -m)
 
 echo "[Omarchy/Fedora] Ensuring TUI prerequisites (bluetui, impala, wiremix)..."
 
+ensure_iwd_backend() {
+  local backend_conf="/etc/NetworkManager/conf.d/10-wifi-backend.conf"
+
+  if ! command -v NetworkManager >/dev/null 2>&1 && ! rpm -q NetworkManager >/dev/null 2>&1; then
+    echo "[WARN] NetworkManager is not installed; skipping iwd backend setup"
+    return 1
+  fi
+
+  if ! rpm -q iwd >/dev/null 2>&1; then
+    echo "[INFO] Installing iwd backend package"
+    sudo dnf install -y iwd || {
+      echo "[WARN] Failed to install iwd"
+      return 1
+    }
+  else
+    echo "[OK] iwd already installed"
+  fi
+
+  sudo mkdir -p /etc/NetworkManager/conf.d
+  if [[ ! -f "$backend_conf" ]] || ! grep -q '^\s*wifi\.backend\s*=\s*iwd\s*$' "$backend_conf"; then
+    printf '[device]\nwifi.backend=iwd\n' | sudo tee "$backend_conf" >/dev/null || {
+      echo "[WARN] Failed to write NetworkManager iwd backend config"
+      return 1
+    }
+    echo "[OK] Set NetworkManager Wi-Fi backend to iwd"
+  else
+    echo "[OK] NetworkManager already configured with wifi.backend=iwd"
+  fi
+
+  sudo systemctl disable --now wpa_supplicant >/dev/null 2>&1 || true
+  sudo systemctl enable --now iwd >/dev/null 2>&1 || {
+    echo "[WARN] Failed to enable iwd service"
+    return 1
+  }
+  sudo systemctl restart NetworkManager >/dev/null 2>&1 || {
+    echo "[WARN] Failed to restart NetworkManager"
+    return 1
+  }
+
+  echo "[OK] iwd backend active path configured"
+}
+
 ensure_local_bin_path() {
   mkdir -p "$HOME/.local/bin"
   case ":$PATH:" in
@@ -89,6 +131,7 @@ install_cargo_tool() {
 }
 
 install_bluetui
+ensure_iwd_backend || echo "[WARN] iwd backend setup failed"
 ensure_rust_toolchain || echo "[WARN] rust toolchain setup failed"
 ensure_wiremix_build_deps || echo "[WARN] wiremix dependency setup failed"
 install_cargo_tool impala 0.7.3 || true
@@ -98,6 +141,11 @@ echo
 echo "Summary of actions:"
 echo "- Identified System: Fedora ${FEDORA_RELEASE} on ${CPU_ARCH}."
 echo "- Tried COPR: nclundell/fedora-extras (with fedora-43-aarch64 fallback on Asahi Fedora 42)."
+if systemctl is-active --quiet iwd; then
+  echo "- Wi-Fi backend: iwd active (NetworkManager backend target: iwd)."
+else
+  echo "- Wi-Fi backend: iwd not active (check /etc/NetworkManager/conf.d/10-wifi-backend.conf)."
+fi
 if rpm -q bluetui >/dev/null 2>&1; then
   echo "- Installed Package: $(rpm -q bluetui)."
 else
