@@ -10,7 +10,7 @@ STATE_FILE="$STATE_DIR/1770001483.sh"
 # Check if zsh is installed
 if ! command -v zsh &> /dev/null; then
     echo "zsh is not installed. Skipping omarchy-zsh setup."
-    echo "You can install zsh later with: yay -S zsh"
+    echo "You can install zsh later with your package manager, for example on Fedora: sudo dnf install zsh"
     echo "Then run: omarchy-setup-zsh"
     mkdir -p "$STATE_DIR"
     touch "$STATE_FILE"
