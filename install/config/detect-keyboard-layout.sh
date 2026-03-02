@@ -13,7 +13,11 @@ set_or_insert_hypr_kv() {
   if grep -q "^[[:space:]]*${key}[[:space:]]*=" "$hyprconf"; then
     sed -i "s|^[[:space:]]*${key}[[:space:]]*=.*|  ${key} = ${value}|" "$hyprconf"
   else
-    sed -i "/^[[:space:]]*kb_options *=/i\  ${key} = ${value}" "$hyprconf"
+    if grep -q "^[[:space:]]*kb_options[[:space:]]*=" "$hyprconf"; then
+      sed -i "/^[[:space:]]*kb_options[[:space:]]*=/i\  ${key} = ${value}" "$hyprconf"
+    else
+      printf '  %s = %s\n' "$key" "$value" >> "$hyprconf"
+    fi
   fi
 }
 
