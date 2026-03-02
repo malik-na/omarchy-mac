@@ -1,0 +1,42 @@
+#!/bin/bash
+
+CURRENT_THEME_NAME=$(cat "$HOME/.config/omarchy/current/theme.name" 2>/dev/null)
+THEME_BACKGROUNDS_PATH="$HOME/.config/omarchy/current/theme/backgrounds"
+USER_BACKGROUNDS_PATH="$HOME/.config/omarchy/backgrounds/$CURRENT_THEME_NAME"
+
+format_name() {
+  local filename="$1"
+  local name
+  name="${filename%.*}"
+  name="$(echo "$name" | sed -E 's/^[0-9]+-?//' | tr '-' ' ')"
+  echo "$name" | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))} print}'
+}
+
+mapfile -d '' -t BACKGROUNDS < <(find -L "$THEME_BACKGROUNDS_PATH" "$USER_BACKGROUNDS_PATH" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.gif' -o -name '*.bmp' -o -name '*.webp' \) -print0 2>/dev/null | sort -z)
+
+if [[ ${#BACKGROUNDS[@]} -eq 0 ]]; then
+  echo "No backgrounds found for current theme"
+  notify-send "Background" "No backgrounds found for current theme"
+  exit 1
+fi
+
+if ! command -v fzf >/dev/null 2>&1; then
+  echo "fzf not found; using first background"
+  exec omarchy-theme-bg-set "${BACKGROUNDS[0]}"
+fi
+
+rows=()
+for background in "${BACKGROUNDS[@]}"; do
+  filename=$(basename "$background")
+  pretty_name=$(format_name "$filename")
+  rows+=("$pretty_name"$'\t'"$background")
+done
+
+preview_cmd='path={2}; name=$(basename "$path"); printf "\033[2J\033[H"; printf "Image: %s\n\n" "$name"; lines=$((FZF_PREVIEW_LINES-3)); if (( lines < 5 )); then lines=5; fi; if command -v chafa >/dev/null 2>&1; then chafa --animate=off --clear --stretch --size=${FZF_PREVIEW_COLUMNS}x${lines} "$path" 2>/dev/null; else printf "%s\n\nInstall chafa for image preview in terminal.\n" "$path"; fi'
+
+selection=$(printf '%s\n' "${rows[@]}" | fzf --delimiter=$'\t' --with-nth=1 --prompt='Pick your wallpaper> ' --height=95% --layout=reverse --preview-window=right:60%:border-left:wrap --preview "$preview_cmd")
+
+[[ -z "$selection" ]] && exit 0
+selected_background="${selection#*$'\t'}"
+
+exec omarchy-theme-bg-set "$selected_background"

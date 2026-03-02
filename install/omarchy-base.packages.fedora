@@ -54,6 +54,7 @@ docker-buildx
 
 # Media & Apps
 imv
+chafa
 mpv
 pinta
 libreoffice
