@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # =============================================================================
-# Omarchy Mac Bootstrap Setup Script
+# Omarchy Bootstrap Setup Script
 # =============================================================================
 # This script downloads the omarchy-mac repository to the correct location
-# and guides the user to run the actual bootstrap script locally.
+# and prepares the local bootstrap environment on pacman-based systems.
 #
-# Usage (as root after first boot):
-#   curl -fsSL https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
+# Usage (as root after first boot on supported pacman-based distro):
+#   curl -fsSL https://raw.githubusercontent.com/malik-na/omarchy-mac/main/setup.sh | bash
 #   OR
-#   wget -qO- https://raw.githubusercontent.com/malik-na/omarchy-mac/main/bootstrap.sh | bash
+#   wget -qO- https://raw.githubusercontent.com/malik-na/omarchy-mac/main/setup.sh | bash
 # =============================================================================
 
 set -e
