@@ -135,6 +135,7 @@
   "custom/screenrecording-indicator": {
     "on-click": "omarchy-cmd-screenrecord",
     "exec": "$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh",
+    "interval": 1,
     "signal": 8,
     "return-type": "json"
   },
@@ -164,7 +165,7 @@
     "on-click": "omarchy-voxtype-model"
   },
   "tray": {
-    "icon-size": 12,
+    "icon-size": 16,
     "spacing": 17
   }
 }
