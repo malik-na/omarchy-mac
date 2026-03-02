@@ -90,7 +90,7 @@ if [[ -z "$browser_exec" ]]; then
   exit 1
 fi
 
-if [[ $browser_exec =~ (firefox|zen|librewolf|mullvad) ]]; then
+if $browser_exec --help | grep -q MOZ_LOG; then
   private_flag="--private-window"
 elif [[ $browser_exec =~ edge ]]; then
   private_flag="--inprivate"

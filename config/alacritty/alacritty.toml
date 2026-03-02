@@ -3,6 +3,9 @@ general.import = [ "~/.config/omarchy/current/theme/alacritty.toml" ]
 [env]
 TERM = "xterm-256color"
 
+[terminal]
+osc52 = "CopyPaste"
+
 [font]
 normal = { family = "JetBrains Mono", style = "Regular" }
 bold = { family = "JetBrains Mono", style = "Bold" }

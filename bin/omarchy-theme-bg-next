@@ -14,7 +14,7 @@ if [[ $TOTAL -eq 0 ]]; then
   notify-send "No background found for this theme; keeping current background" -t 2500
 else
   # Get current background from symlink
-  if [[ -L "$CURRENT_BACKGROUND_LINK" ]]; then
+  if [[ -L $CURRENT_BACKGROUND_LINK ]]; then
     CURRENT_BACKGROUND=$(readlink "$CURRENT_BACKGROUND_LINK")
   else
     # Default to first background if no symlink exists
@@ -24,14 +24,14 @@ else
   # Find current background index
   INDEX=-1
   for i in "${!BACKGROUNDS[@]}"; do
-    if [[ "${BACKGROUNDS[$i]}" == "$CURRENT_BACKGROUND" ]]; then
+    if [[ ${BACKGROUNDS[$i]} == $CURRENT_BACKGROUND ]]; then
       INDEX=$i
       break
     fi
   done
 
   # Get next background (wrap around)
-  if [[ $INDEX -eq -1 ]]; then
+  if (( INDEX == -1 )); then
     # Use the first background when no match was found
     NEW_BACKGROUND="${BACKGROUNDS[0]}"
   else
