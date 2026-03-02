@@ -3,10 +3,27 @@
 # Launch the Omarchy wifi controls (provided by the Impala TUI).
 # Attempts to unblock the wifi service first in case it should be been blocked.
 
-rfkill unblock wifi
+rfkill unblock wifi >/dev/null 2>&1 || true
 
-if command -v impala >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui impala
+find_impala() {
+  local candidates=(
+    "$(command -v impala 2>/dev/null || true)"
+    "$HOME/.local/bin/impala"
+    "$HOME/.cargo/bin/impala"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+if IMPALA_BIN=$(find_impala); then
+  exec omarchy-launch-or-focus-tui "$IMPALA_BIN"
 fi
 
 if command -v nm-connection-editor >/dev/null 2>&1; then
