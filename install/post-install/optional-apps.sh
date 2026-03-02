@@ -4,7 +4,7 @@
 # Only run on aarch64
 if [ "$(uname -m)" != "aarch64" ]; then
     echo "Skipping optional apps: not aarch64 architecture"
-    return 0
+    exit 0
 fi
 
 # Install 1Password if the installer script exists
