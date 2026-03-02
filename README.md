@@ -96,13 +96,11 @@ pacman -Syu
 pacman -S --needed sudo git base-devel chromium
 
 # Enable en_US.UTF-8 locale
-nano /etc/locale.gen   # uncomment en_US.UTF-8
-locale-gen
-echo 'LANG=en_US.UTF-8' | tee /etc/locale.conf
-locale
 
-# Reboot to apply changes
+locale-gen
 reboot
+# After reboot
+locale #should show UTF-8
 ```
 
 Notes
