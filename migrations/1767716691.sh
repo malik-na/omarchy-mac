@@ -5,7 +5,7 @@ if ! grep -q '"headphone": ""' "$HOME/.config/waybar/config.jsonc"; then
     /"pulseaudio": {/,/^[ ]*}/{
       /"format-icons": {/,/^[ ]*}/{
         /"default":/i\
-\      "headphone": "",
+      "headphone": "",
       }
     }
   ' "$HOME/.config/waybar/config.jsonc"
