@@ -14,9 +14,13 @@ local function file_exists(path)
   return false
 end
 
+local function shell_quote_single(path)
+  return "'" .. tostring(path):gsub("'", "'\\''") .. "'"
+end
+
 -- Get first matching file from directory using ls (single call for fallback)
 local function first_image_in_dir(dir)
-  local handle = io.popen("ls -1 '" .. dir .. "' 2>/dev/null | head -n 1")
+  local handle = io.popen("ls -1 " .. shell_quote_single(dir) .. " 2>/dev/null | head -n 1")
   if handle then
     local file = handle:read("*l")
     handle:close()
@@ -39,7 +43,7 @@ function GetEntries()
   -- Helper function to process themes from a directory
   local function process_themes_from_dir(theme_dir)
     -- Single find call to get all theme directories
-    local handle = io.popen("find -L '" .. theme_dir .. "' -mindepth 1 -maxdepth 1 -type d 2>/dev/null")
+    local handle = io.popen("find -L " .. shell_quote_single(theme_dir) .. " -mindepth 1 -maxdepth 1 -type d 2>/dev/null")
     if not handle then
       return
     end
@@ -93,4 +97,3 @@ function GetEntries()
 
   return entries
 end
-
