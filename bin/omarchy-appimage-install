@@ -105,6 +105,9 @@ fi
 
 chmod +x "$DESKTOP_FILE"
 
+update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+
 if [[ $INTERACTIVE_MODE == true ]]; then
   echo -e "You can now find $APP_NAME using the app launcher (SUPER + SPACE)\n"
 fi

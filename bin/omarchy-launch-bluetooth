@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Launch the Omarchy bluetooth controls TUI (provided by bluetui).
+# Also attempts to unblock bluetooth service if rfkill had blocked it.
+
 rfkill unblock bluetooth
 
 if command -v bluetui >/dev/null 2>&1; then

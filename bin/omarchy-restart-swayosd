@@ -1,3 +1,5 @@
 #!/bin/bash
 
+command -v swayosd-server >/dev/null 2>&1 || exit 0
+
 omarchy-restart-app swayosd-server

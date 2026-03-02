@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if command -v wiremix >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui wiremix
+fi
+
+if command -v pavucontrol >/dev/null 2>&1; then
+  exec setsid uwsm-app -- pavucontrol >/dev/null 2>&1
+fi
+
+if command -v pulsemixer >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui pulsemixer
+fi
+
+if command -v alsamixer >/dev/null 2>&1; then
+  exec omarchy-launch-or-focus-tui alsamixer
+fi
+
+notify-send "Audio" "No supported audio UI found (wiremix/pavucontrol/pulsemixer/alsamixer)."
+exit 1

@@ -56,7 +56,7 @@ if ! command -v typora &>/dev/null; then
 fi
 
 # 5. localsend (Flatpak)
-if ! command -v localsend &>/dev/null; then
+if ! command -v localsend &>/dev/null && ! flatpak info org.localsend.localsend_app &>/dev/null; then
   echo "Installing localsend (Flatpak)..."
   flatpak install -y flathub org.localsend.localsend_app
 fi
@@ -64,7 +64,7 @@ fi
 # 6. swayosd (COPR or build from source)
 if ! command -v swayosd-server &>/dev/null; then
   echo "Installing swayosd (COPR or build from source)..."
-  sudo dnf copr enable -y atim/swayosd || true
+  sudo dnf copr enable -y erikreider/swayosd || true
   if dnf list --available swayosd &>/dev/null; then
     sudo dnf install -y swayosd
   else
@@ -72,9 +72,56 @@ if ! command -v swayosd-server &>/dev/null; then
   fi
 fi
 
-# 7. satty (build from source)
+# 6b. starship (fallback if package install missed it)
+if ! command -v starship &>/dev/null; then
+  echo "Installing starship (fallback path)..."
+  if dnf list --available starship &>/dev/null; then
+    sudo dnf install -y starship || true
+  fi
+
+  if ! command -v starship &>/dev/null && command -v cargo &>/dev/null; then
+    cargo install --locked starship || echo "[WARN] starship fallback install failed, continuing..."
+  fi
+fi
+
+# 6c. eza (optional)
+if ! command -v eza &>/dev/null; then
+  if dnf list --available eza &>/dev/null; then
+    echo "Installing eza (optional)..."
+    sudo dnf install -y eza || echo "[WARN] Optional eza install failed, continuing..."
+  fi
+
+  if ! command -v eza &>/dev/null && command -v cargo &>/dev/null; then
+    echo "Installing eza via cargo (fallback path)..."
+    cargo install --locked eza || echo "[WARN] Optional eza cargo install failed, continuing..."
+  fi
+
+  if ! command -v eza &>/dev/null; then
+    echo "[INFO] Optional eza package is unavailable on this Fedora release"
+  fi
+fi
+
+# 7. satty (fallback install if base package step missed it)
 if ! command -v satty &>/dev/null; then
-  echo "[WARN] satty not available in repos. Please build from source: https://github.com/marvinborner/satty"
+  if dnf list --available satty &>/dev/null; then
+    echo "Installing satty (fallback path)..."
+    sudo dnf install -y satty || echo "[WARN] satty install failed, continuing..."
+  else
+    echo "[WARN] satty not available in enabled repos. Please build from source: https://github.com/marvinborner/satty"
+  fi
+fi
+
+# 7b. wayfreeze (optional enhancement for screenshot UX)
+if ! command -v wayfreeze &>/dev/null; then
+  if dnf list --available wayfreeze &>/dev/null; then
+    echo "Installing wayfreeze (optional)..."
+    sudo dnf install -y wayfreeze || echo "[WARN] Optional wayfreeze install failed, continuing..."
+  elif dnf list --available wayfreeze-git &>/dev/null; then
+    echo "Installing wayfreeze-git (optional)..."
+    sudo dnf install -y wayfreeze-git || echo "[WARN] Optional wayfreeze-git install failed, continuing..."
+  else
+    echo "[INFO] Optional wayfreeze package is unavailable on this Fedora release"
+  fi
 fi
 
 # 8. hyprland-guiutils (build from source)

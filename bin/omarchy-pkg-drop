@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Remove all the named packages from the system if they're installed (otherwise ignore).
+
 for pkg in "$@"; do
   if rpm -q "$pkg" &>/dev/null; then
     sudo dnf remove -y "$pkg"

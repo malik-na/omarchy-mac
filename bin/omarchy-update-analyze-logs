@@ -1,0 +1,16 @@
+#!/bin/bash
+
+update_log="/tmp/omarchy-update.log"
+
+# Check for errors
+if grep -qi "error" "$update_log"; then
+  echo -e "\e[31mNon-stopping errors detected during update:\e[0m"
+  grep -i "error" "$update_log"
+  echo
+fi
+
+# Check for Fedora initramfs generation failures (dracut)
+if grep -Eqi 'dracut.*(error|failed|fatal)' "$update_log"; then
+  echo -e '\e[31mError: dracut reported initramfs generation issues. Review logs before restart.\e[0m'
+  echo
+fi

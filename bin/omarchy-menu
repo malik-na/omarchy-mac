@@ -77,7 +77,12 @@ menu() {
   # --dmenu — get from stdin and selected to stdout
   # --prompt — request header
   # --width - window's width (if empty, fuzzel would set default)
-  local args=(--dmenu --width 20 --placeholder "Go...")
+  local args=(--dmenu --placeholder "Go...")
+  if [[ -n "$width" ]]; then
+    args+=(--width "$width")
+  else
+    args+=(--width 20)
+  fi
 
   # Start. Fuzzel returns empty stroke on esc/cancel
   local choice
@@ -116,11 +121,11 @@ back_to() {
 # ---- Menu list -----
 
 show_learn_menu() {
-  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash')" in
+  case "$(menu "Learn" $'  Keybindings\n  Omarchy\n  Hyprland\n  Fedora\n  Neovim\n󱆃  Bash')" in
   *Keybindings*) omarchy-menu-keybindings ;;
   *Omarchy*) omarchy-launch-webapp "https://learn.omacom.io/2/the-omarchy-manual" ;;
   *Hyprland*) omarchy-launch-webapp "https://wiki.hypr.land/" ;;
-  *Arch*) omarchy-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
+  *Fedora*) omarchy-launch-webapp "https://docs.fedoraproject.org/" ;;
   *Bash*) omarchy-launch-webapp "https://devhints.io/bash" ;;
   *Neovim*) omarchy-launch-webapp "https://www.lazyvim.org/keymaps" ;;
   *) show_main_menu ;;
@@ -222,16 +227,17 @@ show_setup_menu() {
   options+=$'\n'"󱐋  Power Profile"
   options+=$'\n'"󰍹  Monitors"
 
-  [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
-  [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
+  [[ -f ~/.config/hypr/bindings.conf ]] && options+=$'\n'"  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options+=$'\n'"  Input"
 
-  options+=$'\n'"  Defaults"
+  options+=$'\n'"  Defaults"
+  options+=$'\n'"  Info"
   options+=$'\n'"󰱔  DNS"
-  options+=$'\n'"  Security"
-  options+=$'\n'"  Config"
+  options+=$'\n'"  Security"
+  options+=$'\n'"  Config"
 
   case $(menu "Setup" "$options") in
-  *Audio*) omarchy-launch-or-focus-tui wiremix ;;
+  *Audio*) omarchy-launch-audio ;;
   *Wifi*)
     rfkill unblock wifi
     omarchy-launch-wifi
@@ -245,6 +251,7 @@ show_setup_menu() {
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
   *Input*) open_in_editor ~/.config/hypr/input.conf ;;
   *Defaults*) open_in_editor ~/.config/uwsm/default ;;
+  *Info*) omarchy-launch-about ;;
   *DNS*) present_terminal omarchy-setup-dns ;;
   *Security*) show_setup_security_menu ;;
   *Config*) show_setup_config_menu ;;
@@ -263,13 +270,13 @@ show_setup_power_menu() {
 }
 
 show_setup_config_menu() {
-  case "$(menu "Setup" $'  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose')" in
+  case "$(menu "Setup" $'  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Fuzzel\n󰍜  Waybar\n󰞅  XCompose')" in
   *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
   *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf && omarchy-restart-hypridle ;;
   *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
   *Hyprsunset*) open_in_editor ~/.config/hypr/hyprsunset.conf && omarchy-restart-hyprsunset ;;
   *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && omarchy-restart-swayosd ;;
-  *Menu*) open_in_editor ~/.config/fuzzel/fuzzel.ini && omarchy-restart-walker ;;
+  *Fuzzel*) open_in_editor ~/.config/fuzzel/fuzzel.ini && omarchy-restart-walker ;;
   *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && omarchy-restart-waybar ;;
   *XCompose*) open_in_editor ~/.XCompose && omarchy-restart-xcompose ;;
   *) show_main_menu ;;
@@ -277,17 +284,17 @@ show_setup_config_menu() {
 }
 
 show_setup_security_menu() {
-  case "$(menu "Setup" $'󰈷  Fingerprint\n  Fido2')" in
+  case "$(menu "Setup" $'󰈷  Fingerprint\n  FIDO2')" in
   *Fingerprint*) present_terminal omarchy-setup-fingerprint ;;
-  *Fido2*) present_terminal omarchy-setup-fido2 ;;
+  *FIDO2* | *Fido2*) present_terminal omarchy-setup-fido2 ;;
   *) show_setup_menu ;;
   esac
 }
 
 show_install_menu() {
-  case $(menu "Install" $'󰣇  Package\n󰣇  Extra Package\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming') in
+  case $(menu "Install" $'  Package\n  AppImage\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n  Gaming') in
   *Package*) terminal omarchy-pkg-install ;;
-  *Extra*) terminal omarchy-pkg-aur-install ;;
+  *AppImage*) present_terminal omarchy-appimage-install ;;
   *Web*) present_terminal omarchy-webapp-install ;;
   *TUI*) present_terminal omarchy-tui-install ;;
   *Service*) show_install_service_menu ;;
@@ -296,7 +303,6 @@ show_install_menu() {
   *Editor*) show_install_editor_menu ;;
   *Terminal*) show_install_terminal_menu ;;
   *AI*) show_install_ai_menu ;;
-  *Windows*) present_terminal "omarchy-windows-vm install" ;;
   *Gaming*) show_install_gaming_menu ;;
   *) show_main_menu ;;
   esac
@@ -430,14 +436,13 @@ show_install_elixir_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" $'󰣇  Package\n  Web App\n  TUI\n󰸌  Theme\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2') in
+  case $(menu "Remove" $'  Package\n  Web App\n  TUI\n󰸌  Theme\n󰈷  Fingerprint\n  FIDO2') in
   *Package*) terminal omarchy-pkg-remove ;;
   *Web*) present_terminal omarchy-webapp-remove ;;
   *TUI*) present_terminal omarchy-tui-remove ;;
   *Theme*) present_terminal omarchy-theme-remove ;;
-  *Windows*) present_terminal "omarchy-windows-vm remove" ;;
   *Fingerprint*) present_terminal "omarchy-setup-fingerprint --remove" ;;
-  *Fido2*) present_terminal "omarchy-setup-fido2 --remove" ;;
+  *FIDO2* | *Fido2*) present_terminal "omarchy-setup-fido2 --remove" ;;
   *) show_main_menu ;;
   esac
 }
@@ -468,7 +473,7 @@ show_update_channel_menu() {
 }
 
 show_update_process_menu() {
-  case "$(menu "Restart" $'  Hypridle\n  Hyprsunset\n  Swayosd\n󰌧  Menu\n󰍜  Waybar')" in
+  case "$(menu "Restart" $'  Hypridle\n  Hyprsunset\n  Swayosd\n󰌧  Fuzzel\n󰍜  Waybar')" in
   *Hypridle*) omarchy-restart-hypridle ;;
   *Hyprsunset*) omarchy-restart-hyprsunset ;;
   *Swayosd*) omarchy-restart-swayosd ;;
@@ -479,14 +484,14 @@ show_update_process_menu() {
 }
 
 show_update_config_menu() {
-  case "$(menu "Use default config" $'  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n󰌧  Walker\n󰍜  Waybar')" in
+  case "$(menu "Use default config" $'  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n󰌧  Fuzzel\n󰍜  Waybar')" in
   *Hyprland*) present_terminal omarchy-refresh-hyprland ;;
   *Hypridle*) present_terminal omarchy-refresh-hypridle ;;
   *Hyprlock*) present_terminal omarchy-refresh-hyprlock ;;
   *Hyprsunset*) present_terminal omarchy-refresh-hyprsunset ;;
   *Plymouth*) present_terminal omarchy-refresh-plymouth ;;
   *Swayosd*) present_terminal omarchy-refresh-swayosd ;;
-  *Menu*) present_terminal omarchy-refresh-walker ;;
+  *Fuzzel*) present_terminal omarchy-refresh-walker ;;
   *Waybar*) present_terminal omarchy-refresh-waybar ;;
   *) show_update_menu ;;
   esac
