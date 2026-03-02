@@ -154,15 +154,7 @@ bash install.sh
 ## Post-install tasks
 
 - Reboot and log into your Hyprland session.
-- Validate core commands and desktop integration:
-
-```bash
-bash tests/test-fedora-asahi-compatibility.sh
-bash install/preflight/fedora-required-pkgs.sh
-bash -lc 'command -v chromium-browser nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
-bash -lc 'command -v hyprlock hypridle hyprsunset tte'
-bash -lc 'xdg-settings get default-web-browser'
-```
+- Validate core desktop behavior: app launcher opens, terminal keybind works, Wi-Fi/Bluetooth menus open, and lock screen works.
 
 ## Troubleshooting and FAQ
 
