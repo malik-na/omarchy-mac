@@ -42,7 +42,7 @@ iso2sd() {
     lsblk -d -o NAME | grep -E '^sd[a-z]' | awk '{print "/dev/"$1}'
   else
     sudo dd bs=4M status=progress oflag=sync if="$1" of="$2"
-    sudo eject $2
+    sudo eject "$2"
   fi
 }
 
@@ -71,22 +71,22 @@ format-drive() {
 
 # Transcode a video to a good-balance 1080p
 transcode-video-1080p() {
-  ffmpeg -i $1 -vf scale=1920:1080 -c:v libx264 -preset fast -crf 23 -c:a copy ${1%.*}-1080p.mp4
+  ffmpeg -i "$1" -vf scale=1920:1080 -c:v libx264 -preset fast -crf 23 -c:a copy "${1%.*}-1080p.mp4"
 }
 
 # Transcode a video to a good-balance 4K
 transcode-video-4K() {
-  ffmpeg -i $1 -c:v libx265 -preset slow -crf 24 -c:a aac -b:a 192k ${1%.*}-optimized.mp4
+  ffmpeg -i "$1" -c:v libx265 -preset slow -crf 24 -c:a aac -b:a 192k "${1%.*}-optimized.mp4"
 }
 
 # Transcode any image to JPG
 img2jpg() {
-  magick $1 -quality 95 -strip ${1%.*}.jpg
+  magick "$1" -quality 95 -strip "${1%.*}.jpg"
 }
 
 # Transcode any image to small JPG
 img2jpg-small() {
-  magick $1 -resize 1080x\> -quality 95 -strip ${1%.*}.jpg
+  magick "$1" -resize 1080x\> -quality 95 -strip "${1%.*}.jpg"
 }
 
 # Transcode any image to compressed PNG
