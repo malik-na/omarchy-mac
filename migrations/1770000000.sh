@@ -6,6 +6,11 @@ set -euo pipefail
 
 echo "Checking Widevine CDM installation for DRM streaming support..."
 
+if ! command -v pacman &>/dev/null; then
+  echo "ℹ pacman package manager not found; skipping Widevine installation (non-Arch system)"
+  exit 0
+fi
+
 # Only install if widevine package is available (asahi-alarm repo)
 if pacman -Si widevine &>/dev/null; then
   if ! pacman -Qi widevine &>/dev/null; then
