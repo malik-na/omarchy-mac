@@ -1,7 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 echo "Migrate legacy mobile NVIDIA GPUs to nvidia-580xx driver (if needed)"
 
 # Only migrate MX1xx, 2xx or 3xx (Pascal/Maxwell)
-NVIDIA="$(lspci | grep -i 'nvidia')"
+NVIDIA="$(lspci | grep -i 'nvidia' || true)"
 if echo "$NVIDIA" | grep -qE "MX1|MX2|MX3"; then
   if ! pacman -Qq | grep -qE '^linux(-[a-z0-9]+)?-headers$'; then
     echo "Error: no linux headers package installed (required for DKMS drivers). Please install the appropriate headers and re-run this migration."
