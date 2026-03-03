@@ -30,57 +30,44 @@
   opacity: 0.5;
 }
 
+#bluetooth,
+#network,
+#pulseaudio,
 #cpu,
 #battery,
-#pulseaudio,
 #custom-omarchy,
-#custom-update {
+#custom-update,
+#custom-expand-icon,
+#custom-screenrecording-indicator,
+#custom-idle-indicator,
+#custom-notification-silencing-indicator,
+#tray {
+  font-family: 'Cascadia Mono NF';
+  font-size: 18px;
   min-width: 12px;
-  margin: 0 7.5px;
+  margin: 0 6px;
+}
+
+#bluetooth {
+  margin-right: 10px;
+}
+
+#network {
+  margin-right: 8px;
 }
 
 #tray {
   margin-right: 16px;
 }
 
-#bluetooth,
-#network,
-#pulseaudio,
-#cpu,
-#battery,
-#custom-screenrecording-indicator,
-#custom-update,
-#custom-expand-icon,
-#tray {
-  font-size: 14px;
-}
-
-#bluetooth,
-#network,
-#pulseaudio,
-#cpu {
-  font-size: 16px;
-}
-
-#bluetooth {
-  margin-right: 17px;
-}
-
-#network {
-  margin-right: 13px;
-}
-
 #custom-expand-icon {
-  margin-right: 18px;
+  margin-right: 12px;
 }
 
 tooltip {
   padding: 2px;
 }
 
-#custom-update {
-  font-size: 10px;
-}
 
 #clock {
   margin-left: 8.75px;
@@ -96,7 +83,6 @@ tooltip {
   min-width: 12px;
   margin-left: 5px;
   margin-right: 0;
-  font-size: 14px;
   padding-bottom: 1px;
 }
 
