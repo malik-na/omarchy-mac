@@ -3,6 +3,7 @@
 
 # Desktop
 hyprland
+hyprland-qt-support
 hypridle
 hyprlock
 hyprsunset
@@ -18,7 +19,8 @@ wl-clipboard
 satty
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
-qt5-wayland
+xdg-user-dirs
+qt5-qtwayland
 chromium
 
 # Terminal
@@ -53,6 +55,7 @@ docker-buildx
 
 # Media & Apps
 imv
+chafa
 mpv
 pinta
 libreoffice

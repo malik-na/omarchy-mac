@@ -2,11 +2,13 @@
 
 # Start and stop a screenrecording, which will be saved to ~/Videos by default.
 # Alternative location can be set via OMARCHY_SCREENRECORD_DIR or XDG_VIDEOS_DIR ENVs.
+# Resolution is capped to 4K for monitors above 4K, native otherwise.
+# Override via --resolution= (e.g. --resolution=1920x1080, --resolution=0x0 for native).
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
 
-if [[ ! -d "$OUTPUT_DIR" ]]; then
+if [[ ! -d $OUTPUT_DIR ]]; then
   notify-send "Screen recording directory does not exist: $OUTPUT_DIR" -u critical -t 3000
   exit 1
 fi
@@ -15,29 +17,28 @@ DESKTOP_AUDIO="false"
 MICROPHONE_AUDIO="false"
 WEBCAM="false"
 WEBCAM_DEVICE=""
+RESOLUTION=""
 STOP_RECORDING="false"
+RECORDING_FILE="/tmp/omarchy-screenrecord-filename"
 
 for arg in "$@"; do
   case "$arg" in
-    --with-desktop-audio) DESKTOP_AUDIO="true" ;;
-    --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
-    --with-webcam) WEBCAM="true" ;;
-    --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
-    --stop-recording) STOP_RECORDING="true"
+  --with-desktop-audio) DESKTOP_AUDIO="true" ;;
+  --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
+  --with-webcam) WEBCAM="true" ;;
+  --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
+  --resolution=*) RESOLUTION="${arg#*=}" ;;
+  --stop-recording) STOP_RECORDING="true" ;;
   esac
 done
-
-cleanup_webcam() {
-  pkill -f "WebcamOverlay" 2>/dev/null
-}
 
 start_webcam_overlay() {
   cleanup_webcam
 
   # Auto-detect first available webcam if none specified
-  if [[ -z "$WEBCAM_DEVICE" ]]; then
-    WEBCAM_DEVICE=$(v4l2-ctl --list-devices 2>/dev/null | grep -m1 "^\s*/dev/video" | tr -d '\t')
-    if [[ -z "$WEBCAM_DEVICE" ]]; then
+  if [[ -z $WEBCAM_DEVICE ]]; then
+    WEBCAM_DEVICE=$(v4l2-ctl --list-devices 2>/dev/null | grep -m1 "^[[:space:]]*/dev/video" | tr -d '\t')
+    if [[ -z $WEBCAM_DEVICE ]]; then
       notify-send "No webcam devices found" -u critical -t 3000
       return 1
     fi
@@ -71,20 +72,34 @@ start_webcam_overlay() {
   sleep 1
 }
 
+cleanup_webcam() {
+  pkill -f "WebcamOverlay" 2>/dev/null
+}
+
+default_resolution() {
+  local width height
+  read -r width height < <(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | "\(.width) \(.height)"')
+  if ((width > 3840 || height > 2160)); then
+    echo "3840x2160"
+  else
+    echo "0x0"
+  fi
+}
+
 start_screenrecording() {
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local audio_devices=""
-  local audio_args=""
+  local audio_args=()
 
-  [[ "$DESKTOP_AUDIO" == "true" ]] && audio_devices+="default_output"
+  [[ $DESKTOP_AUDIO == "true" ]] && audio_devices+="default_output"
 
-  if [[ "$MICROPHONE_AUDIO" == "true" ]]; then
+  if [[ $MICROPHONE_AUDIO == "true" ]]; then
     # Merge audio tracks into one - separate tracks only play one at a time in most players
-    [[ -n "$audio_devices" ]] && audio_devices+="|"
+    [[ -n $audio_devices ]] && audio_devices+="|"
     audio_devices+="default_input"
   fi
 
-  [[ -n "$audio_devices" ]] && audio_args+="-a $audio_devices"
+  [[ -n $audio_devices ]] && audio_args+=(-a "$audio_devices" -ac aac)
 
   # Prefer wf-recorder on Wayland (better support for wlroots/Asahi). If not
   # available, fall back to gpu-screen-recorder for systems that still use it.
@@ -115,10 +130,11 @@ stop_screenrecording() {
     cleanup_webcam
     notify-send "Screen recording error" "Recording process had to be force-killed. Video may be corrupted." -u critical -t 5000
   else
-    cleanup_webcam
+    trim_first_frame
     notify-send "Screen recording saved to $OUTPUT_DIR" -t 2000
   fi
-  toggle_screenrecording_indicator
+
+  rm -f "$RECORDING_FILE"
 }
 
 toggle_screenrecording_indicator() {
@@ -130,15 +146,11 @@ screenrecording_active() {
 }
 
 if screenrecording_active; then
-  if pgrep -f "WebcamOverlay" >/dev/null && ! pgrep -f "^gpu-screen-recorder" >/dev/null; then
-    cleanup_webcam
-  else
-    stop_screenrecording
-  fi
-elif [[ "$STOP_RECORDING" == "false" ]]; then
-  [[ "$WEBCAM" == "true" ]] && start_webcam_overlay
+  stop_screenrecording
+elif [[ $STOP_RECORDING == "true" ]]; then
+  exit 1
+else
+  [[ $WEBCAM == "true" ]] && start_webcam_overlay
 
   start_screenrecording || cleanup_webcam
-else
-  exit 1
 fi

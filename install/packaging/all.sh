@@ -11,3 +11,4 @@ run_logged $OMARCHY_INSTALL/packaging/tuis.sh
 
 # Fedora manual installs (pip packages, flatpaks, etc.)
 run_logged "$OMARCHY_INSTALL/helpers/fedora-manual.sh"
+run_logged "$OMARCHY_INSTALL/helpers/fedora-rust-tuis.sh"

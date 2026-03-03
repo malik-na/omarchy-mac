@@ -1,13 +1,14 @@
 ---
-name: Omarchy
+name: omarchy
 description: >
-  REQUIRED for ANY changes to Linux desktop, window manager, or system config.
+  REQUIRED for end-user customization of Linux desktop, window manager, or system config.
   Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/walker/,
   ~/.config/alacritty/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
   or ~/.config/omarchy/. Triggers: Hyprland, window rules, animations, keybindings,
   monitors, gaps, borders, blur, opacity, waybar, walker, terminal config, themes,
   wallpaper, night light, idle, lock screen, screenshots, layer rules, workspace
-  settings, display config, or any omarchy-* commands.
+  settings, display config, and user-facing omarchy commands. Excludes Omarchy
+  source development in ~/.local/share/omarchy/ and omarchy-dev-* workflows.
 ---
 
 # Omarchy Mac Skill
@@ -27,9 +28,12 @@ Unsupported targets for this skill:
 - Non-Asahi Fedora installs
 - `x86_64` hosts
 
+This skill is for end-user customization on installed systems.
+It is not for contributing to Omarchy source code.
+
 ## When This Skill MUST Be Used
 
-**ALWAYS invoke this skill when the user's request involves ANY of these:**
+**ALWAYS invoke this skill for end-user requests involving ANY of these:**
 
 - Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
 - Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
@@ -38,14 +42,16 @@ Unsupported targets for this skill:
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, wallpapers, fonts, appearance changes
-- Any `omarchy-*` command
+- User-facing `omarchy-*` commands (`omarchy-theme-*`, `omarchy-refresh-*`, `omarchy-restart-*`, etc.)
 - Screenshots, screen recording, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
+**Do NOT use this skill for Omarchy development tasks** (editing files in `~/.local/share/omarchy/`, creating migrations, or running `omarchy-dev-*` workflows).
+
 ## Critical Safety Rules
 
-**NEVER modify anything in `~/.local/share/omarchy/`** - but READING is safe and encouraged.
+**For end-user customization tasks, NEVER modify anything in `~/.local/share/omarchy/`** - but READING is safe and encouraged.
 
 This directory contains Omarchy Mac source files managed by git. Any changes will be:
 - Lost on next `omarchy-update`
@@ -314,8 +320,8 @@ omarchy-update                  # Full system update
 omarchy-version                 # Show Omarchy Mac version
 omarchy-debug --no-sudo --print # Debug info (ALWAYS use these flags)
 omarchy-lock-screen             # Lock screen
-omarchy-cmd-shutdown            # Shutdown
-omarchy-cmd-reboot              # Reboot
+omarchy-system-shutdown         # Shutdown
+omarchy-system-reboot           # Reboot
 ```
 
 **IMPORTANT:** Always run `omarchy-debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
@@ -352,7 +358,7 @@ When user requests system changes:
 5. **Is it a package install?** Use `omarchy-pkg-install <pkg>` or `dnf`
 6. **Unsure if command exists?** Search with `compgen -c | grep omarchy`
 
-## Development (AI Agents)
+## Out of Scope
 
 When contributing to Omarchy Mac itself (e.g., fixing bugs, adding features), migrations are used to apply changes to existing installations.
 

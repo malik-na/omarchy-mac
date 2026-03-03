@@ -16,6 +16,7 @@ sudo chmod 440 /etc/sudoers.d/brightnessctl
 if brightnessctl --list 2>/dev/null | grep -q "kbd_backlight"; then
   echo "Setting keyboard backlight to 50%"
   sudo brightnessctl --device=kbd_backlight set 50%
+
 else
   echo "No keyboard backlight device found, skipping configuration"
 fi

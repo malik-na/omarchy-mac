@@ -111,7 +111,7 @@ back_to() {
   local parent_menu="${1:-}"
   if [[ "$BACK_TO_EXIT" == "true" ]]; then
     exit 0
-  elif [[ -n "$parent_menu" ]]; then
+  elif [[ -n $parent_menu ]]; then
     "$parent_menu"
   else
     show_main_menu
@@ -137,6 +137,7 @@ show_trigger_menu() {
   *Capture*) show_capture_menu ;;
   *Share*) show_share_menu ;;
   *Toggle*) show_toggle_menu ;;
+  *Hardware*) show_hardware_menu ;;
   *) show_main_menu ;;
   esac
 }
@@ -184,6 +185,17 @@ show_toggle_menu() {
   *Nightlight*) omarchy-toggle-nightlight ;;
   *Idle*) omarchy-toggle-idle ;;
   *Bar*) omarchy-toggle-waybar ;;
+  *Layout*) omarchy-hyprland-workspace-layout-toggle ;;
+  *Ratio*) omarchy-hyprland-window-single-square-aspect-toggle ;;
+  *Gaps*) omarchy-hyprland-window-gaps-toggle ;;
+  *Scaling*) omarchy-hyprland-monitor-scaling-cycle ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_hardware_menu() {
+  case $(menu "Toggle" "  Hybrid GPU") in
+  *"Hybrid GPU"*) present_terminal omarchy-toggle-hybrid-gpu ;;
   *) show_trigger_menu ;;
   esac
 }
@@ -192,7 +204,7 @@ show_style_menu() {
   case "$(menu "Style" $'󰸌  Theme\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About')" in
   *Theme*) show_theme_menu ;;
   *Font*) show_font_menu ;;
-  *Background*) omarchy-theme-bg-next ;;
+  *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
   *Screensaver*) open_in_editor ~/.config/omarchy/branding/screensaver.txt ;;
   *About*) open_in_editor ~/.config/omarchy/branding/about.txt ;;
@@ -208,6 +220,10 @@ show_theme_menu() {
   else
     omarchy-theme-set "$theme"
   fi
+}
+
+show_background_menu() {
+  omarchy-launch-walker -m menus:omarchyBackgroundSelector --width 800 --minheight 400
 }
 
 show_font_menu() {
@@ -312,6 +328,7 @@ show_install_service_menu() {
   case "$(menu "Install" $'  Dropbox\n  Tailscale\n󰟵  Bitwarden\n  Chromium Account')" in
   *Dropbox*) present_terminal omarchy-install-dropbox ;;
   *Tailscale*) present_terminal omarchy-install-tailscale ;;
+  *NordVPN*) present_terminal omarchy-install-nordvpn ;;
   *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
   *Chromium*) present_terminal omarchy-install-chromium-google-account ;;
   *) show_install_menu ;;
@@ -363,6 +380,7 @@ show_install_ai_menu() {
 show_install_gaming_menu() {
   case $(menu "Install" $'  Steam\n  RetroArch\n󰍳  Minecraft\n󰖺  Xbox Controller') in
   *Steam*) present_terminal omarchy-install-steam ;;
+  *GeForce*) present_terminal omarchy-install-geforce-now ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
   *Minecraft*) aur_install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
   *Xbox*) present_terminal omarchy-install-xbox-controllers ;;
@@ -405,6 +423,7 @@ show_install_development_menu() {
   *NET*) present_terminal "omarchy-install-dev-env dotnet" ;;
   *OCaml*) present_terminal "omarchy-install-dev-env ocaml" ;;
   *Clojure*) present_terminal "omarchy-install-dev-env clojure" ;;
+  *Scala*) present_terminal "omarchy-install-dev-env scala" ;;
   *) show_install_menu ;;
   esac
 }
@@ -466,6 +485,7 @@ show_update_menu() {
 show_update_channel_menu() {
   case $(menu "Update channel" $'🟢 Stable\n🟡 Edge\n🔴 Dev') in
   *Stable*) present_terminal "omarchy-channel-set stable" ;;
+  *RC*) present_terminal "omarchy-channel-set rc" ;;
   *Edge*) present_terminal "omarchy-channel-set edge" ;;
   *Dev*) present_terminal "omarchy-channel-set dev" ;;
   *) show_update_menu ;;
@@ -514,10 +534,15 @@ show_update_password_menu() {
   esac
 }
 
+show_about() {
+  omarchy-launch-about
+}
+
 show_system_menu() {
   case $(menu "System" $'  Lock\n󱄄  Screensaver\n󰤄  Suspend\n󰜉  Restart\n󰐥  Shutdown') in
   *Lock*) omarchy-lock-screen ;;
   *Screensaver*) omarchy-launch-screensaver force ;;
+  *Lock*) omarchy-lock-screen ;;
   *Suspend*) systemctl suspend ;;
   *Restart*) omarchy-cmd-reboot ;;
   *Shutdown*) omarchy-cmd-shutdown ;;
@@ -538,17 +563,19 @@ go_to_menu() {
     ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
+  *toggle*) show_toggle_menu ;;
   *share*) show_share_menu ;;
+  *background*) show_background_menu ;;
+  *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
   *theme*) show_theme_menu ;;
-  *screenshot*) show_screenshot_menu ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;
   *power*) show_setup_power_menu ;;
   *install*) show_install_menu ;;
   *remove*) show_remove_menu ;;
   *update*) show_update_menu ;;
-  *about*) omarchy-launch-about ;;
+  *about*) show_about ;;
   *system*) show_system_menu ;;
   esac
 }
