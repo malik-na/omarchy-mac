@@ -57,7 +57,7 @@ SOLOPASHA_REPO_FILE="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:solopasha:
 
 echo "Applying repo protections for Hyprland stability..."
 
-if [ -f "$SOLOPASHA_REPO_FILE" ]; then
+if [[ -f "$SOLOPASHA_REPO_FILE" ]]; then
   # Remove any existing protections to recreate them clean
   sudo sed -i '/^priority=/d' "$SOLOPASHA_REPO_FILE"
   sudo sed -i '/^excludepkgs=/d' "$SOLOPASHA_REPO_FILE"
@@ -69,7 +69,7 @@ if [ -f "$SOLOPASHA_REPO_FILE" ]; then
   echo "✓ Solopasha repo limits applied."
 fi
 
-if [ -f "$TECHNOCHIP_REPO_FILE" ]; then
+if [[ -f "$TECHNOCHIP_REPO_FILE" ]]; then
   sudo sed -i '/^priority=/d' "$TECHNOCHIP_REPO_FILE"
   
   # Boost priority for the Asahi safe build
