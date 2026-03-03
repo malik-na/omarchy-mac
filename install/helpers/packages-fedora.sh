@@ -20,7 +20,12 @@ fedora_install_package() {
   local package="$1"
 
   if fedora_is_technochip_hypr_package "$package"; then
-    sudo dnf install -y --refresh --allowerasing --repo="$TECHNOCHIP_HYPRLAND_REPO" "$package"
+    # Do NOT use --repo= here: dnf5's --repo restricts dependency resolution to
+    # that single repo as well, so Mesa/Wayland/xcb deps can't be found on a
+    # Fedora Minimal install. technochip already has priority=10 (set by
+    # fedora-copr.sh), so DNF will prefer it for the Hyprland packages while
+    # still pulling dependencies from base Fedora repos.
+    sudo dnf install -y --refresh --allowerasing "$package"
     return $?
   fi
 
