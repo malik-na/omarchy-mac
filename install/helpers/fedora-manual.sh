@@ -103,7 +103,10 @@ fi
 
 # 7. satty (fallback install if base package step missed it)
 if ! command -v satty &>/dev/null; then
-  if dnf list --available satty &>/dev/null; then
+  if dnf list --available satty --repo='copr:copr.fedorainfracloud.org:solopasha:hyprland' &>/dev/null; then
+    echo "Installing satty from solopasha COPR (fallback path)..."
+    sudo dnf install -y --repo='copr:copr.fedorainfracloud.org:solopasha:hyprland' satty || echo "[WARN] satty install from solopasha failed, continuing..."
+  elif dnf list --available satty &>/dev/null; then
     echo "Installing satty (fallback path)..."
     sudo dnf install -y satty || echo "[WARN] satty install failed, continuing..."
   else
