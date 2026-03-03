@@ -5,10 +5,12 @@
 # Lock the screen
 if command -v hyprlock >/dev/null 2>&1; then
   pidof hyprlock >/dev/null 2>&1 || setsid uwsm-app -- hyprlock &
+elif command -v swaylock >/dev/null 2>&1; then
+  pidof swaylock >/dev/null 2>&1 || setsid uwsm-app -- swaylock -f &
 elif command -v loginctl >/dev/null 2>&1; then
   loginctl lock-session
 else
-  notify-send "Lock" "No screen lock utility available (hyprlock/loginctl)."
+  notify-send "Lock" "No screen lock utility available (hyprlock/swaylock/loginctl)."
 fi
 
 # Set keyboard layout to default (first layout)
