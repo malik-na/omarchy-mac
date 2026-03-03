@@ -32,7 +32,7 @@ for background in "${BACKGROUNDS[@]}"; do
   rows+=("$pretty_name"$'\t'"$background")
 done
 
-preview_cmd='path={2}; name=$(basename "$path"); printf "\033[2J\033[H"; printf "Image: %s\n\n" "$name"; lines=$((FZF_PREVIEW_LINES-3)); if (( lines < 5 )); then lines=5; fi; if command -v chafa >/dev/null 2>&1; then chafa --animate=off --clear --stretch --size=${FZF_PREVIEW_COLUMNS}x${lines} "$path" 2>/dev/null; else printf "%s\n\nInstall chafa for image preview in terminal.\n" "$path"; fi'
+preview_cmd='path={2}; name=$(basename "$path"); printf "\033[2J\033[H"; printf "Image: %s\n\n" "$name"; lines=$((FZF_PREVIEW_LINES-3)); if (( lines < 5 )); then lines=5; fi; if command -v chafa >/dev/null 2>&1; then chafa --animate=off --format=kitty --size=${FZF_PREVIEW_COLUMNS}x${lines} "$path" 2>/dev/null; else printf "%s\n\nInstall chafa for image preview in terminal.\n" "$path"; fi'
 
 selection=$(printf '%s\n' "${rows[@]}" | fzf --delimiter=$'\t' --with-nth=1 --prompt='Pick your wallpaper> ' --height=95% --layout=reverse --preview-window=right:60%:border-left:wrap --preview "$preview_cmd")
 

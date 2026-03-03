@@ -2,7 +2,10 @@
 
 if ! command -v walker >/dev/null 2>&1; then
   if [[ "${1:-}" == "-m" && "${2:-}" == "menus:omarchyBackgroundSelector" ]]; then
-    if command -v xdg-terminal-exec >/dev/null 2>&1 || command -v alacritty >/dev/null 2>&1 || command -v kitty >/dev/null 2>&1 || command -v ghostty >/dev/null 2>&1; then
+    if command -v kitty >/dev/null 2>&1; then
+      exec setsid uwsm-app -- kitty --app-id=org.omarchy.terminal --title=Omarchy -e bash -c "omarchy-show-logo; omarchy-theme-bg-menu-tui; if (( \$? != 130 )); then omarchy-show-done; fi"
+    fi
+    if command -v xdg-terminal-exec >/dev/null 2>&1 || command -v alacritty >/dev/null 2>&1 || command -v ghostty >/dev/null 2>&1; then
       exec omarchy-launch-floating-terminal-with-presentation omarchy-theme-bg-menu-tui
     fi
 
