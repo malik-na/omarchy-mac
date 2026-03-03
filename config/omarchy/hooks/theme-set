@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -euo pipefail
+
+count=$(pgrep -xc waybar || true)
+
+if (( count > 1 )); then
+  pkill -x waybar || true
+  if command -v uwsm-app >/dev/null 2>&1; then
+    setsid uwsm-app -- waybar >/dev/null 2>&1 &
+  else
+    setsid waybar >/dev/null 2>&1 &
+  fi
+fi
