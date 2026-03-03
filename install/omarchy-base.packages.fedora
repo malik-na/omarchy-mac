@@ -20,7 +20,7 @@ satty
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
 xdg-user-dirs
-qt5-wayland
+qt5-qtwayland
 chromium
 
 # Terminal
