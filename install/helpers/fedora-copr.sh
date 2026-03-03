@@ -20,7 +20,7 @@ COPR_REPOS=(
 # Optional COPR repos (may not be available for all Fedora versions)
 OPTIONAL_COPR_REPOS=(
   "solopasha/hyprland"
-  "atim/eza"
+  "nclundell/fedora-extras"
   "erikreider/swayosd"
 )
 
