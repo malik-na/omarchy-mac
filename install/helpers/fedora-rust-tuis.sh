@@ -131,11 +131,14 @@ install_cargo_tool() {
 }
 
 install_bluetui
-ensure_iwd_backend || echo "[WARN] iwd backend setup failed"
 ensure_rust_toolchain || echo "[WARN] rust toolchain setup failed"
 ensure_wiremix_build_deps || echo "[WARN] wiremix dependency setup failed"
 install_cargo_tool impala 0.7.3 || true
 install_cargo_tool wiremix 0.9.0 || true
+# Switch Wi-Fi backend to iwd AFTER cargo builds — switching earlier drops the
+# active Wi-Fi connection before NetworkManager/iwd handshake, which kills DNS
+# and causes all subsequent network calls (cargo, dnf) to fail.
+ensure_iwd_backend || echo "[WARN] iwd backend setup failed"
 
 echo
 echo "Summary of actions:"
