@@ -2,29 +2,74 @@
 
 CHROMIUM_THEME=~/.config/omarchy/current/theme/chromium.theme
 
-if omarchy-cmd-present chromium || omarchy-cmd-present helium-browser || omarchy-cmd-present brave; then
-  if [[ -f $CHROMIUM_THEME ]]; then
-    THEME_RGB_COLOR=$(<$CHROMIUM_THEME)
-    THEME_HEX_COLOR=$(printf '#%02x%02x%02x' ${THEME_RGB_COLOR//,/ })
+# Use a default, neutral grey if theme doesn't have a color
+THEME_RGB_COLOR="28,32,39"
+THEME_HEX_COLOR="#1c2027"
+
+if [[ -f $CHROMIUM_THEME ]]; then
+  THEME_RGB_COLOR=$(<$CHROMIUM_THEME)
+  THEME_HEX_COLOR=$(printf '#%02x%02x%02x' ${THEME_RGB_COLOR//,/ })
+fi
+
+# Try to handle flatpak policy paths dynamically if app exists
+FLATPAK_APPS=(
+  "com.google.Chrome:google-chrome"
+  "com.brave.Browser:brave"
+  "org.chromium.Chromium:chromium"
+)
+
+for app_info in "${FLATPAK_APPS[@]}"; do
+  app_id="${app_info%%:*}"
+  app_dir="${app_info#*:}"
+  
+  if [[ -d "$HOME/.var/app/$app_id" ]]; then
+    # Ensure policy directory exists
+    mkdir -p "$HOME/.var/app/$app_id/config/$app_dir/policies/managed"
+  fi
+done
+
+# Define all possible policy directories we might want to update
+POLICY_DIRS=(
+  "/etc/chromium/policies/managed"
+  "/etc/chromium-browser/policies/managed"
+  "/etc/brave/policies/managed"
+  "/etc/opt/chrome/policies/managed"
+  "/etc/opt/edge/policies/managed"
+  "$HOME/.var/app/com.google.Chrome/config/google-chrome/policies/managed"
+  "$HOME/.var/app/com.brave.Browser/config/brave/policies/managed"
+  "$HOME/.var/app/org.chromium.Chromium/config/chromium/policies/managed"
+)
+
+# Loop and write color.json where we have write access
+for pd in "${POLICY_DIRS[@]}"; do
+  if [[ -w "$pd" ]]; then
+    echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" > "$pd/color.json"
+  fi
+done
+
+# Refresh running browsers and set mode
+if omarchy-cmd-present chromium; then
+  chromium --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+  if [[ -f ~/.config/omarchy/current/theme/light.mode ]]; then
+    chromium --no-startup-window --set-color-scheme="light"
   else
-    # Use a default, neutral grey if theme doesn't have a color
-    THEME_RGB_COLOR="28,32,39"
-    THEME_HEX_COLOR="#1c2027"
+    chromium --no-startup-window --set-color-scheme="dark"
   fi
+fi
 
-  if omarchy-cmd-present chromium; then
-    rm -f /etc/chromium/policies/managed/color.json
-    chromium --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+if omarchy-cmd-present brave; then
+  brave --refresh-platform-policy --no-startup-window
+  brave --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+fi
 
-    if [[ -f ~/.config/omarchy/current/theme/light.mode ]]; then
-      chromium --no-startup-window --set-color-scheme="light"
-    else
-      chromium --no-startup-window --set-color-scheme="dark"
-    fi
-  fi
+if omarchy-cmd-present google-chrome; then
+  google-chrome --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+fi
 
-  if omarchy-cmd-present brave; then
-    echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" | tee "/etc/brave/policies/managed/color.json" >/dev/null
-    brave --refresh-platform-policy --no-startup-window
-  fi
+if omarchy-cmd-present google-chrome-stable; then
+  google-chrome-stable --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
+fi
+
+if omarchy-cmd-present helium-browser; then
+  helium-browser --no-startup-window --set-theme-color="$THEME_RGB_COLOR"
 fi

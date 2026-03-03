@@ -2,6 +2,7 @@
 # Utilized by ISO builder to ensure package availability in the ISO
 
 autoconf-archive
+asusctl
 base
 base-devel
 #broadcom-wl (x86_64 DKMS driver, unsupported on aarch64)
@@ -10,6 +11,7 @@ btrfs-progs
 dkms
 egl-wayland
 git
+grim
 gst-plugin-pipewire
 gtk4-layer-shell
 htop
@@ -38,9 +40,11 @@ pipewire-pulse
 qt6-wayland
 sassc
 snapper
+wayfreeze-git
 webp-pixbuf-loader
 wget
 yay-debug
+yt6801-dkms
 zram-generator
 
 

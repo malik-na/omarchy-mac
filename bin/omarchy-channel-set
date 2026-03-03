@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if (($# == 0)); then
-  echo "Usage: omarchy-channel-set [stable|edge|dev]"
+  echo "Usage: omarchy-channel-set [stable|rc|edge|dev]"
   exit 1
 else
   channel="$1"

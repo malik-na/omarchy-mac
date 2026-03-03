@@ -4,5 +4,12 @@ set -e
 
 echo -e "\e[32mUpdate Omarchy\e[0m"
 
+git -C $OMARCHY_PATH fetch --tags
 git -C $OMARCHY_PATH pull --autostash
 git -C $OMARCHY_PATH diff --check || git -C $OMARCHY_PATH reset --merge
+
+# Update version file from latest git tag
+latest_tag=$(git -C $OMARCHY_PATH describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+if [ -n "$latest_tag" ]; then
+  echo "$latest_tag" > "$OMARCHY_PATH/version"
+fi

@@ -3,22 +3,31 @@
 
 # Desktop
 hyprland
+hyprland-qt-support
 hypridle
 hyprlock
 hyprsunset
 waybar
 fuzzel
 mako
+swayosd
 swaybg
 slurp
+grim
 wf-recorder
 wl-clipboard
+satty
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
+xdg-user-dirs
+qt5-qtwayland
 chromium
 
 # Terminal
+xdg-terminal-exec
 alacritty
+starship
+eza
 btop
 fzf
 ripgrep
@@ -46,6 +55,7 @@ docker-buildx
 
 # Media & Apps
 imv
+chafa
 mpv
 pinta
 libreoffice
@@ -58,6 +68,7 @@ gnome-calculator
 playerctl
 brightnessctl
 pamixer
+pavucontrol
 gum
 plymouth
 cups

@@ -1,6 +1,10 @@
 #!/bin/bash
 
-if [ "$#" -lt 3 ]; then
+set -e
+
+ICON_DIR="$HOME/.local/share/applications/icons"
+
+if (( $# < 3 )); then
   echo -e "\e[32mLet's create a new web app you can start with the app launcher.\n\e[0m"
   APP_NAME=$(gum input --prompt "Name> " --placeholder "My favorite web app")
   APP_URL=$(gum input --prompt "URL> " --placeholder "https://example.com")
@@ -46,6 +50,9 @@ if [ "$#" -lt 3 ]; then
 else
   APP_NAME="$1"
   APP_URL="$2"
+  if [[ ! $APP_URL =~ ^[a-zA-Z][a-zA-Z0-9+.-]*: ]]; then
+    APP_URL="https://$APP_URL"
+  fi
   ICON_REF="$3"
   CUSTOM_EXEC="$4" # Optional custom exec command
   MIME_TYPES="$5"  # Optional mime types
@@ -75,11 +82,7 @@ if [[ -z "$APP_NAME" || -z "$APP_URL" ]]; then
 fi
 
 # Use custom exec if provided, otherwise default behavior
-if [[ -n $CUSTOM_EXEC ]]; then
-  EXEC_COMMAND="$CUSTOM_EXEC"
-else
-  EXEC_COMMAND="omarchy-launch-webapp $APP_URL"
-fi
+EXEC_COMMAND="${CUSTOM_EXEC:-omarchy-launch-webapp $APP_URL}"
 
 # Create application .desktop file
 DESKTOP_FILE="$HOME/.local/share/applications/$APP_NAME.desktop"
@@ -103,6 +106,6 @@ fi
 
 chmod +x "$DESKTOP_FILE"
 
-if [[ $INTERACTIVE_MODE == true ]]; then
+if [[ $INTERACTIVE_MODE == "true" ]]; then
   echo -e "You can now find $APP_NAME using the app launcher (SUPER + SPACE)\n"
 fi

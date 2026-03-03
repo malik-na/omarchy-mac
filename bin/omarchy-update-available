@@ -1,23 +1,25 @@
 #!/bin/bash
 
-# Get remote tag
-latest_tag=$(git -C "$OMARCHY_PATH" ls-remote --tags origin | grep -v "{}" | awk '{print $2}' | sed 's#refs/tags/##' | sort -V | tail -n 1)
-if [[ -z "$latest_tag" ]]; then
-  echo "Error: Could not retrieve latest tag."
+set -euo pipefail
+
+repo="$OMARCHY_PATH"
+
+if upstream_ref=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+  read -r behind ahead < <(git -C "$repo" rev-list --left-right --count "HEAD...$upstream_ref" | awk '{print $2, $1}')
+
+  if ((behind > 0)); then
+    echo "Omarchy update available ($behind commit(s) behind $upstream_ref)"
+    exit 0
+  fi
+
+  current_branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
+  current_commit=$(git -C "$repo" rev-parse --short HEAD)
+  echo "Omarchy is up to date on $current_branch ($current_commit)"
   exit 1
 fi
 
-# Get local tag
-current_tag=$(git -C "$OMARCHY_PATH" describe --tags $(git -C "$OMARCHY_PATH" rev-list --tags --max-count=1))
-if [[ -z "$current_tag" ]]; then
-  echo "Error: Could not retrieve current tag."
-  exit 1
-fi
+current_branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
+current_commit=$(git -C "$repo" rev-parse --short HEAD)
 
-if [[ "$current_tag" != "$latest_tag" ]]; then
-  echo "Omarchy update available ($latest_tag)"
-  exit 0
-else
-  echo "Omarchy is up to date ($current_tag)"
-  exit 1
-fi
+echo "Omarchy is up to date (no upstream tracking branch for $current_branch, at $current_commit)"
+exit 1

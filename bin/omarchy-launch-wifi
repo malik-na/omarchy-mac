@@ -1,25 +1,53 @@
 #!/bin/bash
 
-rfkill unblock wifi
+# Launch the Omarchy wifi controls (provided by the Impala TUI).
+# Attempts to unblock the wifi service first in case it should be been blocked.
 
-if command -v impala >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui impala
+rfkill unblock wifi >/dev/null 2>&1 || true
+
+find_impala() {
+  local candidates=(
+    "$(command -v impala 2>/dev/null || true)"
+    "$HOME/.local/bin/impala"
+    "$HOME/.cargo/bin/impala"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+iwd_active() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet iwd; then
+    return 0
+  fi
+
+  pgrep -x iwd >/dev/null 2>&1
+}
+
+if iwd_active && IMPALA_BIN=$(find_impala); then
+  exec omarchy-launch-tui "$IMPALA_BIN"
+fi
+
+if command -v nmtui >/dev/null 2>&1; then
+  exec omarchy-launch-tui nmtui
 fi
 
 if command -v nm-connection-editor >/dev/null 2>&1; then
   exec setsid uwsm-app -- nm-connection-editor >/dev/null 2>&1
 fi
 
-if command -v nmtui >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui nmtui
-fi
-
 if command -v nmcli >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui nmcli device wifi
+  exec omarchy-launch-tui nmcli device wifi
 fi
 
-if command -v iwctl >/dev/null 2>&1; then
-  exec omarchy-launch-or-focus-tui iwctl
+if iwd_active && command -v iwctl >/dev/null 2>&1; then
+  exec omarchy-launch-tui iwctl
 fi
 
 notify-send "Wi-Fi" "No supported Wi-Fi UI found (impala/nm-connection-editor/nmtui/nmcli/iwctl)."

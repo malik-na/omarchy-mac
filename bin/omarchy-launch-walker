@@ -1,6 +1,22 @@
 #!/bin/bash
 
 if ! command -v walker >/dev/null 2>&1; then
+  if [[ "${1:-}" == "-m" && "${2:-}" == "menus:omarchyBackgroundSelector" ]]; then
+    if command -v kitty >/dev/null 2>&1; then
+      exec setsid uwsm-app -- kitty --app-id=org.omarchy.terminal --title=Omarchy -e bash -c "omarchy-show-logo; omarchy-theme-bg-menu-tui; if (( \$? != 130 )); then omarchy-show-done; fi"
+    fi
+    if command -v xdg-terminal-exec >/dev/null 2>&1 || command -v alacritty >/dev/null 2>&1 || command -v ghostty >/dev/null 2>&1; then
+      exec omarchy-launch-floating-terminal-with-presentation omarchy-theme-bg-menu-tui
+    fi
+
+    if command -v fuzzel >/dev/null 2>&1; then
+      exec omarchy-theme-bg-menu
+    fi
+
+    notify-send "Background" "Walker is not installed and no fallback selector is available."
+    exit 1
+  fi
+
   if [[ "${1:-}" == "-m" && "${2:-}" == "clipboard" ]]; then
     if command -v cliphist >/dev/null 2>&1; then
       selection="$(cliphist list | fuzzel --dmenu --prompt='Clipboard> ' || true)"

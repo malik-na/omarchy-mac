@@ -1,6 +1,27 @@
 #!/bin/bash
 
+# Overwrite the user configs for the Walker application launcher (which also powers the Omarchy Menu) and restart the services.
+
 # Note: This script now manages fuzzel configuration for omarchy-mac-menu compatibility
 omarchy-refresh-config fuzzel/fuzzel.ini
-omarchy-refresh-config fuzzel/fuzzel.theme.ini
+if [[ -f "$HOME/.local/share/omarchy/config/fuzzel/fuzzel.theme.ini" ]]; then
+  omarchy-refresh-config fuzzel/fuzzel.theme.ini
+fi
+
+if [[ -f "$HOME/.config/fuzzel/fuzzel.ini" ]]; then
+  current_font=$(omarchy-font-current 2>/dev/null || true)
+  if [[ -n "$current_font" ]]; then
+    fuzzel_font_size="${OMARCHY_FUZZEL_FONT_SIZE:-}"
+    if [[ -z "$fuzzel_font_size" ]]; then
+      fuzzel_font_size="$(sed -nE '/^font=/ { s/^font=.*:size=([0-9]+).*$/\1/p; q }' "$HOME/.config/fuzzel/fuzzel.ini")"
+    fi
+    if ! [[ "$fuzzel_font_size" =~ ^[0-9]+$ ]]; then
+      fuzzel_font_size=14
+    fi
+
+    current_font_escaped=${current_font//&/\\&}
+    sed -i -E "s|^font=.*$|font=${current_font_escaped}:size=${fuzzel_font_size}|" "$HOME/.config/fuzzel/fuzzel.ini"
+  fi
+fi
+
 omarchy-restart-walker

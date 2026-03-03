@@ -1,85 +1,227 @@
-# Omarchy Mac (Fedora Asahi)
+# Omarchy Mac Fedora (Fedora Asahi Remix)
 
-Omarchy Mac is now targeted at **Fedora Asahi Remix on aarch64** (Apple Silicon).
+A concise, beginner-friendly guide to install Omarchy Mac on **Fedora Asahi Remix (aarch64)** for Apple Silicon Macs.
+
+_This project is not intended for x86_64 systems, non-Asahi Fedora installs, or virtual machines._
+
+**Important:** Fedora Asahi Minimal first boot lands in a TTY setup flow. You must complete all prompts there before running Omarchy Mac installer steps.
+
+[![License](https://img.shields.io/github/license/malik-na/omarchy-mac)](LICENSE) [![Stars](https://img.shields.io/github/stars/malik-na/omarchy-mac?style=social)](https://github.com/malik-na/omarchy-mac/stargazers)
+
+---
+
+## Quick links
+
+- Fedora Asahi device support: https://asahilinux.org/fedora/#device-support
+- Omarchy Mac Discord: https://discord.gg/KNQRk7dMzy
+- External monitor discussion: https://github.com/malik-na/omarchy-mac/discussions/73
+- Support the project: https://buymeacoffee.com/malik2015no
+
+---
+
+## Table of contents
+
+- [Before you begin](#before-you-begin)
+- [Connect to Wi-Fi before installation](#connect-to-wi-fi-before-installation)
+- [Quick start](#quick-start)
+- [Detailed installation](#detailed-installation)
+  - [Prepare Fedora Asahi Minimal](#prepare-fedora-asahi-minimal)
+  - [Install Omarchy Mac Fedora](#install-omarchy-mac-fedora)
+- [Post-install tasks](#post-install-tasks)
+- [Troubleshooting and FAQ](#troubleshooting-and-faq)
+- [Update and maintenance](#update-and-maintenance)
+- [Migrating from older Arch-based installs](#migrating-from-older-arch-based-installs)
+- [Support](#support)
+- [External resources](#external-resources)
+- [Acknowledgements](#acknowledgements)
+- [Contributors](#contributors)
+
+---
+
+## Before you begin
+
+Requirements:
+
+- Apple Silicon Mac (M1/M2 family)
+- Fedora Asahi Remix Minimal (aarch64)
+- A regular user with sudo access
+- Internet connectivity
+- `git` installed
 
 Unsupported targets:
-- Arch / Asahi Alarm
-- Non-Asahi Fedora
+
+- Arch/Asahi Alarm runtime paths
+- Non-Asahi Fedora installs
 - x86_64
 
-## Requirements
+Checklist:
 
-- Apple Silicon Mac (M1/M2/M3/M4)
-- Fedora Asahi Remix Minimal
-- Regular user with sudo privileges
-- Internet connectivity
+- [ ] Backup completed
+- [ ] Fedora Asahi device compatibility checked
+- [ ] Fedora Asahi first-boot TTY setup completed (language, hostname, time, root password, user, wheel)
+- [ ] Internet connected
+- [ ] Sudo user ready
 
-## Install
+---
+
+## Connect to Wi-Fi before installation
+
+Use one of these methods from your Fedora Asahi session before running the installer.
+
+### Option 1: `nmcli` (NetworkManager CLI)
+
+```bash
+# Check network devices
+nmcli device status
+
+# Scan and list Wi-Fi networks (replace wlan0 if needed)
+nmcli device wifi rescan ifname wlan0
+nmcli device wifi list ifname wlan0
+
+# Connect to a network
+nmcli device wifi connect "SSID_NAME" password "PASSWORD" ifname wlan0
+```
+
+### Option 2: `iwctl` (iwd)
+
+```bash
+iwctl
+# inside iwctl:
+# device list
+# station wlan0 scan
+# station wlan0 get-networks
+# station wlan0 connect "SSID_NAME"
+# exit
+```
+
+If `wlan0` does not exist on your system, replace it with your detected wireless interface name.
+
+Fedora Asahi Minimal normally includes the required first-boot setup prompts; use these commands only to ensure networking is ready before install.
+
+---
+
+## Quick start
+
+From your Fedora Asahi user session:
+
+```bash
+sudo dnf install git
+git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
+cd ~/.local/share/omarchy
+git checkout fedora
+bash install.sh
+```
+
+The installer enforces Fedora Asahi aarch64 in preflight checks.
+
+---
+
+## Detailed installation
+
+### Prepare Fedora Asahi Minimal (required)
+
+Fedora Asahi Minimal always starts with a TTY setup flow. Complete all prompts there before continuing:
+
+- language
+- hostname
+- date/time
+- root password
+- regular user creation
+- wheel/sudo access
+
+Do not continue to Omarchy install until all first-boot setup actions are complete.
+
+Optional: improve TTY readability
+
+```bash
+sudo dnf install -y terminus-fonts-console || sudo dnf install -y terminus-fonts
+sudo setfont ter-v22n
+```
+
+### Install Omarchy Mac Fedora
+
+As your regular sudo user:
 
 ```bash
 git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
+git checkout fedora
 bash install.sh
 ```
 
-The installer now enforces Fedora Asahi aarch64 in preflight checks.
+---
 
-## What Changed
+## Post-install tasks
 
-- Installer/runtime/update paths are Fedora-first (`dnf`, `rpm`, `dracut`).
-- Arch-only install execution paths were removed from active flow.
-- Migration runner skips historical Arch-only migration scripts on Fedora.
-- Channel/version scripts no longer depend on `/etc/pacman*`.
+- Reboot and log into your Hyprland session.
+- Validate core desktop behavior: app launcher opens, terminal keybind works, Wi-Fi/Bluetooth menus open, and lock screen works.
 
-## Fedora Minimal Safeguards
+## Troubleshooting and FAQ
 
-- Preflight now validates essential DE/runtime package availability before install continues.
-- Login/session startup uses an SDDM-only path on Fedora to avoid tty/session conflicts.
-- Installer restores legacy seamless-login changes that can break SDDM autologin on upgraded systems.
-- Installer ensures Omarchy command path is available in login shells used by Hyprland sessions.
-- Launcher commands include graceful fallbacks for optional tools (`impala`, `bluetui`, `walker`, `hyprlock`).
-- Deprecated Arch mirror tooling remains as no-op compatibility stubs on Fedora.
+### Installer refuses to continue
 
-## Runtime Fixes (2026-02-14)
+The installer currently supports **Fedora Asahi Remix on aarch64 only**. Verify distro/architecture and rerun.
 
-- Resolved Fedora font mismatch by switching default UI/terminal font family references to `JetBrains Mono`.
-- Fedora defaults now prioritize Chromium as the system browser (`chromium-browser.desktop` on Fedora).
-- Wi-Fi/Bluetooth setup launchers now use robust fallbacks (`impala` -> `nm-connection-editor` -> `nmtui` -> `nmcli` -> `iwctl`, and `bluetui` -> `blueman-manager` -> `bluetoothctl`).
-- Webapp launchers now open as separate app windows (`--new-window --app=...`) instead of reusing regular browser tabs.
-- Power profile menu now works with wrapper commands and degrades safely when `powerprofilesctl` is missing.
-- Media keys now route through `omarchy-media-control`, with fallback control paths when `swayosd-client` is unavailable.
-- Launcher keybind reliability was fixed by routing `Super+Space` through `omarchy-launch-walker`, correcting `fuzzel` launch prefix to `uwsm-app --`, and preventing stale `fuzzel --dmenu` lockups.
-- Lock/idle/nightlight stack was repaired by installing `hyprlock`/`hypridle`/`hyprsunset`, fixing autostart behavior, and hardening fallback scripts for screensaver + PATH handling.
+### Wi-Fi or Bluetooth tools are missing
 
-## Startup + Config Fixes (2026-02-15)
+Omarchy launchers use Fedora-friendly fallbacks:
 
-- Ghostty defaults were corrected for current upstream config validation (removed unsupported `gtk-toolbar-style`, fixed invalid shell integration feature list, and fixed split-resize keybind trigger names).
-- Ghostty migration `1763633307.sh` now inserts valid split resize keybinds (`down/up/left/right`) instead of invalid `arrow_*` trigger names.
-- Waybar startup in Hyprland was hardened against restricted login `PATH` by launching with an explicit known-good path and fallback (`uwsm-app -- waybar || waybar`).
+- Wi-Fi: `impala` -> `nm-connection-editor` -> `nmtui` -> `nmcli` -> `iwctl`
+- Bluetooth: `bluetui` -> `blueman-manager` -> `bluetoothctl`
 
-## Quick Validation
+### Session launches but keybinds fail
+
+Run this to confirm Omarchy commands resolve in your login shell:
 
 ```bash
-bash tests/test-fedora-asahi-compatibility.sh
-bash install/preflight/fedora-required-pkgs.sh
-bash -lc 'command -v chromium-browser nmtui nm-connection-editor blueman-manager bluetoothctl powerprofilesctl'
-bash -lc 'command -v hyprlock hypridle hyprsunset tte'
-bash -lc 'xdg-settings get default-web-browser'
+bash -lc 'echo "$PATH"'
+bash -lc 'command -v omarchy-menu omarchy-cmd-terminal-cwd uwsm-app'
 ```
 
-## Porting and Progress Document
+For implementation and runtime hardening details, see `FEDORA_ASAHI_PORTING_PLAN.md`.
 
-See `FEDORA_ASAHI_PORTING_PLAN.md` for:
-- phase-by-phase implementation history,
-- completed changes,
-- verification runbook,
-- remaining backlog.
+---
 
-## Notes for Existing Users
+## Update and maintenance
 
-- `fix-mirrors.sh` and `bin/omarchy-refresh-pacman*` are deprecated stubs on Fedora.
-- If you previously used Arch-focused branches/workflows, switch to the `fedora` branch.
+- `omarchy-update` updates both the Omarchy repository and Fedora system packages (`dnf upgrade --refresh`).
+- Waybar update indicators track git divergence from your configured upstream branch.
+
+Check branch/upstream state:
+
+```bash
+git -C ~/.local/share/omarchy status -sb
+```
+
+---
 
 ## Support
 
-- Omarchy Mac Discord: https://discord.gg/KNQRk7dMzy
+Need help or want to share your setup?
+
+- Discord: https://discord.gg/KNQRk7dMzy
+- Support: https://buymeacoffee.com/malik2015no
+
+---
+
+## External resources
+
+- Fedora Asahi device support: https://asahilinux.org/fedora/#device-support
+- Asahi Linux project: https://asahilinux.org/
+- External monitor discussion: https://github.com/malik-na/omarchy-mac/discussions/73
+
+---
+
+## Acknowledgements
+
+Thanks to the Asahi Linux community and DHH for Omarchy.
+
+If this project helped you, please star the repository and share feedback in issues/discussions.
+
+---
+
+## Contributors
+
+See the full contributors list here:
+
+https://github.com/malik-na/omarchy-mac/graphs/contributors

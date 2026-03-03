@@ -11,7 +11,7 @@ fi
 
 # List of required COPR repos (from Research.md)
 COPR_REPOS=(
-  "solopasha/hyprland"
+  "technochip/Hyprland-aarch64"
   "atim/starship"
   "atim/lazygit"
   "pgdev/ghostty"
@@ -19,7 +19,9 @@ COPR_REPOS=(
 
 # Optional COPR repos (may not be available for all Fedora versions)
 OPTIONAL_COPR_REPOS=(
-  "atim/eza"
+  "solopasha/hyprland"
+  "nclundell/fedora-extras"
+  "erikreider/swayosd"
 )
 
 echo "Enabling required COPR repositories..."
@@ -44,3 +46,33 @@ for repo in "${OPTIONAL_COPR_REPOS[@]}"; do
 done
 
 echo "COPR repositories enabled."
+
+# -------------------------------------------------------------
+# HYPRLAND REPOSITORY PROTECTION 
+# Technochip must provide Hyprland core to keep Asahi compat.
+# Solopasha is used only as fallback for utilities (e.g. satty).
+# -------------------------------------------------------------
+TECHNOCHIP_REPO_FILE="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:technochip:Hyprland-aarch64.repo"
+SOLOPASHA_REPO_FILE="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:solopasha:hyprland.repo"
+
+echo "Applying repo protections for Hyprland stability..."
+
+if [[ -f "$SOLOPASHA_REPO_FILE" ]]; then
+  # Remove any existing protections to recreate them clean
+  sudo sed -i '/^priority=/d' "$SOLOPASHA_REPO_FILE"
+  sudo sed -i '/^excludepkgs=/d' "$SOLOPASHA_REPO_FILE"
+  
+  # Inject protections: drop priority, and never pull core packages from here
+  # NOTE: hyprland-qtutils is deliberately NOT excluded so we can fetch it here
+  echo "priority=90" | sudo tee -a "$SOLOPASHA_REPO_FILE" >/dev/null
+  echo "excludepkgs=hyprland hyprland-devel hyprlock hypridle hyprsunset hyprpicker hyprwire aquamarine hyprgraphics hyprutils hyprlang hyprcursor xdg-desktop-portal-hyprland uwsm" | sudo tee -a "$SOLOPASHA_REPO_FILE" >/dev/null
+  echo "✓ Solopasha repo limits applied."
+fi
+
+if [[ -f "$TECHNOCHIP_REPO_FILE" ]]; then
+  sudo sed -i '/^priority=/d' "$TECHNOCHIP_REPO_FILE"
+  
+  # Boost priority for the Asahi safe build
+  echo "priority=10" | sudo tee -a "$TECHNOCHIP_REPO_FILE" >/dev/null
+  echo "✓ Technochip repo priority applied."
+fi
