@@ -106,7 +106,7 @@ back_to() {
   local parent_menu="${1:-}"
   if [[ "$BACK_TO_EXIT" == "true" ]]; then
     exit 0
-  elif [[ -n "$parent_menu" ]]; then
+  elif [[ -n $parent_menu ]]; then
     "$parent_menu"
   else
     show_main_menu
@@ -133,6 +133,7 @@ show_trigger_menu() {
   *Capture*) show_capture_menu ;;
   *Share*) show_share_menu ;;
   *Toggle*) show_toggle_menu ;;
+  *Hardware*) show_hardware_menu ;;
   *) show_main_menu ;;
   esac
 }
@@ -157,11 +158,11 @@ show_screenshot_menu() {
 
 get_webcam_list() {
   v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
-    if [[ "$line" != $'\t'* && -n "$line" ]]; then
+    if [[ $line != $'\t'* && -n $line ]]; then
       local name="$line"
       IFS= read -r device || break
       device=$(echo "$device" | tr -d '\t' | head -1)
-      [[ -n "$device" ]] && echo "$device  $name"
+      [[ -n $device ]] && echo "$device  $name"
     fi
   done
 }
@@ -170,12 +171,12 @@ show_webcam_select_menu() {
   local devices=$(get_webcam_list)
   local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
 
-  if [[ -z "$devices" || "$count" -eq 0 ]]; then
+  if [[ -z $devices ]] || ((count == 0)); then
     notify-send "No webcam devices found" -u critical -t 3000
     return 1
   fi
 
-  if [[ "$count" -eq 1 ]]; then
+  if ((count == 1)); then
     echo "$devices" | awk '{print $1}'
   else
     menu "Select Webcam" "$devices" | awk '{print $1}'
@@ -189,7 +190,6 @@ show_screenrecord_menu() {
   *"Display + Audio"*) omarchy-cmd-screenrecord output audio ;;
   *Display*) omarchy-cmd-screenrecord output ;;
   *) show_capture_menu ;;
-
   esac
 }
 
@@ -208,6 +208,17 @@ show_toggle_menu() {
   *Nightlight*) omarchy-toggle-nightlight ;;
   *Idle*) omarchy-toggle-idle ;;
   *Bar*) omarchy-toggle-waybar ;;
+  *Layout*) omarchy-hyprland-workspace-layout-toggle ;;
+  *Ratio*) omarchy-hyprland-window-single-square-aspect-toggle ;;
+  *Gaps*) omarchy-hyprland-window-gaps-toggle ;;
+  *Scaling*) omarchy-hyprland-monitor-scaling-cycle ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_hardware_menu() {
+  case $(menu "Toggle" "  Hybrid GPU") in
+  *"Hybrid GPU"*) present_terminal omarchy-toggle-hybrid-gpu ;;
   *) show_trigger_menu ;;
   esac
 }
@@ -216,7 +227,7 @@ show_style_menu() {
   case "$(menu "Style" $'󰸌  Theme\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About')" in
   *Theme*) show_theme_menu ;;
   *Font*) show_font_menu ;;
-  *Background*) omarchy-theme-bg-next ;;
+  *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
   *Screensaver*) open_in_editor ~/.config/omarchy/branding/screensaver.txt ;;
   *About*) open_in_editor ~/.config/omarchy/branding/about.txt ;;
@@ -232,6 +243,10 @@ show_theme_menu() {
   else
     omarchy-theme-set "$theme"
   fi
+}
+
+show_background_menu() {
+  omarchy-launch-walker -m menus:omarchyBackgroundSelector --width 800 --minheight 400
 }
 
 show_font_menu() {
@@ -387,6 +402,7 @@ show_install_ai_menu() {
 show_install_gaming_menu() {
   case "$(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft')" in
   *Steam*) present_terminal omarchy-install-steam ;;
+  *GeForce*) present_terminal omarchy-install-geforce-now ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
   *Minecraft*) aur_install_and_launch "Minecraft [AUR]" "minecraft-launcher" "minecraft-launcher" ;;
   *) show_install_menu ;;
@@ -427,6 +443,7 @@ show_install_development_menu() {
   *NET*) present_terminal "omarchy-install-dev-env dotnet" ;;
   *OCaml*) present_terminal "omarchy-install-dev-env ocaml" ;;
   *Clojure*) present_terminal "omarchy-install-dev-env clojure" ;;
+  *Scala*) present_terminal "omarchy-install-dev-env scala" ;;
   *) show_install_menu ;;
   esac
 }
@@ -488,6 +505,7 @@ show_update_menu() {
 show_update_channel_menu() {
   case "$(menu "Update channel" $'🟢 Stable\n🟡 Edge\n🔴 Dev')" in
   *Stable*) present_terminal "omarchy-channel-set stable" ;;
+  *RC*) present_terminal "omarchy-channel-set rc" ;;
   *Edge*) present_terminal "omarchy-channel-set edge" ;;
   *Dev*) present_terminal "omarchy-channel-set dev" ;;
   *) show_update_menu ;;
@@ -512,6 +530,7 @@ show_update_config_menu() {
   *Hyprsunset*) present_terminal omarchy-refresh-hyprsunset ;;
   *Plymouth*) present_terminal omarchy-refresh-plymouth ;;
   *Swayosd*) present_terminal omarchy-refresh-swayosd ;;
+  *Tmux*) present_terminal omarchy-refresh-tmux ;;
   *Walker*) present_terminal omarchy-refresh-walker ;;
   *Waybar*) present_terminal omarchy-refresh-waybar ;;
   *) show_update_menu ;;
@@ -534,10 +553,15 @@ show_update_password_menu() {
   esac
 }
 
+show_about() {
+  omarchy-launch-about
+}
+
 show_system_menu() {
   case "$(menu "System" $'  Lock\n󱄄  Screensaver\n󰤄  Suspend\n  Relaunch\n󰜉  Restart\n󰐥  Shutdown')" in
   *Lock*) omarchy-lock-screen ;;
   *Screensaver*) omarchy-launch-screensaver force ;;
+  *Lock*) omarchy-lock-screen ;;
   *Suspend*) systemctl suspend ;;
   *Relaunch*) uwsm stop ;;
   *Restart*) systemctl reboot ;;
@@ -559,17 +583,19 @@ go_to_menu() {
     ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
+  *toggle*) show_toggle_menu ;;
   *share*) show_share_menu ;;
+  *background*) show_background_menu ;;
+  *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
   *theme*) show_theme_menu ;;
-  *screenshot*) show_screenshot_menu ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;
   *power*) show_setup_power_menu ;;
   *install*) show_install_menu ;;
   *remove*) show_remove_menu ;;
   *update*) show_update_menu ;;
-  *about*) omarchy-launch-about ;;
+  *about*) show_about ;;
   *system*) show_system_menu ;;
   esac
 }

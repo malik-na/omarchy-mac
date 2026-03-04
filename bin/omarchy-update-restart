@@ -5,15 +5,23 @@ kernel_before=$(cat /tmp/omarchy-kernel-before 2>/dev/null)
 kernel_after=$(pacman -Q linux-asahi 2>/dev/null | awk '{print $2}')
 rm -f /tmp/omarchy-kernel-before
 
-if [ -n "$kernel_before" ] && [ "$kernel_before" != "$kernel_after" ]; then
+if [[ -n $kernel_before && $kernel_before != "$kernel_after" ]]; then
   gum confirm "Linux kernel has been updated. Reboot?" && omarchy-state clear re*-required && sudo reboot now
+fi
 
-elif [ -f "$HOME/.local/state/omarchy/reboot-required" ]; then
-  gum confirm "Updates require reboot. Ready?" && omarchy-cmd-reboot
+if [[ ! -d /usr/lib/modules/$(uname -r) ]]; then
+  gum confirm "Linux kernel has been updated. Reboot?" && omarchy-system-reboot
+elif [[ -f $HOME/.local/state/omarchy/reboot-required ]]; then
+  gum confirm "Updates require reboot. Ready?" && omarchy-system-reboot
+fi
+
+running_hyprland=$(readlink /proc/$(pgrep -x Hyprland)/exe 2>/dev/null)
+if [[ $running_hyprland == *"(deleted)"* ]]; then
+  gum confirm "Hyprland has been updated. Reboot?" && omarchy-system-reboot
 fi
 
 for file in "$HOME"/.local/state/omarchy/restart-*-required; do
-  if [ -f "$file" ]; then
+  if [[ -f $file ]]; then
     filename=$(basename "$file")
     service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
     echo "Restarting $service"

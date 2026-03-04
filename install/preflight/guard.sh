@@ -19,19 +19,19 @@ fi
 
 # Must not be an Arch derivative distro
 for marker in /etc/cachyos-release /etc/eos-release /etc/garuda-release /etc/manjaro-release; do
-  if [[ -f "$marker" ]]; then
+  if [[ -f $marker ]]; then
     abort "Vanilla Arch (derivative detected: $(basename $marker))"
   fi
 done
 
 # Must not be running as root
-if [ "$EUID" -eq 0 ]; then
+if (( EUID == 0 )); then
   abort "Running as root (run as a regular user, not root)"
 fi
 
 # Must be ARM64 (aarch64) for Apple Silicon Macs
 ARCH="$(uname -m)"
-if [[ "$ARCH" != "aarch64" ]]; then
+if [[ $ARCH != "aarch64" ]]; then
   abort "ARM64 (aarch64) CPU required for Apple Silicon (detected: $ARCH)"
 fi
 

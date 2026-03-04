@@ -9,17 +9,22 @@ run_logged $OMARCHY_INSTALL/config/timezones.sh
 run_logged $OMARCHY_INSTALL/config/increase-sudo-tries.sh
 run_logged $OMARCHY_INSTALL/config/increase-lockout-limit.sh
 run_logged $OMARCHY_INSTALL/config/ssh-flakiness.sh
+run_logged $OMARCHY_INSTALL/config/increase-file-watchers.sh
 run_logged $OMARCHY_INSTALL/config/detect-keyboard-layout.sh
 run_logged $OMARCHY_INSTALL/config/xcompose.sh
 run_logged $OMARCHY_INSTALL/config/fix-powerprofilesctl-shebang.sh
 run_logged $OMARCHY_INSTALL/config/docker.sh
 run_logged $OMARCHY_INSTALL/config/mimetypes.sh
+run_logged $OMARCHY_INSTALL/config/remove-fcitx5-autostart.sh
 run_logged $OMARCHY_INSTALL/config/localdb.sh
 run_logged $OMARCHY_INSTALL/config/walker-elephant.sh
 run_logged $OMARCHY_INSTALL/config/fast-shutdown.sh
 run_logged $OMARCHY_INSTALL/config/sudoless-asdcontrol.sh
 run_logged $OMARCHY_INSTALL/config/input-group.sh
 run_logged $OMARCHY_INSTALL/config/omarchy-ai-skill.sh
+run_logged $OMARCHY_INSTALL/config/kernel-modules-hook.sh
+run_logged $OMARCHY_INSTALL/config/powerprofilesctl-rules.sh
+run_logged $OMARCHY_INSTALL/config/wifi-powersave-rules.sh
 run_logged $OMARCHY_INSTALL/config/hardware/network.sh
 run_logged $OMARCHY_INSTALL/config/hardware/set-wireless-regdom.sh
 
