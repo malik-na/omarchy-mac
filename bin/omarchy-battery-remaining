@@ -9,4 +9,4 @@ upower -i $(upower -e | grep -E "battery_|BAT") \
     val=$2;
     printf("%d\n", (val+0.5))
     exit
-  }'
+}'
