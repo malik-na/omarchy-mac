@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if (( EUID == 0 )); then
+  echo "[Omarchy] Run omarchy-setup-post-asahi as a regular user." >&2
+  exit 1
+fi
+
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+CALAMARES_SETTINGS="$OMARCHY_PATH/calamares/settings-post-asahi.conf"
+
+optional_packages=()
+selected_optional_pkgs=()
+in_optional=0
+
+while IFS= read -r line; do
+  [[ $line =~ ^#.*$ || -z $line ]] && continue
+
+  if [[ $line == "OPTIONAL:" ]]; then
+    in_optional=1
+    continue
+  fi
+
+  if (( in_optional )); then
+    optional_packages+=("$line")
+  fi
+done <"$OMARCHY_PATH/install/omarchy-base.packages"
+
+if command -v gum >/dev/null 2>&1; then
+  OMARCHY_USER_EMAIL=$(gum input --prompt "Email> " --placeholder "Enter email address (optional)")
+  export OMARCHY_USER_EMAIL
+
+  if ((${#optional_packages[@]} > 0)); then
+    selected_optional=$(printf '%s\n' "${optional_packages[@]}" | gum choose --no-limit --height 20 --header "Optional Omarchy packages")
+    mapfile -t selected_optional_pkgs <<<"$selected_optional"
+
+    if ((${#selected_optional_pkgs[@]} > 0)); then
+      OMARCHY_OPTIONAL_PACKAGES=$(printf '%s,' "${selected_optional_pkgs[@]}")
+      OMARCHY_OPTIONAL_PACKAGES=${OMARCHY_OPTIONAL_PACKAGES%,}
+      export OMARCHY_OPTIONAL_PACKAGES
+    fi
+  fi
+fi
+
+export OMARCHY_SOURCE_REPO="$OMARCHY_PATH"
+
+if ! command -v calamares >/dev/null 2>&1; then
+  sudo pacman -S --noconfirm --needed calamares
+fi
+
+sudo --preserve-env=DISPLAY,WAYLAND_DISPLAY,XDG_RUNTIME_DIR,DBUS_SESSION_BUS_ADDRESS,XAUTHORITY,OMARCHY_SOURCE_REPO,OMARCHY_USER_EMAIL,OMARCHY_OPTIONAL_PACKAGES \
+  calamares -d -c "$CALAMARES_SETTINGS"
