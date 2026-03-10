@@ -399,7 +399,7 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case "$(menu "Install" $'  Steam\n  RetroArch [AUR]\n󰍳  Minecraft')" in
+  case "$(menu "Install" $'  Steam (Asahi)\n  RetroArch [AUR]\n󰍳  Minecraft')" in
   *Steam*) present_terminal omarchy-install-steam ;;
   *GeForce*) present_terminal omarchy-install-geforce-now ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
