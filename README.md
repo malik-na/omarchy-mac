@@ -150,6 +150,8 @@ bash install.sh
 
 For a one-shot post-Asahi flow, Calamares can collect the initial setup answers and then call `calamares/run-post-asahi-install.sh` as root.
 
+- Launch it as a regular user from a graphical session with `~/.local/share/omarchy/bin/omarchy-setup-post-asahi`.
+- The launcher installs `calamares` if needed, asks for Omarchy-specific extras like email and optional packages, and then starts the guided setup UI.
 - The script expects `OMARCHY_INSTALL_USER` and can also consume `OMARCHY_INSTALL_HOME`, `OMARCHY_USER_NAME`, `OMARCHY_USER_EMAIL`, `OMARCHY_TIMEZONE`, `OMARCHY_HOSTNAME`, and `OMARCHY_OPTIONAL_PACKAGES`.
 - It copies the current Omarchy checkout into the target user's `~/.local/share/omarchy`, writes the generated installer env file, and runs `install-calamares.sh` as that user.
 - See `calamares/README.md` for the full handoff contract.

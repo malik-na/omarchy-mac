@@ -2,6 +2,8 @@
 
 Omarchy Mac supports a one-shot post-Asahi handoff through `calamares/run-post-asahi-install.sh`.
 
+Use `bin/omarchy-setup-post-asahi` to launch the guided flow from a graphical session. The launcher installs `calamares` if needed, prompts for Omarchy-specific extras, and then starts Calamares with `calamares/settings-post-asahi.conf`.
+
 Expected flow:
 
 1. Calamares runs as root after the Asahi system is bootable.

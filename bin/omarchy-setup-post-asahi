@@ -7,6 +7,11 @@ if (( EUID == 0 )); then
   exit 1
 fi
 
+if [[ -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} ]]; then
+  echo "[Omarchy] Calamares needs a graphical session. Start a desktop session first, then run omarchy-setup-post-asahi." >&2
+  exit 1
+fi
+
 OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
 CALAMARES_SETTINGS="$OMARCHY_PATH/calamares/settings-post-asahi.conf"
 
