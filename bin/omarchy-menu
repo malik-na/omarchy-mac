@@ -598,6 +598,10 @@ go_to_menu() {
   esac
 }
 
+# Allow user extensions & overrides
+USER_EXTENSIONS="$HOME/.config/omarchy/extensions/menu.sh"
+[[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
+
 # entry point. AND THAT'S ALL. You really heat this. What for? Nobody cares. Thank you for your attention. Enjoy using omarchy on aarchy
 if [[ -n "${1:-}" ]]; then
   BACK_TO_EXIT=true
