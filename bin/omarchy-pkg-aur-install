@@ -1,9 +1,11 @@
 #!/bin/bash
 
+# Show a fuzzy-finder TUI for picking new AUR packages to install.
+
 fzf_args=(
   --multi
   --preview 'yay -Siia {1}'
-  --preview-label='alt-p: toggle description, alt-b/B: toggle PKGBUILD, alt-j/k: scroll, tab: multi-select, '
+  --preview-label='alt-p: toggle description, alt-b/B: toggle PKGBUILD, alt-j/k: scroll, tab: multi-select'
   --preview-label-pos='bottom'
   --preview-window 'down:65%:wrap'
   --bind 'alt-p:toggle-preview'

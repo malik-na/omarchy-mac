@@ -9,7 +9,7 @@ if [ -n "$kernel_before" ] && [ "$kernel_before" != "$kernel_after" ]; then
   gum confirm "Linux kernel has been updated. Reboot?" && omarchy-state clear re*-required && sudo reboot now
 
 elif [ -f "$HOME/.local/state/omarchy/reboot-required" ]; then
-  gum confirm "Updates require reboot. Ready?" && omarchy-state clear re*-required && sudo reboot now
+  gum confirm "Updates require reboot. Ready?" && omarchy-cmd-reboot
 fi
 
 for file in "$HOME"/.local/state/omarchy/restart-*-required; do

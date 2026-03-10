@@ -3,58 +3,159 @@
 # Set install mode to online since boot.sh is used for curl installations
 export OMARCHY_ONLINE_INSTALL=true
 
-ansi_art='                 ▄▄▄                                                   
- ▄█████▄    ▄███████████▄    ▄███████   ▄███████   ▄███████   ▄█   █▄    ▄█   █▄ 
+# When running via `wget ... | bash`, stdin is the pipe and may be EOF.
+# Do NOT rebind stdin (FD 0), since bash may still be reading this script from it.
+# Instead, use /dev/tty explicitly for interactive prompts when available.
+TTY_IN=""
+if [[ -r /dev/tty ]]; then
+    TTY_IN="/dev/tty"
+fi
+
+if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
+
+ansi_art='                 ▄▄▄
+ ▄█████▄    ▄███████████▄    ▄███████   ▄███████   ▄███████   ▄█   █▄    ▄█   █▄
 ███   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
 ███   ███  ███   ███   ███  ███   ███  ███   ███  ███   █▀   ███   ███  ███   ███
 ███   ███  ███   ███   ███ ▄███▄▄▄███ ▄███▄▄▄██▀  ███       ▄███▄▄▄███▄ ███▄▄▄███
 ███   ███  ███   ███   ███ ▀███▀▀▀███ ▀███▀▀▀▀    ███      ▀▀███▀▀▀███  ▀▀▀▀▀▀███
 ███   ███  ███   ███   ███  ███   ███ ██████████  ███   █▄   ███   ███  ▄██   ███
 ███   ███  ███   ███   ███  ███   ███  ███   ███  ███   ███  ███   ███  ███   ███
- ▀█████▀    ▀█   ███   █▀   ███   █▀   ███   ███  ███████▀   ███   █▀    ▀█████▀ 
+ ▀█████▀    ▀█   ███   █▀   ███   █▀   ███   ███  ███████▀   ███   ▀    ▀█████▀ 
                                        ███   █▀                                  '
 
-clear
-echo -e "\n$ansi_art\n"
-
-# Validate sudo access and refresh timestamp to minimize password prompts
-echo "🔐 Omarchy Mac Installation requires administrator access..."
-if ! sudo -v; then
-  echo "❌ Error: sudo access required. Please run with proper permissions."
-  exit 1
-fi
-
-# Keep sudo alive during bootstrap
-keep_sudo_alive() {
-  while true; do
-    sudo -v
-    sleep 50
-  done
+# Install gum if not present for enhanced UI
+install_gum() {
+    if ! command -v gum &>/dev/null; then
+        echo "Installing gum for elegant interface..."
+        ${SUDO:+$SUDO }pacman -S --noconfirm --needed gum 2>/dev/null || {
+            echo "Warning: Could not install gum, falling back to basic interface"
+            return 1
+        }
+    fi
 }
 
-keep_sudo_alive &
-SUDO_KEEPALIVE_PID=$!
+# Show message with gum or fallback
+show_message() {
+    if command -v gum &>/dev/null; then
+        gum format "$@"
+    else
+        echo -e "$1"
+    fi
+}
 
-# Cleanup on exit
-trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
+# Show spinner with gum or fallback
+show_spinner() {
+    local title="$1"
+    shift
+    
+    if command -v gum &>/dev/null; then
+        gum spin --spinner dot --title "$title" -- "$@"
+    else
+        echo "$title..."
+        "$@"
+    fi
+}
 
-sudo pacman -Syu --noconfirm --needed git
+# Ask for confirmation with gum or fallback
+ask_confirm() {
+    if command -v gum &>/dev/null; then
+        if [[ -n "${TTY_IN}" ]]; then
+            gum confirm "$1" <"${TTY_IN}"
+        else
+            gum confirm "$1"
+        fi
+    else
+        echo "$1 [Y/n]:"
+        if [[ -n "${TTY_IN}" ]]; then
+            read -r response <"${TTY_IN}" || return 0
+        else
+            read -r response || return 0
+        fi
+        [[ ! "${response}" =~ ^[Nn]$ ]]
+    fi
+}
+
+clear
+
+# Show banner with gum or fallback
+if command -v gum &>/dev/null; then
+    gum style \
+        --foreground 212 \
+        --border double \
+        --align center \
+        --margin "1 2" \
+        --padding "1 2" \
+        "$ansi_art" \
+        "$(gum style --foreground 212 --bold 'OMARCHY MAC BOOTSTRAP')"
+
+else
+    echo -e "\n$ansi_art\n"
+fi
+
+# Install gum for better experience
+install_gum
+
+# Validate privileges / sudo if needed
+if [[ -n "$SUDO" ]]; then
+    if ! command -v sudo &>/dev/null; then
+        show_message '❌ **Error**: `sudo` is required when not running as root.'
+        show_message "Run this script as root, or install sudo and re-run."
+        exit 1
+    fi
+
+    show_message "🔐 **Validating administrator access...**"
+    if ! sudo -v; then
+        show_message "❌ **Error**: sudo access required. Please run with proper permissions."
+        exit 1
+    fi
+
+        # Keep sudo alive during bootstrap
+        keep_sudo_alive() {
+            while true; do
+                sudo -v
+                sleep 50
+            done
+        }
+
+        keep_sudo_alive &
+        SUDO_KEEPALIVE_PID=$!
+
+        # Cleanup on exit
+        trap 'sudo -k; kill ${SUDO_KEEPALIVE_PID:-} 2>/dev/null' EXIT INT TERM
+fi
+
+show_spinner "Updating package database and installing git" \
+    ${SUDO:+$SUDO }pacman -Syu --noconfirm --needed git
 
 # Use custom repo if specified, otherwise default to malik-na/omarchy-mac
 OMARCHY_REPO="${OMARCHY_REPO:-malik-na/omarchy-mac}"
 
-echo -e "\nCloning Omarchy from: https://github.com/${OMARCHY_REPO}.git"
-rm -rf ~/.local/share/omarchy/
-git clone "https://github.com/${OMARCHY_REPO}.git" ~/.local/share/omarchy >/dev/null
+show_spinner "Cloning Omarchy Mac repository" \
+    bash -lc 'set -e; target="$HOME/.local/share/omarchy"; mkdir -p "$(dirname "$target")"; rm -rf "$target"; git clone "https://github.com/'"$OMARCHY_REPO"'.git" "$target"'
 
 # Use custom branch if instructed, otherwise default to main
 OMARCHY_REF="${OMARCHY_REF:-main}"
 if [[ $OMARCHY_REF != "main" ]]; then
-  echo -e "\e[32mUsing branch: $OMARCHY_REF\e[0m"
-  cd ~/.local/share/omarchy
-  git fetch origin "${OMARCHY_REF}" && git checkout "${OMARCHY_REF}"
-  cd -
+    echo "Using branch: $OMARCHY_REF"
+    cd ~/.local/share/omarchy
+    git fetch origin "${OMARCHY_REF}" && git checkout "${OMARCHY_REF}"
+    cd -
 fi
 
-echo -e "\nInstallation starting..."
-source ~/.local/share/omarchy/install.sh
+# Success message
+show_message "## ✅ Omarchy Mac cloned successfully!" \
+    "" \
+    "The repository has been cloned to \`~/.local/share/omarchy\`" \
+    "" \
+    "Run command: \"bash ~/.local/share/omarchy/bootstrap.sh\"" \
+    "" \
+    "The bootstrap script will:" \
+    "• Configure network and locale" \
+    "• Update system and install essential packages" \
+    "• Create user account with sudo access" \
+    "• Install AUR helper and Omarchy Mac"
