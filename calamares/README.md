@@ -1,9 +1,21 @@
 # Calamares contract
 
-`install-calamares.sh` accepts an optional env file path.
+Omarchy Mac supports a one-shot post-Asahi handoff through `calamares/run-post-asahi-install.sh`.
 
-Calamares can generate that env file before invoking the wrapper. Supported values today:
+Expected flow:
 
+1. Calamares runs as root after the Asahi system is bootable.
+2. Calamares exports the collected answers as environment variables.
+3. Calamares calls `calamares/run-post-asahi-install.sh`.
+4. The handoff script copies Omarchy into the target user's home, writes `calamares/omarchy-install.env`, and runs `install-calamares.sh` as that user.
+
+Required handoff values:
+
+- `OMARCHY_INSTALL_USER`
+
+Optional handoff values:
+
+- `OMARCHY_INSTALL_HOME`
 - `OMARCHY_USER_NAME`
 - `OMARCHY_USER_EMAIL`
 - `OMARCHY_TIMEZONE`
