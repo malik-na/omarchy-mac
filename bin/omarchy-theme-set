@@ -48,7 +48,7 @@ omarchy-theme-bg-next
 if pgrep -x waybar >/dev/null; then
   omarchy-restart-waybar
 fi
-omarchy-restart-walker # This handles fuzzel restart on Mac
+omarchy-restart-fuzzel
 omarchy-restart-swayosd
 omarchy-restart-terminal
 omarchy-restart-hyprctl

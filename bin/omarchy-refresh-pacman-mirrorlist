@@ -13,7 +13,9 @@
 #   mirrors while still making Omarchy's recommended servers available.
 
 SRC="$HOME/.local/share/omarchy/default/pacman/mirrorlist"
+ASAHI_SRC="$HOME/.local/share/omarchy/default/pacman/mirrorlist.asahi-alarm"
 DEST="/etc/pacman.d/mirrorlist"
+ASAHI_DEST="/etc/pacman.d/mirrorlist.asahi-alarm"
 
 force=0
 backup=0
@@ -32,6 +34,11 @@ done
 if [[ ! -f "$SRC" ]]; then
 	echo "[ERROR] Source mirrorlist not found: $SRC"
 	exit 1
+fi
+
+if [[ -f "$ASAHI_SRC" ]]; then
+	sudo cp "$ASAHI_SRC" "$ASAHI_DEST"
+	echo "[OK] Updated Asahi Alarm mirrorlist: $ASAHI_DEST"
 fi
 
 # If destination exists and not forcing, perform a merge: keep existing Server lines
@@ -162,4 +169,3 @@ fi
 
 sudo cp "$SRC" "$DEST"
 echo "[OK] Updated mirrorlist: $DEST"
-

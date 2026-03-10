@@ -1,7 +1,4 @@
 #!/bin/bash
 
-# Note: This script now manages fuzzel instead of walker for omarchy-mac-menu compatibility
-pkill walker 2>/dev/null || true
-pkill fuzzel 2>/dev/null || true
-# Fuzzel doesn't need a background service like walker did
-echo # Always end in success so we don't terminate further running
+# Compatibility wrapper for old Walker-era callers.
+omarchy-restart-fuzzel
