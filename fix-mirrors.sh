@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # fix-mirrors.sh
 # Safe helper to ensure proper pacman configuration and mirrors are set up
 # Supports: --replace (force overwrite), --prefer (place Omarchy servers at top),
@@ -7,130 +7,19 @@
 
 set -euo pipefail
 
-# Detect architecture
 ARCH="$(uname -m)"
-case "$ARCH" in
-  "x86_64") PACMAN_ARCH="x86_64" ;;
-  "aarch64") PACMAN_ARCH="aarch64" ;;
-  *)
-    echo "[ERROR] Unsupported architecture: $ARCH" >&2
-    exit 1
-    ;;
-esac
-
-# Setup pacman.conf first
-cat >/tmp/pacman.conf <<"EOL"
-# /etc/pacman.conf
-#
-# See the pacman.conf(5) manpage for option and repository directives
-
-#
-# GENERAL OPTIONS
-#
-[options]
-# The following paths are commented out with their default values listed.
-# If you wish to use different paths, uncomment and update the paths.
-#RootDir     = /
-#DBPath      = /var/lib/pacman/
-#CacheDir    = /var/cache/pacman/pkg/
-#LogFile     = /var/log/pacman.log
-#GPGDir      = /etc/pacman.d/gnupg/
-#HookDir     = /etc/pacman.d/hooks/
-HoldPkg     = pacman glibc
-#XferCommand = /usr/bin/curl -L -C - -f -o %o %u
-#XferCommand = /usr/bin/wget --passive-ftp -c -O %o %u
-#CleanMethod = KeepInstalled
-Architecture = PACMAN_ARCH_PLACEHOLDER
-
-# Pacman won't upgrade packages listed in IgnorePkg and members of IgnoreGroup
-#IgnorePkg   =
-#IgnoreGroup =
-
-#NoUpgrade   =
-#NoExtract   =
-
-# Misc options
-#UseSyslog
-#Color
-#NoProgressBar
-CheckSpace
-#VerbosePkgLists
-ParallelDownloads = 5
-
-# By default, pacman accepts packages signed by keys that its local keyring
-# trusts (see pacman-key and its man page), as well as unsigned packages.
-SigLevel    = Required DatabaseOptional
-LocalFileSigLevel = Optional
-#RemoteFileSigLevel = Required
-
-#
-# REPOSITORIES
-#   - can be defined here or included from another file
-#   - pacman will search repositories in the order defined here
-#   - local/custom mirrors can be added here or in separate files
-#   - repositories listed first will take precedence when packages
-#     have identical names, regardless of version number
-#   - URLs will have $repo replaced by the name of the current repo
-#   - URLs will have $arch replaced by the name of the architecture
-#
-# Repository entries are of the format:
-#       [repo-name]
-#       Server = ServerName
-#       Include = IncludePath
-#
-# The header [repo-name] is crucial - it must be present and
-# uncommented to enable the repo.
-#
-
-# The testing repositories are disabled by default. To enable, uncomment the
-# repo name header and Include lines. You can add preferred servers immediately
-# after the header, and they will be used before the default mirrors.
-
-EOL
-
-# Add architecture-specific repositories
-if [[ "$PACMAN_ARCH" == "aarch64" ]]; then
-  cat >>/tmp/pacman.conf <<'AARCH64_REPOS'
-[asahi-alarm]
-Include = /etc/pacman.d/mirrorlist.asahi-alarm
-
-[core]
-Include = /etc/pacman.d/mirrorlist
-
-[extra]
-Include = /etc/pacman.d/mirrorlist
-
-[alarm]
-Include = /etc/pacman.d/mirrorlist
-
-[aur]
-Include = /etc/pacman.d/mirrorlist
-AARCH64_REPOS
-else
-  cat >>/tmp/pacman.conf <<'X86_64_REPOS'
-[core]
-Include = /etc/pacman.d/mirrorlist
-
-[extra]
-Include = /etc/pacman.d/mirrorlist
-
-[multilib]
-Include = /etc/pacman.d/mirrorlist
-X86_64_REPOS
+if [[ $ARCH != "aarch64" ]]; then
+  echo "[ERROR] Asahi Alarm requires aarch64 (detected: $ARCH)" >&2
+  exit 1
 fi
 
-# Replace the architecture placeholder with the actual architecture
-sed -i "s/PACMAN_ARCH_PLACEHOLDER/$PACMAN_ARCH/g" /tmp/pacman.conf
-
-# Install the pacman.conf if it doesn't match
-if ! cmp -s /tmp/pacman.conf /etc/pacman.conf; then
-  echo "Installing new pacman.conf..."
-  sudo cp /tmp/pacman.conf /etc/pacman.conf
-fi
-rm -f /tmp/pacman.conf
-
-SRC="$HOME/.local/share/omarchy/default/pacman/mirrorlist"
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+PACMAN_CONF_SRC="$OMARCHY_PATH/default/pacman/pacman.conf"
+ASAHI_MIRRORLIST_SRC="$OMARCHY_PATH/default/pacman/mirrorlist.asahi-alarm"
+SRC="$OMARCHY_PATH/default/pacman/mirrorlist"
 DEST="/etc/pacman.d/mirrorlist"
+ASAHI_MIRRORLIST_DEST="/etc/pacman.d/mirrorlist.asahi-alarm"
+PACMAN_ARCH="aarch64"
 REPLACE=0
 PREFER=0
 BACKUP=0
@@ -194,29 +83,40 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ $DRYRUN -eq 1 ]]; then
+  echo "[DRYRUN] Would install $PACMAN_CONF_SRC to /etc/pacman.conf"
+  echo "[DRYRUN] Would install $ASAHI_MIRRORLIST_SRC to $ASAHI_MIRRORLIST_DEST"
+else
+  if [[ ! -f $PACMAN_CONF_SRC ]]; then
+    echo "[ERROR] Missing pacman config template: $PACMAN_CONF_SRC" >&2
+    exit 1
+  fi
+
+  if [[ ! -f $ASAHI_MIRRORLIST_SRC ]]; then
+    echo "[ERROR] Missing Asahi Alarm mirrorlist template: $ASAHI_MIRRORLIST_SRC" >&2
+    exit 1
+  fi
+
+  if ! cmp -s "$PACMAN_CONF_SRC" /etc/pacman.conf; then
+    echo "Installing new pacman.conf..."
+    sudo cp "$PACMAN_CONF_SRC" /etc/pacman.conf
+  fi
+
+  sudo cp "$ASAHI_MIRRORLIST_SRC" "$ASAHI_MIRRORLIST_DEST"
+fi
+
 if [[ ! -f "$SRC" ]]; then
   echo "[WARN] Omarchy bundled mirrorlist not found at: $SRC (Omarchy server removal will be skipped)" >&2
   SRC=""
 fi
 
 if [[ ! -f "$DEST" ]]; then
-  if [[ "$PACMAN_ARCH" == "aarch64" ]]; then
-    echo "[INFO] Destination $DEST does not exist. Will create a mirrorlist with Arch Linux ARM servers."
-    if [[ $DRYRUN -eq 1 ]]; then
-      echo "[DRYRUN] Would write Arch Linux ARM servers to $DEST"
-      exit 0
-    fi
-    # Build a minimal Arch Linux ARM mirror entry based on COUNTRY
-    arch_servers=("Server = http://$COUNTRY.mirror.archlinuxarm.org/\$arch/\$repo" "Server = http://mirror.archlinuxarm.org/\$arch/\$repo")
-  else
-    echo "[INFO] Destination $DEST does not exist. Will create a mirrorlist with Arch Linux servers."
-    if [[ $DRYRUN -eq 1 ]]; then
-      echo "[DRYRUN] Would write Arch Linux servers to $DEST"
-      exit 0
-    fi
-    # Build a minimal Arch Linux mirror entry based on COUNTRY
-    arch_servers=("Server = http://$COUNTRY.mirror.archlinux.org/\$repo/os/\$arch" "Server = http://mirror.archlinux.org/\$repo/os/\$arch")
+  echo "[INFO] Destination $DEST does not exist. Will create a mirrorlist with Arch Linux ARM servers."
+  if [[ $DRYRUN -eq 1 ]]; then
+    echo "[DRYRUN] Would write Arch Linux ARM servers to $DEST"
+    exit 0
   fi
+  arch_servers=("Server = http://$COUNTRY.mirror.archlinuxarm.org/\$arch/\$repo" "Server = http://mirror.archlinuxarm.org/\$arch/\$repo")
   # Write the servers (simple form)
   tmp=$(mktemp)
   for s in "${arch_servers[@]}"; do
@@ -273,11 +173,7 @@ for s in "${dest_servers[@]}"; do
 done
 
 # Build desired servers based on architecture
-if [[ "$PACMAN_ARCH" == "aarch64" ]]; then
-  arch_servers=("Server = http://$COUNTRY.mirror.archlinuxarm.org/\$arch/\$repo" "Server = http://mirror.archlinuxarm.org/\$arch/\$repo")
-else
-  arch_servers=("Server = http://$COUNTRY.mirror.archlinux.org/\$repo/os/\$arch" "Server = http://mirror.archlinux.org/\$repo/os/\$arch")
-fi
+arch_servers=("Server = http://$COUNTRY.mirror.archlinuxarm.org/\$arch/\$repo" "Server = http://mirror.archlinuxarm.org/\$arch/\$repo")
 
 # Build set of existing servers for lookup
 declare -A have

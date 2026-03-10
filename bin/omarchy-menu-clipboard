@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if omarchy-cmd-missing cliphist || omarchy-cmd-missing fuzzel; then
+  notify-send "Clipboard manager" "Install cliphist and fuzzel to browse clipboard history"
+  exit 1
+fi
+
+selection="$(cliphist list | fuzzel --dmenu --placeholder "Clipboard" --width 80 || true)"
+
+if [[ -z $selection ]]; then
+  exit 0
+fi
+
+printf '%s\n' "$selection" | cliphist decode | wl-copy

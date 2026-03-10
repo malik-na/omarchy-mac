@@ -7,7 +7,6 @@ base-devel
 #broadcom-wl (x86_64 DKMS driver, unsupported on aarch64)
 btrfs-progs
 #dart (binary distribution not available on aarch64)
-dkms
 egl-wayland
 git
 grim
@@ -44,5 +43,3 @@ webp-pixbuf-loader
 wget
 yay-debug
 zram-generator
-
-

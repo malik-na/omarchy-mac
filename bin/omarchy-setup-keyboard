@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Setup keyboard layout for Omarchy
 # Provides interactive keyboard layout configuration using the first-run script
 
@@ -30,8 +30,8 @@ echo "Starting keyboard layout configuration..."
 echo ""
 
 # Run the keyboard layout configuration script
-# This will prompt the user to select their keyboard layout
-bash "$KEYBOARD_SCRIPT"
+# This always prompts so Menu > Setup > Keyboard Layout can change layouts later
+bash "$KEYBOARD_SCRIPT" --force
 
 echo ""
 echo "✓ Keyboard layout setup complete"

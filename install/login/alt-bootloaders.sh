@@ -1,6 +1,5 @@
 #!/bin/bash
-ARCH="$(uname -m)"
-if [[ "$ARCH" == "x86_64" || "$ARCH" == "aarch64" ]] && ! command -v limine &>/dev/null; then
+if ! command -v limine &>/dev/null; then
   # Add kernel hooks
   if ! grep -Eq '^HOOKS=.*plymouth' /etc/mkinitcpio.conf; then
     # Backup original mkinitcpio.conf just in case

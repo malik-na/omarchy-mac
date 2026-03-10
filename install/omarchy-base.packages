@@ -15,8 +15,6 @@ mesa-utils
 mesa-demos
 fwupd
 #nvme-cli  # not needed: NVMe hardware not supported on target platforms
-grub
-efibootmgr
 alacritty
 avahi
 bash-completion
@@ -39,9 +37,8 @@ qt5-wayland
 waybar
 widevine
 btop
-bluetui
-cargo
 clang
+claude-code
 cups
 cups-browsed
 cups-filters
@@ -49,7 +46,6 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
-dotnet-runtime-9.0
 dust
 evince
 exfatprogs
@@ -58,7 +54,6 @@ fastfetch
 fd
 ffmpegthumbnailer
 fzf
-ghostty
 github-cli
 gnome-calculator
 gnome-keyring
@@ -69,7 +64,6 @@ gvfs-smb
 hypridle
 hyprland
 hyprland-guiutils
-hyprland-preview-share-picker
 hyprlock
 hyprpicker
 hyprsunset
@@ -80,13 +74,13 @@ inxi
 inetutils
 jq
 kdenlive
+kernel-modules-hook
 kvantum-qt5
 lazydocker
 lazygit
 less
 #libreoffice
 llvm
-localsend
 luarocks
 mako
 man-db
@@ -95,13 +89,11 @@ mise
 mpv
 noto-fonts-cjk
 noto-fonts-emoji
-noto-fonts-extra
 nss-mdns
 #obs-studio
 #obsidian
 opencode-bin
 pamixer
-pinta
 playerctl
 plocate
 plymouth
@@ -123,20 +115,18 @@ swayosd
 system-config-printer
 tldr
 tree-sitter-cli
-tobi-try
-ttf-cascadia-mono-nerd
+tmux
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
 typora
-tzupdate
 ufw
 ufw-docker
 unzip
 usage
 uwsm
 fuzzel
+cliphist
 grim
-wayfreeze
 wf-recorder
 whois
 wireless-regdb
@@ -150,5 +140,5 @@ xdg-terminal-exec
 xmlstarlet
 xournalpp
 yaru-icon-theme
-yay
+zram-generator
 zoxide

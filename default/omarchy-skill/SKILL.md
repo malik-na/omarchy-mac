@@ -1,38 +1,44 @@
 ---
-name: Omarchy
+name: omarchy
 description: >
-  REQUIRED for ANY changes to Linux desktop, window manager, or system config.
-  Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/walker/,
+  REQUIRED for end-user customization of Linux desktop, window manager, or system config.
+  Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/fuzzel/, ~/.config/walker/,
   ~/.config/alacritty/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
   or ~/.config/omarchy/. Triggers: Hyprland, window rules, animations, keybindings,
-  monitors, gaps, borders, blur, opacity, waybar, walker, terminal config, themes,
+  monitors, gaps, borders, blur, opacity, waybar, fuzzel, walker, terminal config, themes,
   wallpaper, night light, idle, lock screen, screenshots, layer rules, workspace
-  settings, display config, or any omarchy-* commands.
+  settings, display config, and user-facing omarchy commands. Excludes Omarchy
+  source development in ~/.local/share/omarchy/ and omarchy-dev-* workflows.
 ---
 
 # Omarchy Skill
 
 Manage [Omarchy](https://omarchy.org/) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Hyprland.
 
+This skill is for end-user customization on installed systems.
+It is not for contributing to Omarchy source code.
+
 ## When This Skill MUST Be Used
 
-**ALWAYS invoke this skill when the user's request involves ANY of these:**
+**ALWAYS invoke this skill for end-user requests involving ANY of these:**
 
 - Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
-- Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
+- Editing ANY file in `~/.config/waybar/`, `~/.config/fuzzel/`, `~/.config/walker/`, `~/.config/mako/`
 - Editing terminal configs (alacritty, kitty, ghostty)
 - Editing ANY file in `~/.config/omarchy/`
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, wallpapers, fonts, appearance changes
-- Any `omarchy-*` command
+- User-facing `omarchy-*` commands (`omarchy-theme-*`, `omarchy-refresh-*`, `omarchy-restart-*`, etc.)
 - Screenshots, screen recording, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
+**Do NOT use this skill for Omarchy development tasks** (editing files in `~/.local/share/omarchy/`, creating migrations, or running `omarchy-dev-*` workflows).
+
 ## Critical Safety Rules
 
-**NEVER modify anything in `~/.local/share/omarchy/`** - but READING is safe and encouraged.
+**For end-user customization tasks, NEVER modify anything in `~/.local/share/omarchy/`** - but READING is safe and encouraged.
 
 This directory contains Omarchy's source files managed by git. Any changes will be:
 - Lost on next `omarchy-update`
@@ -60,6 +66,8 @@ This directory contains Omarchy's source files managed by git. Any changes will 
 - `~/.config/omarchy/themes/<custom-name>/` - Custom themes (must be real directories)
 - `~/.config/omarchy/hooks/` - Custom automation hooks
 
+If the request is to develop Omarchy itself, this skill is out of scope. Follow repository development instructions instead of this skill.
+
 ## System Architecture
 
 Omarchy is built on:
@@ -69,7 +77,7 @@ Omarchy is built on:
 | **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
 | **Hyprland** | Wayland compositor/WM | `~/.config/hypr/` |
 | **Waybar** | Status bar | `~/.config/waybar/` |
-| **Walker** | App launcher | `~/.config/walker/` |
+| **Fuzzel** | App launcher | `~/.config/fuzzel/fuzzel.ini` |
 | **Alacritty/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 | **Mako** | Notifications | `~/.config/mako/` |
 | **SwayOSD** | On-screen display | `~/.config/swayosd/` |
@@ -159,7 +167,8 @@ cat $(which omarchy-theme-set)
 | lazygit | `~/.config/lazygit/config.yml` |
 | starship | `~/.config/starship.toml` |
 | git | `~/.config/git/config` |
-| walker | `~/.config/walker/config.toml` |
+| fuzzel | `~/.config/fuzzel/fuzzel.ini` |
+| walker (legacy) | `~/.config/walker/config.toml` |
 
 ## Safe Customization Patterns
 
@@ -179,7 +188,7 @@ cp ~/.config/hypr/bindings.conf ~/.config/hypr/bindings.conf.bak.$(date +%s)
 # 4. Apply changes
 # - Hyprland: auto-reloads on save (no restart needed)
 # - Waybar: MUST restart with omarchy-restart-waybar
-# - Walker: MUST restart with omarchy-restart-walker
+# - Fuzzel: new launcher instances pick up config changes automatically; use omarchy-restart-fuzzel to dismiss an open instance
 # - Terminals: MUST restart with omarchy-restart-terminal
 ```
 
@@ -301,8 +310,8 @@ omarchy-update                  # Full system update
 omarchy-version                 # Show Omarchy version
 omarchy-debug --no-sudo --print # Debug info (ALWAYS use these flags)
 omarchy-lock-screen             # Lock screen
-omarchy-cmd-shutdown            # Shutdown
-omarchy-cmd-reboot              # Reboot
+omarchy-system-shutdown         # Shutdown
+omarchy-system-reboot           # Reboot
 ```
 
 **IMPORTANT:** Always run `omarchy-debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
@@ -336,26 +345,15 @@ When user requests system changes:
 2. **Is it a config edit?** Edit in `~/.config/`, never `~/.local/share/omarchy/`
 3. **Is it a theme customization?** Create a NEW custom theme directory
 4. **Is it automation?** Use hooks in `~/.config/omarchy/hooks/`
-5. **Is it a package install?** Use `yay`
+5. **Is it a package install?** Use `omarchy-pkg-add` (or `omarchy-pkg-aur-add` for AUR-only packages)
 6. **Unsure if command exists?** Search with `compgen -c | grep omarchy`
 
-## Development (AI Agents)
+## Out of Scope
 
-When contributing to Omarchy itself (e.g., fixing bugs, adding features), migrations are used to apply changes to existing installations.
-
-### Creating Migrations
-
-```bash
-# ALWAYS use --no-edit flag or you will get stuck
-omarchy-dev-add-migration --no-edit
-```
-
-This creates a new migration file and outputs its path without opening an editor. The migration filename is based on the git commit timestamp.
-
-**Migration files** are shell scripts in `~/.local/share/omarchy/migrations/` that run once per system during `omarchy-update`. Use them for:
-- Updating user configs with new defaults
-- Installing new dependencies
-- Running one-time setup tasks
+This skill intentionally does not cover Omarchy source development. Do not use this skill for:
+- Editing files in `~/.local/share/omarchy/` (`bin/`, `config/`, `default/`, `themes/`, `migrations/`, etc.)
+- Creating or editing migrations
+- Running `omarchy-dev-*` commands
 
 ## Example Requests
 

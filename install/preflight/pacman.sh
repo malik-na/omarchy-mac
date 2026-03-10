@@ -1,10 +1,11 @@
 #!/bin/bash
 if [[ -n ${OMARCHY_ONLINE_INSTALL:-} ]]; then
-  # Install build tools
-  sudo pacman -S --needed --noconfirm base-devel
+  sudo cp -f "$OMARCHY_PATH/default/pacman/pacman.conf" /etc/pacman.conf
+  sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist.asahi-alarm" /etc/pacman.d/mirrorlist.asahi-alarm
 
-  # Configure pacman
-  sudo cp -f ~/.local/share/omarchy/default/pacman/pacman.conf /etc/pacman.conf
+  # Install build tools
+  omarchy-pkg-add base-devel
+
   # Use safe mirrorlist updater to avoid overwriting a user's mirrorlist
   if [[ -x "$OMARCHY_BIN/omarchy-refresh-pacman-mirrorlist" ]]; then
     # allow force via env var for automated installs
@@ -14,16 +15,15 @@ if [[ -n ${OMARCHY_ONLINE_INSTALL:-} ]]; then
       sudo "$OMARCHY_BIN/omarchy-refresh-pacman-mirrorlist" || true
     fi
   else
-    sudo cp -f ~/.local/share/omarchy/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
+    sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist" /etc/pacman.d/mirrorlist
   fi
 
   sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
 
   sudo pacman -Sy
-  sudo pacman -S --noconfirm --needed omarchy-keyring
-
+  omarchy-pkg-add omarchy-keyring
 
   # Refresh all repos
-  sudo pacman -Syyu --noconfirm
+  sudo pacman -Syyuu --noconfirm
 fi
