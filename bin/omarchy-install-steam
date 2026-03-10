@@ -6,31 +6,26 @@ set -e
 
 # Check for ARM64 architecture
 ARCH=$(uname -m)
-if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+if [[ $ARCH == "aarch64" || $ARCH == "arm64" ]]; then
   cat << 'EOF'
 
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   ⚠️  Steam Not Available on Apple Silicon/ARM64             ║
+║   Steam on Apple Silicon uses the Asahi wrapper              ║
 ║                                                               ║
-║   Steam for Linux is only available for x86_64 systems.       ║
-║   Native ARM64 Steam does not exist.                          ║
+║   Omarchy will install the Asahi ALARM Steam package.         ║
+║   This uses FEX/microVM support under the hood on ARM64.      ║
 ║                                                               ║
-║   Alternatives for gaming on Apple Silicon:                   ║
-║   • Box86/Box64 - x86 emulation (experimental, slow)          ║
-║   • Native ARM games via Flatpak/itch.io                      ║
-║   • RetroArch for emulation (ARM-native)                      ║
-║   • Web-based gaming (GeForce NOW, Xbox Cloud)                ║
+║   First launch may download additional runtime components.    ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 EOF
   echo "Current architecture: $ARCH"
-  echo "Steam installation is only available on x86_64 systems."
+  echo "Installing the Asahi Steam wrapper for ARM64..."
   echo
-  exit 1
 fi
 
 echo "Now pick dependencies matching your graphics card"
-sudo pacman -S steam
+omarchy-pkg-add steam
 setsid gtk-launch steam >/dev/null 2>&1 &
