@@ -14,6 +14,12 @@ log_info() {
   echo "[INFO] $1"
 }
 
+read_configured_timezone() {
+  local timezone="${OMARCHY_TIMEZONE:-}"
+  timezone=${timezone//$'\r'/}
+  printf '%s' "$timezone"
+}
+
 # Method 1: IP-based geolocation detection using tzupdate
 detect_timezone_ip() {
   log_debug "Attempting IP-based timezone detection..."
@@ -279,6 +285,15 @@ set_timezone() {
 # Main timezone detection workflow
 main() {
   log_info "Starting timezone detection and configuration"
+
+  local configured_tz
+  configured_tz=$(read_configured_timezone)
+
+  if [[ -n $configured_tz ]]; then
+    log_info "Using preconfigured timezone: $configured_tz"
+    set_timezone "$configured_tz"
+    return $?
+  fi
 
   # Get current timezone
   local current_tz

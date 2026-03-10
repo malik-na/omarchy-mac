@@ -6,6 +6,7 @@ Calamares can generate that env file before invoking the wrapper. Supported valu
 
 - `OMARCHY_USER_NAME`
 - `OMARCHY_USER_EMAIL`
+- `OMARCHY_TIMEZONE`
 - `OMARCHY_OPTIONAL_PACKAGES`
 
 Use `calamares/omarchy-install.env.example` as the template for generated values.
