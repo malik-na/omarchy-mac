@@ -1,6 +1,19 @@
 #!/bin/bash
 stop_install_log
 
+if omarchy_install_is_noninteractive; then
+  # Clean up temporary installer sudoers rule
+  if sudo test -f /etc/sudoers.d/99-omarchy-installer; then
+    sudo rm -f /etc/sudoers.d/99-omarchy-installer &>/dev/null
+  fi
+
+  if [[ -n ${OMARCHY_CHROOT_INSTALL:-} ]]; then
+    touch /var/tmp/omarchy-install-completed
+  fi
+
+  exit 0
+fi
+
 echo_in_style() {
   echo "$1" | tte --canvas-width 0 --anchor-text c --frame-rate 640 print
 }
@@ -24,14 +37,6 @@ fi
 # Clean up temporary installer sudoers rule
 if sudo test -f /etc/sudoers.d/99-omarchy-installer; then
   sudo rm -f /etc/sudoers.d/99-omarchy-installer &>/dev/null
-fi
-
-if omarchy_install_is_noninteractive; then
-  if [[ -n ${OMARCHY_CHROOT_INSTALL:-} ]]; then
-    touch /var/tmp/omarchy-install-completed
-  fi
-
-  exit 0
 fi
 
 # Exit gracefully if user chooses not to reboot
