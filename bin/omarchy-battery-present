@@ -3,10 +3,13 @@
 # Returns true if a battery is present on the system.
 # Used by the battery monitor and other battery-related checks.
 
-for bat in /sys/class/power_supply/BAT*; do
-  [[ -r $bat/present ]] &&
-  [[ $(cat $bat/present) == "1" ]] &&
-  [[ $(cat $bat/type) == "Battery" ]] &&
+POWER_SUPPLY_PATH="${OMARCHY_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
+
+for bat in "$POWER_SUPPLY_PATH"/*; do
+  [[ -r $bat/type ]] || continue
+  [[ -r $bat/present ]] || continue
+  [[ $(< "$bat/type") == "Battery" ]] || continue
+  [[ $(< "$bat/present") == "1" ]] || continue
   exit 0
 done
 

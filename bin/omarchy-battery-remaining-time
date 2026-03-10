@@ -2,7 +2,7 @@
 
 # Returns the battery time remaining (to empty or full) in a compact format.
 
-battery_info=$(upower -i $(upower -e | grep BAT))
+battery_info=$(upower -i $(upower -e | grep -E "battery_|BAT"))
 
 echo "$battery_info" | awk '/time to (empty|full)/ {
     hours = int($4)

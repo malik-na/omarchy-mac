@@ -37,8 +37,6 @@ qt5-wayland
 waybar
 widevine
 btop
-bluetui
-cargo
 clang
 claude-code
 cups
@@ -48,7 +46,6 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
-dotnet-runtime-9.0
 dust
 evince
 exfatprogs
@@ -67,7 +64,6 @@ gvfs-smb
 hypridle
 hyprland
 hyprland-guiutils
-hyprland-preview-share-picker
 hyprlock
 hyprpicker
 hyprsunset
@@ -85,7 +81,6 @@ lazygit
 less
 #libreoffice
 llvm
-localsend
 luarocks
 mako
 man-db
@@ -99,7 +94,6 @@ nss-mdns
 #obsidian
 opencode-bin
 pamixer
-pinta
 playerctl
 plocate
 plymouth
@@ -122,11 +116,9 @@ system-config-printer
 tldr
 tree-sitter-cli
 tmux
-tobi-try
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
 typora
-tzupdate
 ufw
 ufw-docker
 unzip
@@ -135,7 +127,6 @@ uwsm
 fuzzel
 cliphist
 grim
-wayfreeze
 wf-recorder
 whois
 wireless-regdb
@@ -149,6 +140,5 @@ xdg-terminal-exec
 xmlstarlet
 xournalpp
 yaru-icon-theme
-yay
 zram-generator
 zoxide

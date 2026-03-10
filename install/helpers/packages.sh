@@ -132,16 +132,15 @@ omarchy_ensure_aur_helper() {
   return 1
 }
 
-# Public entry point: ensure yay and paru are installed before package installation begins
+# Public entry point: ensure yay is installed before package installation begins
 omarchy_setup_aur_helpers() {
   local failures=()
 
   omarchy_ensure_aur_helper "yay" "yay" "yay-bin" || failures+=("yay")
-  omarchy_ensure_aur_helper "paru" "paru" "paru-bin" || failures+=("paru")
 
   if ((${#failures[@]} > 0)); then
     echo "[Omarchy] Warning: The following AUR helpers could not be set up: ${failures[*]}" >&2
   else
-    echo "[Omarchy] yay and paru are ready for fallback installations."
+    echo "[Omarchy] yay is ready for fallback installations."
   fi
 }
