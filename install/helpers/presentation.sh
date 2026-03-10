@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ensure we have gum available
-if ! command -v gum &>/dev/null; then
+if ! omarchy_install_is_noninteractive && ! command -v gum &>/dev/null; then
   omarchy-pkg-add gum
 fi
 
@@ -45,5 +45,10 @@ export GUM_CONFIRM_PADDING="$PADDING"
 
 clear_logo() {
   printf "\033[H\033[2J" # Clear screen and move cursor to top-left
+
+  if omarchy_install_is_noninteractive; then
+    return 0
+  fi
+
   gum style --foreground 2 --padding "1 0 0 $PADDING_LEFT" "$(<"$LOGO_PATH")"
 }

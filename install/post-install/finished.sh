@@ -26,6 +26,14 @@ if sudo test -f /etc/sudoers.d/99-omarchy-installer; then
   sudo rm -f /etc/sudoers.d/99-omarchy-installer &>/dev/null
 fi
 
+if omarchy_install_is_noninteractive; then
+  if [[ -n ${OMARCHY_CHROOT_INSTALL:-} ]]; then
+    touch /var/tmp/omarchy-install-completed
+  fi
+
+  exit 0
+fi
+
 # Exit gracefully if user chooses not to reboot
 if gum confirm --padding "0 0 0 $((PADDING_LEFT + 32))" --show-help=false --default --affirmative "Reboot Now" --negative "" ""; then
   # Clear screen to hide any shutdown messages
