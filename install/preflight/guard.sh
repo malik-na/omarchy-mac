@@ -12,17 +12,15 @@ abort() {
   echo -e "\e[33m[Omarchy] Continuing at your own risk...\e[0m"
 }
 
-# Must be an Arch distro
+# Must be running on Asahi Alarm / Arch Linux ARM userspace
 if [[ ! -f /etc/arch-release ]]; then
-  abort "Vanilla Arch (install on official Arch Linux only)"
+  abort "Asahi Alarm / Arch Linux ARM userspace required"
 fi
 
-# Must not be an Arch derivative distro
-for marker in /etc/cachyos-release /etc/eos-release /etc/garuda-release /etc/manjaro-release; do
-  if [[ -f $marker ]]; then
-    abort "Vanilla Arch (derivative detected: $(basename $marker))"
-  fi
-done
+# Must have the Asahi Alarm repository configured
+if [[ ! -f /etc/pacman.d/mirrorlist.asahi-alarm ]] || ! grep -q "^\[asahi-alarm\]" /etc/pacman.conf; then
+  abort "Asahi Alarm repository configuration required"
+fi
 
 # Must not be running as root
 if (( EUID == 0 )); then
@@ -37,10 +35,10 @@ fi
 
 # Must not have Gnome or KDE already install
 if pacman -Qe gnome-shell &>/dev/null; then
-  abort "Gnome is already installed. Omarchy requires a fresh, vanilla Arch install."
+  abort "Gnome is already installed. Omarchy requires a fresh Asahi Alarm install."
 fi
 if pacman -Qe plasma-desktop &>/dev/null; then
-  abort "KDE Plasma is already installed. Omarchy requires a fresh, vanilla Arch install."
+  abort "KDE Plasma is already installed. Omarchy requires a fresh Asahi Alarm install."
 fi
 
 # Cleared all guards
