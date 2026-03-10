@@ -1,6 +1,22 @@
 #!/bin/bash
 source "$OMARCHY_INSTALL/helpers/packages.sh"
 
+read_optional_package_selection() {
+  local raw="${OMARCHY_OPTIONAL_PACKAGES:-}"
+
+  if [[ -z $raw ]]; then
+    return 0
+  fi
+
+  raw=${raw//$'\r'/}
+  raw=${raw//,/\n}
+
+  while IFS= read -r package; do
+    [[ -z $package ]] && continue
+    selected_optional_pkgs+=("$package")
+  done <<< "$raw"
+}
+
 # Read core and optional packages from omarchy-base.packages
 core_packages=()
 optional_packages=()
@@ -19,7 +35,11 @@ while IFS= read -r line; do
 done <"$OMARCHY_INSTALL/omarchy-base.packages"
 
 # Interactive selection for optional packages using gum
-if command -v gum &>/dev/null && ((${#optional_packages[@]} > 0)); then
+selected_optional_pkgs=()
+
+if omarchy_install_is_noninteractive; then
+  read_optional_package_selection
+elif command -v gum &>/dev/null && ((${#optional_packages[@]} > 0)); then
   echo "\e[34m[Omarchy] Select optional packages to install (use space to select, enter to confirm):\e[0m"
   selected_optional=$(printf '%s\n' "${optional_packages[@]}" | gum choose --no-limit --height 20)
   mapfile -t selected_optional_pkgs <<<"$selected_optional"

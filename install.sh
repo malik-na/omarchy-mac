@@ -42,6 +42,7 @@ export OMARCHY_INSTALL="$OMARCHY_PATH/install"
 export OMARCHY_INSTALL_LOG_FILE="/var/log/omarchy-install.log"
 export OMARCHY_BIN="$OMARCHY_PATH/bin"
 export PATH="$OMARCHY_PATH/bin:$PATH"
+export OMARCHY_INSTALL_MODE="${OMARCHY_INSTALL_MODE:-interactive}"
 
 # Set default compilation flags (do not suppress warnings or disable FORTIFY_SOURCE)
 export CFLAGS=""
