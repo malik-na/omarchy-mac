@@ -2,10 +2,10 @@
 name: omarchy
 description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
-  Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/walker/,
+  Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/fuzzel/, ~/.config/walker/,
   ~/.config/alacritty/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
   or ~/.config/omarchy/. Triggers: Hyprland, window rules, animations, keybindings,
-  monitors, gaps, borders, blur, opacity, waybar, walker, terminal config, themes,
+  monitors, gaps, borders, blur, opacity, waybar, fuzzel, walker, terminal config, themes,
   wallpaper, night light, idle, lock screen, screenshots, layer rules, workspace
   settings, display config, and user-facing omarchy commands. Excludes Omarchy
   source development in ~/.local/share/omarchy/ and omarchy-dev-* workflows.
@@ -23,7 +23,7 @@ It is not for contributing to Omarchy source code.
 **ALWAYS invoke this skill for end-user requests involving ANY of these:**
 
 - Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
-- Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
+- Editing ANY file in `~/.config/waybar/`, `~/.config/fuzzel/`, `~/.config/walker/`, `~/.config/mako/`
 - Editing terminal configs (alacritty, kitty, ghostty)
 - Editing ANY file in `~/.config/omarchy/`
 - Window behavior, animations, opacity, blur, gaps, borders
@@ -77,7 +77,7 @@ Omarchy is built on:
 | **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
 | **Hyprland** | Wayland compositor/WM | `~/.config/hypr/` |
 | **Waybar** | Status bar | `~/.config/waybar/` |
-| **Walker** | App launcher | `~/.config/walker/` |
+| **Fuzzel** | App launcher | `~/.config/fuzzel/fuzzel.ini` |
 | **Alacritty/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 | **Mako** | Notifications | `~/.config/mako/` |
 | **SwayOSD** | On-screen display | `~/.config/swayosd/` |
@@ -167,7 +167,8 @@ cat $(which omarchy-theme-set)
 | lazygit | `~/.config/lazygit/config.yml` |
 | starship | `~/.config/starship.toml` |
 | git | `~/.config/git/config` |
-| walker | `~/.config/walker/config.toml` |
+| fuzzel | `~/.config/fuzzel/fuzzel.ini` |
+| walker (legacy) | `~/.config/walker/config.toml` |
 
 ## Safe Customization Patterns
 
@@ -187,7 +188,7 @@ cp ~/.config/hypr/bindings.conf ~/.config/hypr/bindings.conf.bak.$(date +%s)
 # 4. Apply changes
 # - Hyprland: auto-reloads on save (no restart needed)
 # - Waybar: MUST restart with omarchy-restart-waybar
-# - Walker: MUST restart with omarchy-restart-walker
+# - Fuzzel: new launcher instances pick up config changes automatically; use omarchy-restart-fuzzel to dismiss an open instance
 # - Terminals: MUST restart with omarchy-restart-terminal
 ```
 

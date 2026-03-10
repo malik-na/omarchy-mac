@@ -17,7 +17,6 @@ run_logged $OMARCHY_INSTALL/config/docker.sh
 run_logged $OMARCHY_INSTALL/config/mimetypes.sh
 run_logged $OMARCHY_INSTALL/config/remove-fcitx5-autostart.sh
 run_logged $OMARCHY_INSTALL/config/localdb.sh
-run_logged $OMARCHY_INSTALL/config/walker-elephant.sh
 run_logged $OMARCHY_INSTALL/config/fast-shutdown.sh
 run_logged $OMARCHY_INSTALL/config/sudoless-asdcontrol.sh
 run_logged $OMARCHY_INSTALL/config/input-group.sh
