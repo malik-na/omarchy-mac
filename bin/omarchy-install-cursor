@@ -68,7 +68,7 @@ install_cursor_aarch64() {
 
   cat > "$wrapper_path" <<'EOF'
 #!/bin/bash
-exec /opt/cursor/cursor.AppImage --disable-gpu "$@"
+exec /opt/cursor/cursor.AppImage --disable-gpu --disable-gpu-sandbox --in-process-gpu "$@"
 EOF
 
   chmod +x "$wrapper_path"
