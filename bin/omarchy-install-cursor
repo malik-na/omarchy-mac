@@ -124,4 +124,7 @@ fi
 
 configure_cursor
 
-setsid gtk-launch cursor >/dev/null 2>&1 &
+echo "Cursor installed successfully"
+echo "Run: cursor"
+
+nohup gtk-launch cursor >/dev/null 2>&1 </dev/null &
