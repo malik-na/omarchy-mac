@@ -85,6 +85,7 @@ Run these commands (replace placeholders where indicated):
 ```bash
 
 #Login as root with username and password 'root'
+
 # Configure Wi‑Fi (if required)
 nmtui
 
@@ -121,12 +122,15 @@ en_US.UTF-8 UTF-8
 ```
 
 Save the edited file and proceed to enable UTF-8:
+
 ```bash
-locale-gen # to generate new locale.conf
+# To generate new locale.conf
+locale-gen
 
-reboot # to apply changes
+# To apply changes
+reboot
 
-locale # you should see UTF-8 in the output
+locale # You should see UTF-8 in the output
 ```
 
 ### Create a regular user
