@@ -130,7 +130,7 @@ locale-gen
 # To apply changes
 reboot
 
-locale # You should see UTF-8 in the output
+locale # Must be UTF-8
 ```
 
 ### Create a regular user
