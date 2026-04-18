@@ -474,8 +474,9 @@ show_install_elixir_menu() {
 }
 
 show_remove_menu() {
-  case "$(menu "Remove" $'󰣇  Package\n  Web App\n  TUI\n󰸌  Theme\n󰈷  Fingerprint\n  Fido2')" in
+  case "$(menu "Remove" $'󰣇  Package\n  AppImage\n  Web App\n  TUI\n󰸌  Theme\n󰈷  Fingerprint\n  Fido2')" in
   *Package*) terminal omarchy-pkg-remove ;;
+  *AppImage*) terminal omarchy-appimage-remove ;;
   *Web*) present_terminal omarchy-webapp-remove ;;
   *TUI*) present_terminal omarchy-tui-remove ;;
   *Theme*) present_terminal omarchy-theme-remove ;;
