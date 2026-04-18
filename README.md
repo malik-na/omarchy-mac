@@ -85,7 +85,6 @@ Run these commands (replace placeholders where indicated):
 ```bash
 
 #Login as root with username and password 'root'
-
 # Configure Wi‑Fi (if required)
 nmtui
 
@@ -93,20 +92,42 @@ nmtui
 pacman -Syu
 
 # Install essential packages
-pacman -S --needed sudo git base-devel chromium
-
-# Enable en_US.UTF-8 locale
-
-locale-gen
-reboot
-# After reboot
-locale #should show UTF-8
+pacman -S --needed git base-devel chromium # nvim, btop, etc.
 ```
 
 Notes
 
 - If `nmtui` shows an error after activation, reboot and try again.
 - Use `--needed` to avoid reinstalling packages that already exist.
+
+### Enable the UTF-8 locale
+
+Edit `/etc/locale.gen`:
+
+```bash
+nano /etc/locale.gen # nano, nvim (if installed before), vi, or any other text editor
+```
+
+In the opened configuration file scroll and uncomment the en_US line, like this:
+
+```bash
+...
+#en_SG_SG.UTF-8 UTF-8
+#en_SG ISO-8859-1
+en_US.UTF-8 UTF-8
+#en_US ISO-8859-1
+#en_ZA.UTF-8 UTF-8
+...
+```
+
+Save the edited file and proceed to enable UTF-8:
+```bash
+locale-gen # to generate new locale.conf
+
+reboot # to apply changes
+
+locale # you should see UTF-8 in the output
+```
 
 ### Create a regular user
 
