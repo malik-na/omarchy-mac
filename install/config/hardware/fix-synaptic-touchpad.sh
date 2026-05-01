@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Enable Synaptics InterTouch for confirmed touchpads if not already loaded
 
 if grep -qi synaptics /proc/bus/input/devices \

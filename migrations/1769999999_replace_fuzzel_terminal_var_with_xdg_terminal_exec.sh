@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+echo "Replace fuzzel terminal variable with xdg-terminal-exec"
+
 # migrations/1769999999_replace_fuzzel_terminal_var_with_xdg_terminal_exec.sh
 set -euo pipefail
 

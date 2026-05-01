@@ -1,4 +1,3 @@
-#!/bin/bash
 echo "Migrate fuzzel configs: replace terminal=foot with terminal=\$TERMINAL"
 
 STATE_DIR="$HOME/.local/state/omarchy/migrations"

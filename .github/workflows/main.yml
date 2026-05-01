@@ -60,13 +60,15 @@ jobs:
           shellcheck --version
           # Only fail on actual errors; exclude network/dynamic source checks
           # Exclude migrations/ to avoid flagging historical scripts
-          shellcheck -S error -e SC1090,SC1091 $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          shellcheck -S error -e SC1090,SC1091 "${files[@]}"
 
       - name: shfmt (check only)
         if: steps.list_scripts.outputs.count != '0'
         run: |
           # Show diffs but don't fail the build on formatting; exclude migrations/
-          shfmt -v -i 2 -ci -d $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/') || true
+          mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          shfmt -i 2 -ci -d "${files[@]}" || true
 
   # 2) Syntax + smoke tests (safe, non-privileged)
   smoke:

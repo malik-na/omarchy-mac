@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+echo "Fix keyboard layout support for non-US keyboards"
+
 # Migration: Fix keyboard layout support for non-US keyboards
 # This migration updates input.conf with the correct kb_options and notifies users
 # about the keyboard layout configuration option in Menu > Setup

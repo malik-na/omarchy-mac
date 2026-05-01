@@ -17,15 +17,21 @@ DESKTOP_AUDIO="false"
 MICROPHONE_AUDIO="false"
 WEBCAM="false"
 WEBCAM_DEVICE=""
+RECORD_MODE="display"
 RESOLUTION=""
 STOP_RECORDING="false"
 RECORDING_FILE="/tmp/omarchy-screenrecord-filename"
 
 for arg in "$@"; do
   case "$arg" in
+  audio) DESKTOP_AUDIO="true" ;;
+  display | output) RECORD_MODE="display" ;;
+  region) RECORD_MODE="region" ;;
   --with-desktop-audio) DESKTOP_AUDIO="true" ;;
   --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
   --with-webcam) WEBCAM="true" ;;
+  --display | --output) RECORD_MODE="display" ;;
+  --region) RECORD_MODE="region" ;;
   --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
   --resolution=*) RESOLUTION="${arg#*=}" ;;
   --stop-recording) STOP_RECORDING="true" ;;
@@ -63,7 +69,7 @@ start_webcam_overlay() {
   done
 
   ffplay -f v4l2 $video_size_arg -framerate 30 "$WEBCAM_DEVICE" \
-    -vf "scale=${target_width}:-1" \
+    -vf "crop=iw/2:ih,scale=${target_width}:-1" \
     -window_title "WebcamOverlay" \
     -noborder \
     -fflags nobuffer -flags low_delay \
@@ -89,7 +95,9 @@ default_resolution() {
 start_screenrecording() {
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local audio_devices=""
-  local audio_args=()
+  local wf_audio_args=()
+  local gpu_audio_args=()
+  local video_args=()
 
   [[ $DESKTOP_AUDIO == "true" ]] && audio_devices+="default_output"
 
@@ -99,9 +107,29 @@ start_screenrecording() {
     audio_devices+="default_input"
   fi
 
-  [[ -n $audio_devices ]] && audio_args+=(-a "$audio_devices" -ac aac)
+  if [[ -n $audio_devices ]]; then
+    wf_audio_args+=(-a "$audio_devices" -c aac)
+    gpu_audio_args+=(-a "$audio_devices" -ac aac)
+  fi
 
   local resolution="${RESOLUTION:-$(default_resolution)}"
+
+  if [[ $RECORD_MODE == "region" ]]; then
+    if omarchy-cmd-missing slurp; then
+      notify-send "Screen recording error" "Install slurp to record a selected region." -u critical -t 3000
+      return 1
+    fi
+
+    local geometry
+    geometry=$(slurp -f "%x,%y %wx%h") || return 1
+    video_args+=(-g "$geometry")
+  else
+    local output
+    output=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')
+    [[ -n $output && $output != "null" ]] && video_args+=(-o "$output")
+  fi
+
+  echo "$filename" > "$RECORDING_FILE"
 
   # Prefer wf-recorder on Wayland (better support for wlroots/Asahi). If not
   # available, fall back to gpu-screen-recorder for systems that still use it.
@@ -109,9 +137,12 @@ start_screenrecording() {
     # Note: wf-recorder cannot composite an on-screen webcam overlay into the
     # recorded video. If --with-webcam is used, the overlay will be shown but
     # not embedded in the output file.
-    wf-recorder -f "$filename" $audio_args &
+    wf-recorder -f "$filename" "${video_args[@]}" "${wf_audio_args[@]}" &
   else
-    gpu-screen-recorder -w portal -f 60 -fallback-cpu-encoding yes -o "$filename" $audio_args -ac aac &
+    local recorder_window="portal"
+    [[ $RECORD_MODE == "display" && ${#video_args[@]} -ge 2 ]] && recorder_window="${video_args[1]}"
+    [[ $resolution != "0x0" ]] && video_args+=(-s "$resolution")
+    gpu-screen-recorder -w "$recorder_window" -f 60 -fallback-cpu-encoding yes -o "$filename" "${gpu_audio_args[@]}" &
   fi
   toggle_screenrecording_indicator
 }
@@ -135,8 +166,18 @@ stop_screenrecording() {
     cleanup_webcam
     notify-send "Screen recording error" "Recording process had to be force-killed. Video may be corrupted." -u critical -t 5000
   else
-    trim_first_frame
-    notify-send "Screen recording saved to $OUTPUT_DIR" -t 2000
+    finalize_recording
+    local filename=$(cat "$RECORDING_FILE" 2>/dev/null)
+    local preview="${filename%.mp4}-preview.png"
+
+    # Generate a preview thumbnail from the first frame
+    ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
+
+    (
+      ACTION=$(notify-send "Screen recording saved" "Open with Super + Alt + , (or click this)" -t 10000 -i "${preview:-$filename}" -A "default=open")
+      [[ $ACTION == "default" ]] && mpv "$filename"
+      rm -f "$preview"
+    ) &
   fi
 
   rm -f "$RECORDING_FILE"
@@ -148,6 +189,27 @@ toggle_screenrecording_indicator() {
 
 screenrecording_active() {
   pgrep -f "\b(wf-recorder|gpu-screen-recorder)\b" >/dev/null || pgrep -f "WebcamOverlay" >/dev/null
+}
+
+finalize_recording() {
+  local latest
+  latest=$(cat "$RECORDING_FILE" 2>/dev/null)
+  [[ -f $latest ]] || return
+
+  # Trim the first frame, and normalize audio to -14 LUFS if present, in a single pass
+  local args=(-y -ss 0.1 -i "$latest")
+  if ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$latest" 2>/dev/null | grep -q audio; then
+    args+=(-af loudnorm=I=-14:TP=-1.5:LRA=11 -c:v copy)
+  else
+    args+=(-c copy)
+  fi
+
+  local processed="${latest%.mp4}-processed.mp4"
+  if ffmpeg "${args[@]}" "$processed" -loglevel quiet 2>/dev/null; then
+    mv "$processed" "$latest"
+  else
+    rm -f "$processed"
+  fi
 }
 
 if screenrecording_active; then

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Returns true if AC power is connected.
+
+for supply in /sys/class/power_supply/*; do
+  if [[ -r $supply/type && -r $supply/online ]] && [[ $(cat "$supply/type") == "Mains" ]] && [[ $(cat "$supply/online") == "1" ]]; then
+    exit 0
+  fi
+done
+
+exit 1
