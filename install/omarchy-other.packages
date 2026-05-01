@@ -43,3 +43,6 @@ webp-pixbuf-loader
 wget
 yay-debug
 zram-generator
+
+# Apple Silicon Vulkan driver, installed by hardware detection when present
+vulkan-asahi
