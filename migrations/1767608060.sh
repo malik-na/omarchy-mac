@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Re-run LazyVim migration for systems that skipped it"
 
 # Fix for users who skipped migration 1760724934 due to omarchy-nvim-setup bug
 if [ ! -d "$HOME/.config/nvim" ]; then

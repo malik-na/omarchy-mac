@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Add SUPER+SPACE fuzzel binding for Omarchy Mac"
 
 # Add SUPER+SPACE fuzzel binding for Mac fork (replaces walker)
 # This adds the app launcher keybinding for users who had older configs

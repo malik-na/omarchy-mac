@@ -1,3 +1,5 @@
+echo "Refresh configs for changes since 3.1.0-RC"
+
 # Handles changes since 3.1.0-RC
 
 echo "Add shift+insert for kitty"

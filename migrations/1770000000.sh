@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+echo "Install Widevine CDM for DRM streaming support"
+
 # Migration: Install Widevine CDM for DRM streaming support (Netflix, etc.)
 # This ensures existing Omarchy installations get DRM support
 

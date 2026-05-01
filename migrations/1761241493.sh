@@ -1,8 +1,8 @@
 echo "Cleanup extra UKI if needed to prevent errors"
-if [[ -f /boot/EFI/linux/omarchy_linux.efi ]] && [[ -f /boot/EFI/linux/$(cat /etc/machine-id)_linux.efi ]]; then
+if [[ -f /boot/EFI/linux/omarchy_linux.efi ]] && [[ -f /boot/EFI/linux/$(cat /etc/machine-id)_linux.efi ]] && omarchy-cmd-present limine-update limine-snapper-sync; then
   sudo rm -f /boot/EFI/Linux/$(cat /etc/machine-id)_linux.efi
 
-  if grep -q "/boot/EFI/Linux/$(cat /etc/machine-id)_linux.efi" /boot/limine.conf; then
+  if [[ -f /boot/limine.conf ]] && grep -q "/boot/EFI/Linux/$(cat /etc/machine-id)_linux.efi" /boot/limine.conf; then
     echo -e "Resetting limine config\n(you may need to re-add other entries via sudo limine-update)"
 
     sudo mv /boot/limine.conf /boot/limine.conf.bak

@@ -1,4 +1,1 @@
-echo "Update and restart Walker to resolve stuck Omarchy menu"
-
-yay -Syu --noconfirm walker
-omarchy-restart-walker
+echo "Skip Walker update on Omarchy Mac; fuzzel is the supported launcher"

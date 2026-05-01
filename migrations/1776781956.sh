@@ -4,6 +4,10 @@ DROP_IN="/etc/limine-entry-tool.d/dell-xps-ptl-display.conf"
 DEFAULT_LIMINE="/etc/default/limine"
 NEEDS_UPDATE=0
 
+if ! omarchy-cmd-present limine-update; then
+  exit 0
+fi
+
 if [[ -f $DROP_IN ]]; then
   sudo rm -f "$DROP_IN"
   NEEDS_UPDATE=1

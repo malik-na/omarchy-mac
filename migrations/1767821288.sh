@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Add lid close and open handling for Apple Silicon Macs"
 
 # Add lid close/open handling for Apple Silicon Macs
 # Disables screen and keyboard backlight on lid close, restores on lid open

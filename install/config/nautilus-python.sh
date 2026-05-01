@@ -1,3 +1,5 @@
+#!/bin/bash
+
 EXTENSIONS_DIR="$HOME/.local/share/nautilus-python/extensions"
 
 mkdir -p "$EXTENSIONS_DIR"

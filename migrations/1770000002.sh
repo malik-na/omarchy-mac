@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+echo "Install 1Password on aarch64 systems"
+
 # Migration: Install 1Password on aarch64 systems
 # The AUR package is broken for aarch64, so we use the official installer script
 

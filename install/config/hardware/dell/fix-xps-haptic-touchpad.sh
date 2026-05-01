@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Fix Dell XPS haptic touchpad.
 # The Synaptics haptic touchpad (vendor 06CB) uses the HID Manual Trigger
 # protocol, but the kernel's HID haptic subsystem only supports Auto Trigger.

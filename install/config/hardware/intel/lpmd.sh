@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Install Intel Low Power Mode Daemon for supported hybrid Intel CPUs (Alder Lake and newer)
 # Supported models: Alder Lake (151/154), Raptor Lake (183/186/191),
 # Meteor Lake (170/172), Lunar Lake (189), Panther Lake (204)

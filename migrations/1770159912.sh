@@ -1,5 +1,9 @@
 echo "Fix NVIDIA environment variables for Maxwell/Pascal/Volta GPUs"
 
+if [[ $(uname -m) != "x86_64" ]] || omarchy-cmd-missing lspci; then
+  exit 0
+fi
+
 # Detect if user has Maxwell/Pascal/Volta GPU (pre-Turing cards without GSP firmware)
 # Maxwell (GTX 9xx), Pascal (GT/GTX 10xx, Quadro P, MX series), Volta (Titan V, Tesla V100, Quadro GV100)
 NVIDIA="$(lspci | grep -i 'nvidia')"

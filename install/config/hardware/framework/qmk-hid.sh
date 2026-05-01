@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Allow unprivileged access to the Framework 16 keyboard for RGB control via qmk_hid.
 
 if omarchy-hw-framework16; then

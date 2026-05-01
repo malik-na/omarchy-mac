@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Install Panther Lake kernel for Intel Panther Lake systems
 # The linux-ptl kernel includes audio driver patches not yet in mainline.
 
