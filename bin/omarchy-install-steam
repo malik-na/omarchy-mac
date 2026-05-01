@@ -26,6 +26,6 @@ EOF
   echo
 fi
 
-echo "Now pick dependencies matching your graphics card"
-sudo pacman -S steam
+echo "Installing Steam package"
+omarchy-pkg-add steam
 setsid gtk-launch steam >/dev/null 2>&1 &

@@ -17,6 +17,11 @@ case "$1" in
     fi
     ;;
   battery)
-    powerprofilesctl set balanced
+    # Prefer power-saver on battery, fall back to balanced.
+    if [[ " ${profiles[*]} " == *" power-saver "* ]]; then
+      powerprofilesctl set power-saver
+    else
+      powerprofilesctl set balanced
+    fi
     ;;
 esac

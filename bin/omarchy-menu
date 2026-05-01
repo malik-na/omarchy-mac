@@ -184,10 +184,10 @@ show_webcam_select_menu() {
 
 show_screenrecord_menu() {
   case "$(menu \"Screenrecord\" $'\uf03d  Region\\n\uf03d  Region + Audio\\n\uf03d  Display\\n\uf03d  Display + Audio')" in
-  *"Region + Audio"*) omarchy-cmd-screenrecord region audio ;;
-  *Region*) omarchy-cmd-screenrecord ;;
-  *"Display + Audio"*) omarchy-cmd-screenrecord output audio ;;
-  *Display*) omarchy-cmd-screenrecord output ;;
+  *"Region + Audio"*) omarchy-cmd-screenrecord --region --with-desktop-audio ;;
+  *Region*) omarchy-cmd-screenrecord --region ;;
+  *"Display + Audio"*) omarchy-cmd-screenrecord --display --with-desktop-audio ;;
+  *Display*) omarchy-cmd-screenrecord --display ;;
   *) show_capture_menu ;;
   esac
 }

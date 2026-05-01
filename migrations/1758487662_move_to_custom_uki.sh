@@ -1,5 +1,10 @@
 echo "Update UKI to custom named entry"
 
+if [[ -f /proc/device-tree/compatible ]] && grep -qi "apple" /proc/device-tree/compatible 2>/dev/null; then
+  echo "Skipping Limine UKI migration on Apple Silicon"
+  exit 0
+fi
+
 if omarchy-cmd-present limine-update && [[ -f /etc/default/limine ]]; then
   if grep -q "^ENABLE_UKI=yes" /etc/default/limine; then
     if ! grep -q "^CUSTOM_UKI_NAME=" /etc/default/limine; then

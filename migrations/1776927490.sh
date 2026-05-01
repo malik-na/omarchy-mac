@@ -12,13 +12,10 @@ sudo btrfs quota disable / 2>/dev/null || true
 # If the snapshots look like someone's been using them manually (pre/post pairs,
 # userdata tags, freeform descriptions), ask before destroying.
 if sudo snapper list-configs 2>/dev/null | grep -q "home"; then
-  drop_home="yes"
+  drop_home="no"
+  echo "This migration can delete the /home snapper config and /home snapshots."
 
-  if sudo snapper -c home --csvout list 2>/dev/null | \
-     awk -F, 'NR>1 && ($6=="pre" || $6=="post" || $13!="" || ($12!="current" && $12!="timeline" && $12 !~ /^[0-9]+\.[0-9]+\.[0-9]+/))' | \
-     grep -q .; then
-    gum confirm "Drop unused /home snapshots for better performance?" || drop_home="no"
-  fi
+  gum confirm "Drop /home snapshots for better performance?" && drop_home="yes"
 
   if [[ $drop_home == "yes" ]]; then
     sudo snapper -c home list --columns number 2>/dev/null | awk 'NR>2 && $1 != "0" {print $1}' | \

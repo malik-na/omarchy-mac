@@ -13,12 +13,13 @@ fi
 
 package=$1
 command=${2:-$1}
+node_version=${OMARCHY_NPX_NODE_VERSION:-node@lts}
 
 mkdir -p "$HOME/.local/bin"
 
 cat > "$HOME/.local/bin/$command" <<EOF
 #!/bin/bash
-exec mise exec node@latest -- npx --yes $package "\$@"
+exec mise exec $node_version -- npx --yes $package "\$@"
 EOF
 
 chmod +x "$HOME/.local/bin/$command"

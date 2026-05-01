@@ -1,4 +1,8 @@
 echo "Cleanup extra UKI if needed to prevent errors"
+if [[ -f /proc/device-tree/compatible ]] && grep -qi "apple" /proc/device-tree/compatible 2>/dev/null; then
+  exit 0
+fi
+
 if [[ -f /boot/EFI/linux/omarchy_linux.efi ]] && [[ -f /boot/EFI/linux/$(cat /etc/machine-id)_linux.efi ]] && omarchy-cmd-present limine-update limine-snapper-sync; then
   sudo rm -f /boot/EFI/Linux/$(cat /etc/machine-id)_linux.efi
 

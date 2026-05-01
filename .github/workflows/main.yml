@@ -68,7 +68,7 @@ jobs:
         run: |
           # Show diffs but don't fail the build on formatting; exclude migrations/
           mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
-          shfmt -v -i 2 -ci -d "${files[@]}" || true
+          shfmt -i 2 -ci -d "${files[@]}" || true
 
   # 2) Syntax + smoke tests (safe, non-privileged)
   smoke:

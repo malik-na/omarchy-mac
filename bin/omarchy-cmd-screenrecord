@@ -17,15 +17,21 @@ DESKTOP_AUDIO="false"
 MICROPHONE_AUDIO="false"
 WEBCAM="false"
 WEBCAM_DEVICE=""
+RECORD_MODE="display"
 RESOLUTION=""
 STOP_RECORDING="false"
 RECORDING_FILE="/tmp/omarchy-screenrecord-filename"
 
 for arg in "$@"; do
   case "$arg" in
+  audio) DESKTOP_AUDIO="true" ;;
+  display | output) RECORD_MODE="display" ;;
+  region) RECORD_MODE="region" ;;
   --with-desktop-audio) DESKTOP_AUDIO="true" ;;
   --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
   --with-webcam) WEBCAM="true" ;;
+  --display | --output) RECORD_MODE="display" ;;
+  --region) RECORD_MODE="region" ;;
   --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
   --resolution=*) RESOLUTION="${arg#*=}" ;;
   --stop-recording) STOP_RECORDING="true" ;;
@@ -89,7 +95,9 @@ default_resolution() {
 start_screenrecording() {
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local audio_devices=""
-  local audio_args=()
+  local wf_audio_args=()
+  local gpu_audio_args=()
+  local video_args=()
 
   [[ $DESKTOP_AUDIO == "true" ]] && audio_devices+="default_output"
 
@@ -99,9 +107,29 @@ start_screenrecording() {
     audio_devices+="default_input"
   fi
 
-  [[ -n $audio_devices ]] && audio_args+=(-a "$audio_devices" -ac aac)
+  if [[ -n $audio_devices ]]; then
+    wf_audio_args+=(-a "$audio_devices" -c aac)
+    gpu_audio_args+=(-a "$audio_devices" -ac aac)
+  fi
 
   local resolution="${RESOLUTION:-$(default_resolution)}"
+
+  if [[ $RECORD_MODE == "region" ]]; then
+    if omarchy-cmd-missing slurp; then
+      notify-send "Screen recording error" "Install slurp to record a selected region." -u critical -t 3000
+      return 1
+    fi
+
+    local geometry
+    geometry=$(slurp -f "%x,%y %wx%h") || return 1
+    video_args+=(-g "$geometry")
+  else
+    local output
+    output=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')
+    [[ -n $output && $output != "null" ]] && video_args+=(-o "$output")
+  fi
+
+  echo "$filename" > "$RECORDING_FILE"
 
   # Prefer wf-recorder on Wayland (better support for wlroots/Asahi). If not
   # available, fall back to gpu-screen-recorder for systems that still use it.
@@ -109,9 +137,12 @@ start_screenrecording() {
     # Note: wf-recorder cannot composite an on-screen webcam overlay into the
     # recorded video. If --with-webcam is used, the overlay will be shown but
     # not embedded in the output file.
-    wf-recorder -f "$filename" $audio_args &
+    wf-recorder -f "$filename" "${video_args[@]}" "${wf_audio_args[@]}" &
   else
-    gpu-screen-recorder -w portal -f 60 -fallback-cpu-encoding yes -o "$filename" $audio_args -ac aac &
+    local recorder_window="portal"
+    [[ $RECORD_MODE == "display" && ${#video_args[@]} -ge 2 ]] && recorder_window="${video_args[1]}"
+    [[ $resolution != "0x0" ]] && video_args+=(-s "$resolution")
+    gpu-screen-recorder -w "$recorder_window" -f 60 -fallback-cpu-encoding yes -o "$filename" "${gpu_audio_args[@]}" &
   fi
   toggle_screenrecording_indicator
 }
