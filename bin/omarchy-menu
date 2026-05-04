@@ -59,6 +59,11 @@ menu() {
     fi
   fi
 
+  # Some callers build $options with literal "\n" via regular double-quoting
+  # instead of $'...' ANSI-C quoting. Expand those to real newlines so fuzzel
+  # gets one option per line.
+  options="${options//\\n/$'\n'}"
+
   # Keep Walker-style preselection behavior for compatibility.
   local list="$options"
   if [[ -n "$preselect" ]]; then
