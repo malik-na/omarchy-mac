@@ -29,4 +29,9 @@ git clone --depth=1 https://github.com/LazyVim/starter "$HOME/.config/nvim"
 # Remove .git to detach from upstream
 rm -rf "$HOME/.config/nvim/.git"
 
+# Wire LazyVim to follow the current Omarchy theme
+mkdir -p "$HOME/.config/nvim/lua/plugins"
+ln -sf "$HOME/.config/omarchy/current/theme/neovim.lua" \
+       "$HOME/.config/nvim/lua/plugins/omarchy-theme.lua"
+
 echo "[OK] LazyVim config installed to $HOME/.config/nvim"
