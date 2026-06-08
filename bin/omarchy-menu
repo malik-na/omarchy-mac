@@ -171,15 +171,6 @@ show_capture_menu() {
   esac
 }
 
-show_screenshot_menu() {
-  case "$(menu "Screenshot" $'  Region\n  Window\n  Display')" in
-  *Region*) omarchy-cmd-screenshot ;;
-  *Window*) omarchy-cmd-screenshot window ;;
-  *Display*) omarchy-cmd-screenshot output ;;
-  *) show_capture_menu ;;
-  esac
-}
-
 get_webcam_list() {
   v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
     if [[ $line != $'\t'* && -n $line ]]; then
@@ -521,14 +512,6 @@ show_setup_config_menu() {
   *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && omarchy-restart-waybar ;;
   *XCompose*) open_in_editor ~/.XCompose && omarchy-restart-xcompose ;;
   *) show_main_menu ;;
-  esac
-}
-
-show_setup_security_menu() {
-  case "$(menu "Setup" $'󰈷  Fingerprint\n  Fido2')" in
-  *Fingerprint*) present_terminal omarchy-setup-fingerprint ;;
-  *Fido2*) present_terminal omarchy-setup-fido2 ;;
-  *) show_setup_menu ;;
   esac
 }
 
