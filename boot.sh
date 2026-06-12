@@ -136,7 +136,7 @@ show_spinner "Updating package database and installing git" \
 OMARCHY_REPO="${OMARCHY_REPO:-malik-na/omarchy-mac}"
 
 show_spinner "Cloning Omarchy Mac repository" \
-    bash -lc 'set -e; target="$HOME/.local/share/omarchy"; mkdir -p "$(dirname "$target")"; rm -rf "$target"; git clone "https://github.com/'"$OMARCHY_REPO"'.git" "$target"'
+    bash -lc 'set -e; target="$HOME/.local/share/omarchy"; mkdir -p "$(dirname "$target")"; rm -rf "$target"; git clone "https://codeberg.org/'"$OMARCHY_REPO"'.git" "$target"'
 
 # Use custom branch if instructed, otherwise default to main
 OMARCHY_REF="${OMARCHY_REF:-main}"
