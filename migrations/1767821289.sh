@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Add hyprlock to autostart for Apple Silicon Macs"
 
 # Add hyprlock to autostart for enhanced security on Apple Silicon Macs
 # This ensures the lock screen is ready immediately on boot

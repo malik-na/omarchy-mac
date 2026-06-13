@@ -5,14 +5,14 @@ A screenshot to help identify the project:
 # Omarchy Mac — Dual Boot Installation
 A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy) alongside macOS on Apple Silicon (M1/M2).
 
-[![License](https://img.shields.io/github/license/malik-na/omarchy-mac)](LICENSE) [![Stars](https://img.shields.io/github/stars/malik-na/omarchy-mac?style=social)](https://github.com/malik-na/omarchy-mac/stargazers)
+[![License](https://img.shields.io/gitea/license/malik-na/omarchy-mac?gitea_url=https%3A%2F%2Fcodeberg.org)](LICENSE) [![Stars](https://img.shields.io/gitea/stars/malik-na/omarchy-mac?gitea_url=https%3A%2F%2Fcodeberg.org&style=social)](https://codeberg.org/malik-na/omarchy-mac/stargazers)
 
 ---
 
 ## Quick links
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
-- External monitor guide — https://github.com/malik-na/omarchy-mac/discussions/73
+- External monitor guide — https://codeberg.org/malik-na/omarchy-mac/discussions/73
 - Support — https://buymeacoffee.com/malik2015no
 - Discord — https://discord.gg/KNQRk7dMzy
 
@@ -134,7 +134,7 @@ cd yay
 makepkg -si
 
 # Clone and run Omarchy Mac installer
-git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
+git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
 bash install.sh
 ```
@@ -213,7 +213,7 @@ Consider supporting the project: [![Buy Me A Coffee](https://img.shields.io/badg
 
 - Asahi Linux (device support) — https://asahilinux.org/fedora/#device-support
 - Asahi Alarm — https://asahi-alarm.org/
-- External monitor discussion — https://github.com/malik-na/omarchy-mac/discussions/73
+- External monitor discussion — https://codeberg.org/malik-na/omarchy-mac/discussions/73
 - Discord — https://discord.gg/KNQRk7dMzy
 
 ---

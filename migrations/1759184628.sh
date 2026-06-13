@@ -1,5 +1,3 @@
-#!/bin/bash
-
 echo "Migrating from walker to omarchy-mac-menu (fuzzel-based) for better aarch64 compatibility"
 
 # Check if fuzzel is installed
@@ -25,4 +23,3 @@ fi
 
 echo "Migration complete! omarchy-mac-menu (fuzzel) is now active."
 echo "The main launcher (SUPER+SPACE) now uses fuzzel for better performance on aarch64."
-

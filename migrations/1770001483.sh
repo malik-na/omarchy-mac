@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+echo "Install omarchy-zsh for existing systems"
+
 # Migration: Install omarchy-zsh for existing systems
 # This migration sets up zsh with Omarchy customizations for users who already have Omarchy installed
 

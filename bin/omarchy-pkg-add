@@ -1,29 +1,16 @@
 #!/bin/bash
 
-OMARCHY_INSTALL=${OMARCHY_INSTALL:-"$HOME/.local/share/omarchy/install"}
-source "$OMARCHY_INSTALL/helpers/packages.sh"
-# Add the named packages to the system if they're missing. Returns false if it couldn't be done.
+# omarchy:summary=Install Arch packages if they are missing
+# omarchy:args=<packages...>
+# omarchy:examples=omarchy pkg add jq ripgrep
+# omarchy:requires-sudo=true
 
-# Try to install via pacman first (fast path for repo packages)
-# Don't exit on failure - let per-package fallback handle AUR packages
 if omarchy-pkg-missing "$@"; then
-  sudo pacman -S --noconfirm --needed "$@" 2>/dev/null || true
+  sudo pacman -S --noconfirm --needed "$@" || exit 1
 fi
 
-# For each package, use fallback mechanism if not yet installed
 for pkg in "$@"; do
-  # Skip if already installed by pacman above
-  if omarchy_package_installed "$pkg"; then
-    continue
-  fi
-
-  # Try AUR helpers or other fallback methods
-  if ! omarchy_install_package_with_fallback "$pkg"; then
-    echo -e "\033[31mError: Failed to install $pkg\033[0m" >&2
-    exit 1
-  fi
-
-  # Secondary check to handle states where package manager doesn't actually register an error
+  # Secondary check to handle states where pacman doesn't actually register an error
   if ! pacman -Q "$pkg" &>/dev/null; then
     echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
     exit 1

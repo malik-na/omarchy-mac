@@ -1,0 +1,4 @@
+#
+# Asahi Linux repository mirrorlist
+#
+Server = https://github.com/asahi-alarm/asahi-alarm/releases/download/$arch

@@ -1,3 +1,1 @@
-echo "Refresh Walker config to ensure compatibility with latest version"
-
-omarchy-refresh-walker
+echo "Skip Walker config refresh on Omarchy Mac; fuzzel is the supported launcher"

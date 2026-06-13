@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Update windowrule syntax for Hyprland 0.53+"
 
 # Update windowrule syntax for Hyprland 0.53+
 # Changes scrolltouchpad -> scroll_touchpad and class: -> match:class

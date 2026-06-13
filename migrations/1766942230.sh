@@ -1,5 +1,9 @@
 echo "Migrate legacy NVIDIA GPUs to nvidia-580xx driver (if needed)"
 
+if [[ $(uname -m) != "x86_64" ]] || omarchy-cmd-missing lspci; then
+  exit 0
+fi
+
 # Only migrate GTX 9xx or 10xx (Pascal/Maxwell)
 NVIDIA="$(lspci | grep -i 'nvidia')"
 if echo "$NVIDIA" | grep -qE "GTX 9|GTX 10"; then

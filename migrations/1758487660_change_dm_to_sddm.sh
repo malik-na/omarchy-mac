@@ -1,4 +1,5 @@
-#!/bin/bash
+echo "Switch display manager to SDDM"
+
 set -e
 
 error_exit() {

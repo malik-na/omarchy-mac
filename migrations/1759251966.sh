@@ -1,5 +1,3 @@
-#!/bin/bash
-
 echo "Migrating omarchy to support fuzzel theming alongside walker"
 
 # Ensure fuzzel configuration directory exists
@@ -35,4 +33,3 @@ echo "Fuzzel theming migration complete!"
 echo "- All existing themes now support fuzzel"
 echo "- New themes will automatically get fuzzel support"
 echo "- Theme switching works seamlessly with both walker and fuzzel"
-

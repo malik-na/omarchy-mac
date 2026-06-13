@@ -1,3 +1,5 @@
+echo "Configure snapper rollback support if available"
+
 if omarchy-cmd-present btrfs && omarchy-cmd-present snapper; then
   echo "Adjust snapper space limits & enable btrfs quota"
 

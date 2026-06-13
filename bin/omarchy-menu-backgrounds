@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if omarchy-cmd-missing fuzzel; then
+  notify-send "Background selector" "Install fuzzel before using the background selector"
+  exit 1
+fi
+
+format_name() {
+  local name=$1
+
+  name="${name##*/}"
+  printf '%s\n' "$name" | sed -E 's/^([0-9]+-?)//; s/\.[^.]+$//; s/-/ /g; s/(^|[[:space:]])(.)/\1\U\2/g'
+}
+
+theme_name=""
+if [[ -f $HOME/.config/omarchy/current/theme.name ]]; then
+  theme_name="$(< "$HOME/.config/omarchy/current/theme.name")"
+fi
+
+dirs=(
+  "$HOME/.config/omarchy/current/theme/backgrounds"
+)
+
+if [[ -n $theme_name ]]; then
+  dirs+=("$HOME/.config/omarchy/backgrounds/$theme_name")
+fi
+
+declare -A backgrounds_by_label
+labels=()
+
+for wallpaper_dir in "${dirs[@]}"; do
+  [[ -d $wallpaper_dir ]] || continue
+
+  while IFS= read -r background; do
+    filename="${background##*/}"
+    [[ -n ${backgrounds_by_label[$filename]:-} ]] && continue
+
+    label="$(format_name "$filename")"
+    backgrounds_by_label[$label]="$background"
+    labels+=("$label")
+  done < <(find "$wallpaper_dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) | sort)
+done
+
+if (( ${#labels[@]} == 0 )); then
+  notify-send "Background selector" "No backgrounds found for the current theme"
+  exit 1
+fi
+
+selection="$(printf '%s\n' "${labels[@]}" | fuzzel --dmenu --placeholder "Background" --width 80 || true)"
+
+if [[ -z $selection ]]; then
+  exit 0
+fi
+
+omarchy-theme-bg-set "${backgrounds_by_label[$selection]}"

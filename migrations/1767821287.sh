@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Add keyboard backlight dimming on idle for Apple Silicon Macs"
 
 # Add keyboard backlight dimming on idle (Mac-specific)
 # This turns off the keyboard backlight when the screen goes off and restores it on resume

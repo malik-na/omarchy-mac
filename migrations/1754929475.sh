@@ -1,10 +1,10 @@
 echo "Add start burst limit to login"
 
-if [ -f /etc/systemd/system/omarchy-seamless-login.service ]; then
+if [[ -f /etc/systemd/system/omarchy-seamless-login.service ]]; then
   cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
 [Unit]
 Description=Omarchy Seamless Auto-Login
-Documentation=https://github.com/malik-na/omarchy-mac
+Documentation=https://codeberg.org/malik-na/omarchy-mac
 Conflicts=getty@tty1.service
 After=systemd-user-sessions.service getty@tty1.service plymouth-quit.service systemd-logind.service
 PartOf=graphical.target

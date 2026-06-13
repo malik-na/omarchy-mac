@@ -1,4 +1,4 @@
-#!/bin/bash
+echo "Add keyboard backlight hardware key bindings for Apple Silicon Macs"
 
 # Add keyboard backlight hardware key bindings for Apple Silicon Macs
 # XF86KbdBrightnessUp/Down are the dedicated keyboard backlight keys on Mac keyboards

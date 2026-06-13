@@ -18,7 +18,7 @@ else
 fi
 
 # Set up environment variables if not already set
-export OMARCHY_PATH="${OMARCHY_PATH:-/omarchy/.local/share/omarchy}"
+export OMARCHY_PATH="${OMARCHY_PATH:-$(pwd)}"
 export OMARCHY_INSTALL="$OMARCHY_PATH/install"
 
 echo "=== Testing fix-mirrors.sh ARM64 compatibility ==="
@@ -39,12 +39,13 @@ else
 fi
 
 echo "=== Testing architecture-specific mirror selection ==="
-# Test ARM mirror selection logic
-cd "$OMARCHY_PATH"
-if bash -c 'source fix-mirrors.sh; echo "${arch_servers[@]}" | grep -q "archlinuxarm.org"' 2>/dev/null; then
-  echo "✓ ARM-specific mirrors correctly selected"
+# Test ARM mirror selection logic and canonical defaults
+if grep -q "mirror.archlinuxarm.org" "$OMARCHY_PATH/default/pacman/mirrorlist" && \
+  grep -q "github.com/asahi-alarm/asahi-alarm/releases/download/\$arch" "$OMARCHY_PATH/default/pacman/mirrorlist.asahi-alarm"; then
+  echo "✓ ARM and Asahi Alarm mirror defaults are present"
 else
-  echo "ℹ ARM mirror selection test skipped (may not be implemented yet)"
+  echo "✗ Missing ARM or Asahi Alarm mirror defaults"
+  exit 1
 fi
 
 echo "=== Testing Asahi hardware detection ==="
@@ -70,6 +71,20 @@ if [[ -f "$GUARD_FILE" ]]; then
   fi
 else
   echo "✗ guard.sh not found at $GUARD_FILE"
+  exit 1
+fi
+
+echo "=== Testing installer pacman defaults ==="
+if [[ -f "$OMARCHY_PATH/default/pacman/pacman.conf" ]]; then
+  if grep -q "^Architecture = aarch64" "$OMARCHY_PATH/default/pacman/pacman.conf" && \
+    grep -q "^\[asahi-alarm\]" "$OMARCHY_PATH/default/pacman/pacman.conf"; then
+    echo "✓ Installer pacman defaults target Asahi Alarm on aarch64"
+  else
+    echo "✗ Installer pacman defaults are not Asahi Alarm specific"
+    exit 1
+  fi
+else
+  echo "✗ Installer pacman default file missing"
   exit 1
 fi
 

@@ -7,7 +7,6 @@ base-devel
 #broadcom-wl (x86_64 DKMS driver, unsupported on aarch64)
 btrfs-progs
 #dart (binary distribution not available on aarch64)
-dkms
 egl-wayland
 git
 grim
@@ -45,4 +44,8 @@ wget
 yay-debug
 zram-generator
 
+# Apple Silicon Vulkan driver, installed by hardware detection when present
+vulkan-asahi
 
+# Added by Scott — Asahi kernel modules use dkms (upstream additions, 2026-06-07)
+dkms

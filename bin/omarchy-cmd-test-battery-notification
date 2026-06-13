@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Send a visible low-battery test notification. Use --service to exercise the
+# systemd battery monitor path with a temporary threshold override.
+
+LEVEL="${1:-10}"
+MODE="direct"
+
+if [[ $LEVEL == "--service" ]]; then
+  MODE="service"
+  LEVEL="10"
+elif [[ ${2:-} == "--service" ]]; then
+  MODE="service"
+fi
+
+if [[ ! $LEVEL =~ ^[0-9]+$ ]]; then
+  echo "Usage: omarchy-cmd-test-battery-notification [level] [--service]"
+  exit 1
+fi
+
+if [[ $MODE == "service" ]]; then
+  TEST_DIR=$(mktemp -d)
+  FAKE_BIN="$TEST_DIR/bin"
+  FLAG_FILE=$(mktemp -u /tmp/omarchy-battery-test.XXXXXX.flag)
+
+  mkdir -p "$FAKE_BIN"
+
+  cat > "$FAKE_BIN/omarchy-battery-remaining" <<EOF
+#!/bin/bash
+printf '%s\n' "$LEVEL"
+EOF
+
+  cat > "$FAKE_BIN/upower" <<'EOF'
+#!/bin/bash
+if [[ ${1:-} == "-e" ]]; then
+  printf '%s\n' "/org/freedesktop/UPower/devices/battery_test"
+  exit 0
+fi
+
+if [[ ${1:-} == "-i" ]]; then
+  cat <<INFO
+  native-path:          test-battery
+  state:                discharging
+INFO
+  exit 0
+fi
+
+exit 1
+EOF
+
+  chmod +x "$FAKE_BIN/omarchy-battery-remaining" "$FAKE_BIN/upower"
+
+  cleanup() {
+    systemctl --user unset-environment OMARCHY_BATTERY_THRESHOLD OMARCHY_BATTERY_NOTIFICATION_FLAG PATH
+    rm -rf "$TEST_DIR"
+    rm -f "$FLAG_FILE"
+  }
+
+  trap cleanup EXIT
+
+  systemctl --user set-environment PATH="$FAKE_BIN:$PATH" OMARCHY_BATTERY_THRESHOLD=100 OMARCHY_BATTERY_NOTIFICATION_FLAG="$FLAG_FILE"
+  systemctl --user start omarchy-battery-monitor.service
+else
+  notify-send -u critical "󱐋 Time to recharge!" "Battery is down to ${LEVEL}%" -i battery-caution -t 30000
+fi

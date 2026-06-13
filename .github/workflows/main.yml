@@ -60,13 +60,15 @@ jobs:
           shellcheck --version
           # Only fail on actual errors; exclude network/dynamic source checks
           # Exclude migrations/ to avoid flagging historical scripts
-          shellcheck -S error -e SC1090,SC1091 $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          shellcheck -S error -e SC1090,SC1091 "${files[@]}"
 
       - name: shfmt (check only)
         if: steps.list_scripts.outputs.count != '0'
         run: |
           # Show diffs but don't fail the build on formatting; exclude migrations/
-          shfmt -v -i 2 -ci -d $(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/') || true
+          mapfile -t files < <(git ls-files | grep -E '\.sh$|^scripts/.*' | grep -v '^migrations/')
+          shfmt -i 2 -ci -d "${files[@]}" || true
 
   # 2) Syntax + smoke tests (safe, non-privileged)
   smoke:
@@ -101,15 +103,9 @@ jobs:
       - name: Smoke run selected scripts in DRY_RUN/--help mode
         env:
           DRY_RUN: "1"
-          # Add any other env your scripts respect to avoid destructive actions
         run: |
-          # TODO: Replace with the specific entry points you want to verify
-          # Examples:
-          # ./scripts/set-arm-mirrors.sh --help || true
-          # ./scripts/timezone/auto-detect-timezone.sh --help || true
-          # ./install.sh --dry-run || true
-          echo "Add your smoke commands here."
-          exit 0
+          bash tests/test-asahi-compatibility.sh
+
 
   # 3) OPTIONAL: Arch Linux ARM container tests
   # NOTE: Only enable if you have a multi-arch container image that supports aarch64.

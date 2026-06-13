@@ -1,3 +1,1 @@
-echo "Ensure emoji menu (Super + Ctrl + E) uses single column design"
-
-omarchy-refresh-walker
+echo "Skip Walker emoji menu refresh on Omarchy Mac; fuzzel emoji picker is used"

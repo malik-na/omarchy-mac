@@ -1,0 +1,130 @@
+#!/bin/bash
+
+set -euo pipefail
+
+VERSION="2.6.20"
+ARCH="$(uname -m)"
+CURSOR_DIR="/opt/cursor"
+CURSOR_APPIMAGE="$CURSOR_DIR/cursor.AppImage"
+CURSOR_BIN="/usr/local/bin/cursor"
+CURSOR_DESKTOP="/usr/share/applications/cursor.desktop"
+CURSOR_URL_HANDLER_DESKTOP="/usr/share/applications/cursor-url-handler.desktop"
+CURSOR_ICONS_DIR="/usr/share/icons/hicolor"
+CURSOR_PIXMAP="/usr/share/pixmaps/co.anysphere.cursor.png"
+CURSOR_CONFIG_DIR="$HOME/.config/Cursor"
+CURSOR_USER_SETTINGS_DIR="$CURSOR_CONFIG_DIR/User"
+
+configure_cursor() {
+  local tmp_settings
+
+  mkdir -p "$CURSOR_CONFIG_DIR" "$CURSOR_USER_SETTINGS_DIR"
+
+  cat > "$CURSOR_CONFIG_DIR/argv.json" <<'EOF'
+{
+  "password-store": "gnome-libsecret",
+  "disable-hardware-acceleration": true
+}
+EOF
+
+  if [[ -f "$CURSOR_USER_SETTINGS_DIR/settings.json" ]]; then
+    tmp_settings=$(mktemp)
+
+    if jq '. + {"update.mode": "none"}' "$CURSOR_USER_SETTINGS_DIR/settings.json" > "$tmp_settings" 2>/dev/null; then
+      mv "$tmp_settings" "$CURSOR_USER_SETTINGS_DIR/settings.json"
+    else
+      rm -f "$tmp_settings"
+      printf '{\n  "update.mode": "none"\n}\n' > "$CURSOR_USER_SETTINGS_DIR/settings.json"
+    fi
+  else
+    printf '{\n  "update.mode": "none"\n}\n' > "$CURSOR_USER_SETTINGS_DIR/settings.json"
+  fi
+
+  omarchy-theme-set-vscode
+}
+
+install_cursor_aarch64() {
+  local tmp_dir appimage_url wrapper_path desktop_template url_handler_template icon_size icon_source
+
+  if [[ -x $CURSOR_BIN && -f $CURSOR_APPIMAGE ]]; then
+    echo "Cursor is already installed at $CURSOR_APPIMAGE"
+    return 0
+  fi
+
+  tmp_dir=$(mktemp -d)
+  trap 'rm -rf "$tmp_dir"' RETURN
+
+  appimage_url="https://api2.cursor.sh/updates/download/golden/linux-arm64/cursor/$VERSION"
+  wrapper_path="$tmp_dir/cursor"
+
+  echo "Downloading Cursor $VERSION for aarch64..."
+  curl -L --fail --output "$tmp_dir/cursor.AppImage" "$appimage_url"
+  chmod +x "$tmp_dir/cursor.AppImage"
+
+  echo "Extracting desktop assets..."
+  (
+    cd "$tmp_dir"
+    ./cursor.AppImage --appimage-extract >/dev/null
+  )
+
+  cat > "$wrapper_path" <<'EOF'
+#!/bin/bash
+exec /opt/cursor/cursor.AppImage --disable-gpu --disable-gpu-sandbox --in-process-gpu "$@"
+EOF
+
+  chmod +x "$wrapper_path"
+
+  echo "Installing Cursor to $CURSOR_DIR..."
+  sudo mkdir -p "$CURSOR_DIR"
+  sudo install -m 755 "$tmp_dir/cursor.AppImage" "$CURSOR_APPIMAGE"
+  sudo install -m 755 "$wrapper_path" "$CURSOR_BIN"
+
+  desktop_template="$tmp_dir/squashfs-root/usr/share/applications/cursor.desktop"
+  url_handler_template="$tmp_dir/squashfs-root/usr/share/applications/cursor-url-handler.desktop"
+
+  if [[ -f $desktop_template ]]; then
+    sed \
+      -e 's|^Exec=.*|Exec=/usr/local/bin/cursor %F|' \
+      -e 's|^Icon=.*|Icon=co.anysphere.cursor|' \
+      -e 's|^TryExec=.*|TryExec=/usr/local/bin/cursor|' \
+      "$desktop_template" | sudo tee "$CURSOR_DESKTOP" >/dev/null
+  fi
+
+  if [[ -f $url_handler_template ]]; then
+    sed \
+      -e 's|^Exec=.*|Exec=/usr/local/bin/cursor --open-url %U|' \
+      -e 's|^Icon=.*|Icon=co.anysphere.cursor|' \
+      "$url_handler_template" | sudo tee "$CURSOR_URL_HANDLER_DESKTOP" >/dev/null
+  fi
+
+  for icon_size in 22 24 32 48 64 128 256 512; do
+    icon_source="$tmp_dir/squashfs-root/usr/share/icons/hicolor/${icon_size}x${icon_size}/apps/cursor.png"
+
+    if [[ -f $icon_source ]]; then
+      sudo install -Dm644 "$icon_source" "$CURSOR_ICONS_DIR/${icon_size}x${icon_size}/apps/co.anysphere.cursor.png"
+    fi
+  done
+
+  if [[ -f "$tmp_dir/squashfs-root/usr/share/pixmaps/co.anysphere.cursor.png" ]]; then
+    sudo install -Dm644 "$tmp_dir/squashfs-root/usr/share/pixmaps/co.anysphere.cursor.png" "$CURSOR_PIXMAP"
+  elif [[ -f "$tmp_dir/squashfs-root/co.anysphere.cursor.png" ]]; then
+    sudo install -Dm644 "$tmp_dir/squashfs-root/co.anysphere.cursor.png" "$CURSOR_PIXMAP"
+  fi
+
+  sudo update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+  sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+}
+
+echo "Installing Cursor..."
+
+if [[ $ARCH == "aarch64" ]]; then
+  install_cursor_aarch64
+else
+  omarchy-pkg-add cursor-bin
+fi
+
+configure_cursor
+
+echo "Cursor installed successfully"
+echo "Run: cursor"
+
+nohup gtk-launch cursor >/dev/null 2>&1 </dev/null &

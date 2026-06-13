@@ -1,5 +1,9 @@
 echo "Migrate legacy mobile NVIDIA GPUs to nvidia-580xx driver (if needed)"
 
+if [[ $(uname -m) != "x86_64" ]] || omarchy-cmd-missing lspci; then
+  exit 0
+fi
+
 # Only migrate MX1xx, 2xx or 3xx (Pascal/Maxwell)
 NVIDIA="$(lspci | grep -i 'nvidia')"
 if echo "$NVIDIA" | grep -qE "MX1|MX2|MX3"; then

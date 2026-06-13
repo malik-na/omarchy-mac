@@ -1,9 +1,12 @@
 echo "Migrate AUR packages to official repos where possible"
 
 reinstall_package_opr() {
-  if omarchy-pkg-present $1; then
-    sudo pacman -Rns --noconfirm $1
-    sudo pacman -S --noconfirm ${2:-$1}
+  local old_package="$1"
+  local new_package="${2:-$1}"
+
+  if omarchy-pkg-present "$old_package" && pacman -Si "$new_package" &>/dev/null; then
+    sudo pacman -S --noconfirm "$new_package"
+    sudo pacman -Rns --noconfirm "$old_package"
   fi
 }
 
