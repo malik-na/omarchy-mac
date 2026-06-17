@@ -2,10 +2,6 @@ A screenshot to help identify the project:
 
 ![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
 
-(Primary version control platform is **Codeberg** now. Here - https://codeberg.org/malik-na/omarchy-mac
-
-This repository will serve as a backup/mirror. See this [thread](https://x.com/dhh/status/2064969863840276732?s=46) to understand why.)
-
 # Omarchy Mac — Dual Boot Installation
 A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy) alongside macOS on Apple Silicon (M1/M2).
 
