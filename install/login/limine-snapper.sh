@@ -1,6 +1,9 @@
 #!/bin/bash
-ARCH="$(uname -m)"
-if [[ "$ARCH" == "x86_64" ]] && command -v limine &>/dev/null; then
+# Skip limine on non-x86_64 (Apple Silicon / aarch64 boots via UEFI without limine)
+[[ "$(uname -m)" == "x86_64" ]] || exit 0
+
+
+if command -v limine &>/dev/null; then
   sudo tee /etc/mkinitcpio.conf.d/omarchy_hooks.conf <<EOF >/dev/null
 HOOKS=(base udev plymouth keyboard autodetect microcode modconf kms keymap consolefont block encrypt filesystems fsck btrfs-overlayfs)
 EOF
@@ -29,6 +32,10 @@ EOF
 
   CMDLINE=$(grep "^[[:space:]]*cmdline:" "$limine_config" | head -1 | sed 's/^[[:space:]]*cmdline:[[:space:]]*//')
 
+  # Write /etc/default/limine *before* installing limine-mkinitcpio-hook, whose
+  # post-transaction deploy hook runs limine-install and reads this file. Without
+  # it, ESP_PATH falls back to bootctl, which in a chroot prints a warning that
+  # gets captured as the path and trips a spurious "invalid ESP" error.
   sudo cp $OMARCHY_PATH/default/limine/default.conf /etc/default/limine
   sudo sed -i "s|@@CMDLINE@@|$CMDLINE|g" /etc/default/limine
 
@@ -42,13 +49,16 @@ EOF
     sudo sed -i '/^ENABLE_UKI=/d; /^ENABLE_LIMINE_FALLBACK=/d' /etc/default/limine
   fi
 
-  # Remove the original config file if it's not /boot/limine.conf
+  # Remove the original config file if it's not /boot/limine.conf, so the deploy
+  # hook doesn't see conflicting configs on the same ESP.
   if [[ $limine_config != "/boot/limine.conf" ]] && [[ -f $limine_config ]]; then
     sudo rm "$limine_config"
   fi
 
   # We overwrite the whole thing knowing the limine-update will add the entries for us
   sudo cp $OMARCHY_PATH/default/limine/limine.conf /boot/limine.conf
+
+  sudo pacman -S --noconfirm --needed limine-snapper-sync limine-mkinitcpio-hook
 
   # Only snapshot root — /home is user data; rolling it back loses user work
   if ! sudo snapper list-configs 2>/dev/null | grep -q "root"; then
@@ -75,19 +85,23 @@ fi
 
 echo "mkinitcpio hooks re-enabled"
 
-if command -v limine-update &>/dev/null; then
+# Installing limine-mkinitcpio-hook above already triggered a full UKI rebuild
+# (via 80-limine-efi-deploy.hook + 90-mkinitcpio-install.hook), which writes the
+# boot entries into /boot/limine.conf. Only fall back to limine-update if those
+# hooks didn't run for some reason — running it unconditionally rebuilds every
+# UKI a second time.
+if ! grep -q "^/+" /boot/limine.conf; then
   sudo limine-update
+fi
 
-  # Verify that limine-update actually added boot entries
-  if [[ -f /boot/limine.conf ]] && ! grep -q "^/+" /boot/limine.conf; then
-    echo "Error: limine-update failed to add boot entries to /boot/limine.conf" >&2
-    exit 1
-  fi
+if ! grep -q "^/+" /boot/limine.conf; then
+  echo "Error: failed to add boot entries to /boot/limine.conf" >&2
+  exit 1
+fi
 
-  if [[ -n ${EFI:-} ]] && efibootmgr &>/dev/null; then
-    # Remove the archinstall-created Limine entry
-    while IFS= read -r bootnum; do
-      sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
-    done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
-  fi
+if [[ -n $EFI ]] && efibootmgr &>/dev/null; then
+  # Remove the archinstall-created Limine entry
+  while IFS= read -r bootnum; do
+    sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
+  done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
 fi

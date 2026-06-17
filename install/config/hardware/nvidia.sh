@@ -1,34 +1,11 @@
-#!/bin/bash
-# ==============================================================================
-# Hyprland NVIDIA Setup Script for Arch Linux
-# ==============================================================================
-# This script automates the installation and configuration of NVIDIA drivers
-# for use with Hyprland on Arch Linux, following the official Hyprland wiki.
-#
-# Author: https://github.com/Kn0ax
-#
-# ==============================================================================
-
-# --- GPU Detection ---
-NVIDIA="$(lspci | grep -i 'nvidia' || true)"
-if [[ -n $NVIDIA ]]; then
-  # --- Driver Selection ---
-  # Turing (16xx, 20xx), Ampere (30xx), Ada (40xx), and newer recommend the open-source kernel modules
-  if echo "$NVIDIA" | grep -q -E "RTX [2-9][0-9]|GTX 16"; then
-    NVIDIA_DRIVER_PACKAGE="nvidia-open-dkms"
-  else
-    NVIDIA_DRIVER_PACKAGE="nvidia-dkms"
-  fi
-
+if lspci | grep -qi 'nvidia'; then
   # Check which kernel is installed and set appropriate headers package
   KERNEL_HEADERS="$(pacman -Qqs '^linux(-zen|-lts|-hardened)?$' | head -1)-headers"
 
-  # Turing+ (GTX 16xx, RTX 20xx-50xx, RTX Pro, Quadro RTX, datacenter A/H/T/L series) have GSP firmware
-  if echo "$NVIDIA" | grep -qE "GTX 16[0-9]{2}|RTX [2-5][0-9]{3}|RTX PRO [0-9]{4}|Quadro RTX|RTX A[0-9]{4}|A[1-9][0-9]{2}|H[1-9][0-9]{2}|T4|L[0-9]+"; then
+  if omarchy-hw-nvidia-gsp; then
     PACKAGES=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver)
     GPU_ARCH="turing_plus"
-  # Maxwell (GTX 9xx), Pascal (GT/GTX 10xx, Quadro P, MX series), Volta (Titan V, Tesla V100, Quadro GV100) lack GSP
-  elif echo "$NVIDIA" | grep -qE "GTX (9[0-9]{2}|10[0-9]{2})|GT 10[0-9]{2}|Quadro [PM][0-9]{3,4}|Quadro GV100|MX *[0-9]+|Titan (X|Xp|V)|Tesla V100"; then
+  elif omarchy-hw-nvidia-without-gsp; then
     PACKAGES=(nvidia-580xx-dkms nvidia-580xx-utils lib32-nvidia-580xx-utils)
     GPU_ARCH="maxwell_pascal_volta"
   fi
@@ -38,11 +15,7 @@ if [[ -n $NVIDIA ]]; then
     exit 0
   fi
 
-  if [[ -n $KERNEL_HEADERS && $KERNEL_HEADERS != "-headers" ]]; then
-    omarchy-pkg-add "$KERNEL_HEADERS" "${PACKAGES[@]}"
-  else
-    omarchy-pkg-add "${PACKAGES[@]}"
-  fi
+  omarchy-pkg-add "$KERNEL_HEADERS" "${PACKAGES[@]}"
 
   # Configure modprobe for early KMS
   sudo tee /etc/modprobe.d/nvidia.conf <<EOF >/dev/null

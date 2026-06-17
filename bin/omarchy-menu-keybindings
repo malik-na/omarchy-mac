@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Display Hyprland keybindings defined in your configuration using fuzzel for an interactive search menu.
+# omarchy:summary=Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
 
 declare -A KEYCODE_SYM_MAP
 
@@ -229,14 +229,23 @@ prioritize_entries() {
 
 output_keybindings() {
   build_keymap_cache
+
+  {
+    dynamic_bindings
+    static_bindings
+  } |
+    sort -u |
+    parse_keycodes |
+    parse_bindings |
+    prioritize_entries
 }
 
-{
-  dynamic_bindings
-  static_bindings
-} |
-  sort -u |
-  parse_keycodes |
-  parse_bindings |
-  prioritize_entries |
-  fuzzel --dmenu --placeholder "Keybindings" --width 80
+if [[ $1 == "--print" || $1 == "-p" ]]; then
+  output_keybindings
+else
+  monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
+  menu_height=$((monitor_height * 40 / 100))
+
+  output_keybindings |
+    walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height"
+fi
