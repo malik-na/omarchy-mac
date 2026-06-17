@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Get the active monitor (the one with the cursor)
+# omarchy:summary=Cycle focused Hyprland monitor scaling through 1x, 1.25x, 1.6x, 2x, 3x, and 4x
+
 MONITOR_INFO=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true)')
 ACTIVE_MONITOR=$(echo "$MONITOR_INFO" | jq -r '.name')
 CURRENT_SCALE=$(echo "$MONITOR_INFO" | jq -r '.scale')
@@ -8,8 +9,8 @@ WIDTH=$(echo "$MONITOR_INFO" | jq -r '.width')
 HEIGHT=$(echo "$MONITOR_INFO" | jq -r '.height')
 REFRESH_RATE=$(echo "$MONITOR_INFO" | jq -r '.refreshRate')
 
-# Cycle through scales: 1 → 1.25 → 1.6 → 2 → 3 → 1 (or reverse with --reverse)
-SCALES=(1 1.25 1.6 2 3)
+# Cycle through scales: 1 → 1.25 → 1.6 → 2 → 3 → 4 → 1 (or reverse with --reverse)
+SCALES=(1 1.25 1.6 2 3 4)
 
 # Find the index of the scale closest to the current one (Hyprland may
 # snap fractional scales to nearby values, so we can't match exactly)
@@ -32,4 +33,15 @@ fi
 NEW_SCALE=${SCALES[$NEW_IDX]}
 
 hyprctl keyword monitor "$ACTIVE_MONITOR,${WIDTH}x${HEIGHT}@${REFRESH_RATE},auto,$NEW_SCALE"
+
+# Persist to monitors.conf if the user has a single generic catch-all line
+# (ignoring disabled monitors), so the scale survives reboots.
+MONITOR_CONF="$HOME/.config/hypr/monitors.conf"
+if [[ -f $MONITOR_CONF ]]; then
+  mapfile -t ACTIVE_LINES < <(grep -E '^[[:space:]]*monitor=' "$MONITOR_CONF" | grep -vE 'disable[[:space:]]*$')
+  if [[ ${#ACTIVE_LINES[@]} -eq 1 ]] && [[ "${ACTIVE_LINES[0]}" =~ ^monitor=,preferred,auto, ]]; then
+    sed -i -E "s|^(monitor=,preferred,auto,).*|\\1${NEW_SCALE}|" "$MONITOR_CONF"
+  fi
+fi
+
 notify-send -u low "󰍹    Display scaling set to ${NEW_SCALE}x"

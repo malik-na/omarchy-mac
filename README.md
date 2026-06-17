@@ -1,26 +1,19 @@
+A screenshot to help identify the project:
 
 ![IMG_5776](https://github.com/user-attachments/assets/86b2651c-4b49-4ec5-ae78-023b01e46a15)
-
-(Primary version control platform is **Codeberg** now. Here - https://codeberg.org/malik-na/omarchy-mac
-
-This repository will serve as a backup/mirror. See this [thread](https://x.com/dhh/status/2064969863840276732?s=46) to understand why.)
 
 # Omarchy Mac — Dual Boot Installation
 A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy) alongside macOS on Apple Silicon (M1/M2).
 
-## **[Omarchy Mac Fedora](https://github.com/malik-na/omarchy-mac-fedora)** is here!
-
-_This project is not optimized for Parallels or VMs_
-
-[![License](https://img.shields.io/github/license/malik-na/omarchy-mac)](LICENSE) [![Stars](https://img.shields.io/github/stars/malik-na/omarchy-mac?style=social)](https://github.com/malik-na/omarchy-mac/stargazers)
+[![License](https://img.shields.io/gitea/license/malik-na/omarchy-mac?gitea_url=https%3A%2F%2Fcodeberg.org)](LICENSE) [![Stars](https://img.shields.io/gitea/stars/malik-na/omarchy-mac?gitea_url=https%3A%2F%2Fcodeberg.org&style=social)](https://codeberg.org/malik-na/omarchy-mac/stargazers)
 
 ---
 
 ## Quick links
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
-- External monitor guide — https://github.com/malik-na/omarchy-mac/discussions/73
-- Support the project — https://buymeacoffee.com/malik2015no
+- External monitor guide — https://codeberg.org/malik-na/omarchy-mac/discussions/73
+- Support — https://buymeacoffee.com/malik2015no
 - Discord — https://discord.gg/KNQRk7dMzy
 
 ---
@@ -87,17 +80,23 @@ Follow these steps after the installer has finished and you have booted into the
 Run these commands (replace placeholders where indicated):
 
 ```bash
-
-#Login as root with username and password 'root'
-
 # Configure Wi‑Fi (if required)
 nmtui
 
 # Update packages
-pacman -Syu
+sudo pacman -Syu
 
 # Install essential packages
-pacman -S --needed git base-devel chromium # nvim, btop, etc.
+sudo pacman -S --needed sudo git base-devel chromium
+
+# Enable en_US.UTF-8 locale
+sudo nano /etc/locale.gen   # uncomment en_US.UTF-8
+sudo locale-gen
+echo 'LANG=en_US.UTF-8' | sudo tee /etc/locale.conf
+locale
+
+# Reboot to apply changes
+sudo reboot
 ```
 
 Notes
@@ -105,49 +104,17 @@ Notes
 - If `nmtui` shows an error after activation, reboot and try again.
 - Use `--needed` to avoid reinstalling packages that already exist.
 
-### Enable the UTF-8 locale
-
-Edit `/etc/locale.gen`:
-
-```bash
-nano /etc/locale.gen # nano, nvim (if installed before), vi, or any other text editor
-```
-
-In the opened configuration file scroll and uncomment the en_US line, like this:
-
-```bash
-...
-#en_SG_SG.UTF-8 UTF-8
-#en_SG ISO-8859-1
-en_US.UTF-8 UTF-8
-#en_US ISO-8859-1
-#en_ZA.UTF-8 UTF-8
-...
-```
-
-Save the edited file and proceed to enable UTF-8:
-
-```bash
-# To generate new locale.conf
-locale-gen
-
-# To apply changes
-reboot
-
-locale # Must be UTF-8
-```
-
 ### Create a regular user
 
 Create a non‑root user and enable sudo for the wheel group:
 
 ```bash
 # Replace <username> with your chosen name
-useradd -m -G wheel <username>
-passwd <username>
+sudo useradd -m -G wheel <username>
+sudo passwd <username>
 
 # Enable wheel in sudoers
-EDITOR=nano visudo
+sudo EDITOR=nano visudo
 # Uncomment: %wheel ALL=(ALL:ALL) ALL
 
 # Switch to your user
@@ -167,7 +134,7 @@ cd yay
 makepkg -si
 
 # Clone and run Omarchy Mac installer
-git clone https://github.com/malik-na/omarchy-mac.git ~/.local/share/omarchy
+git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
 bash install.sh
 ```
@@ -246,13 +213,9 @@ Consider supporting the project: [![Buy Me A Coffee](https://img.shields.io/badg
 
 - Asahi Linux (device support) — https://asahilinux.org/fedora/#device-support
 - Asahi Alarm — https://asahi-alarm.org/
-- External monitor discussion — https://github.com/malik-na/omarchy-mac/discussions/73
+- External monitor discussion — https://codeberg.org/malik-na/omarchy-mac/discussions/73
 - Discord — https://discord.gg/KNQRk7dMzy
 
----
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=malik-na/omarchy-mac&type=date&legend=top-left)](https://www.star-history.com/#malik-na/omarchy-mac&type=date&legend=top-left)
 ---
 
 ## Acknowledgements
@@ -279,3 +242,4 @@ Partial contributor list:
 - Gwynspring — https://github.com/Gwynspring
 - DinMon — https://github.com/DinMon
 - Aslkhon — https://github.com/Aslkhon
+- Marcelo Alcantara — https://github.com/maralcbr

@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Overwrite parts of the omarchy-menu with user-specific submenus.
 # See $OMARCHY_PATH/bin/omarchy-menu for functions that can be overwritten.
 #
@@ -7,9 +5,9 @@
 #
 # Example of minimal system menu:
 #
-#show_system_menu() {
-#   case "$(menu "System" $'  Lock\n󰐥  Shutdown')" in
-#   *Lock*) omarchy-lock-screen ;;
+# show_system_menu() {
+#   case $(menu "System" "  Lock\n󰐥  Shutdown") in
+#   *Lock*) omarchy-system-lock ;;
 #   *Shutdown*) omarchy-system-shutdown ;;
 #   *) back_to show_main_menu ;;
 #   esac

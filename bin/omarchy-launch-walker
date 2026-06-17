@@ -1,4 +1,14 @@
 #!/bin/bash
 
-# Compatibility wrapper for old Walker-era callers.
-exec omarchy-launch-fuzzel "$@"
+# omarchy:summary=Launch Walker and ensure its Elephant data provider is running
+
+if ! pgrep -x elephant > /dev/null; then
+  setsid uwsm-app -- elephant &
+fi
+
+# Ensure walker service is running
+if ! pgrep -f "walker --gapplication-service" > /dev/null; then
+  setsid uwsm-app -- env GSK_RENDERER=cairo walker --gapplication-service &
+fi
+
+exec walker --width 644 --maxheight 300 --minheight 300 "$@"

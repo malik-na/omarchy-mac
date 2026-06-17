@@ -55,7 +55,7 @@ if [[ ! -d "$OMARCHY_INSTALL" ]]; then
   echo "❌ Error: $OMARCHY_INSTALL not found."
   echo "This installer must be run from a cloned Omarchy repo in $OMARCHY_PATH."
   echo "Recommended:" 
-  echo "  wget -qO- https://malik-na.github.io/omarchy-mac/boot.sh | bash"
+  echo "  wget -qO- https://malik-na.codeberg.page/omarchy-mac/boot.sh | bash"
   exit 1
 fi
 
