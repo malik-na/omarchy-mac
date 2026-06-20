@@ -242,3 +242,4 @@ Partial contributor list:
 - Gwynspring — https://github.com/Gwynspring
 - DinMon — https://github.com/DinMon
 - Aslkhon — https://github.com/Aslkhon
+- Marcelo Alcantara — https://github.com/maralcbr
