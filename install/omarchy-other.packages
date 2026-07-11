@@ -47,5 +47,5 @@ zram-generator
 # Apple Silicon Vulkan driver, installed by hardware detection when present
 vulkan-asahi
 
-# Added by Scott — Asahi kernel modules use dkms (upstream additions, 2026-06-07)
+# Available for optional DKMS-based hardware packages and ISO package availability
 dkms
