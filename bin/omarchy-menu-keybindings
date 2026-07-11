@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# omarchy:summary=Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
+# omarchy:summary=Display Hyprland keybindings defined in your configuration using fuzzel for an interactive search menu.
 
 declare -A KEYCODE_SYM_MAP
 
@@ -243,9 +243,6 @@ output_keybindings() {
 if [[ $1 == "--print" || $1 == "-p" ]]; then
   output_keybindings
 else
-  monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
-  menu_height=$((monitor_height * 40 / 100))
-
   output_keybindings |
-    walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height"
+    fuzzel --dmenu --prompt 'Keybindings' --width 60 --lines 15
 fi
