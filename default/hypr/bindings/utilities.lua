@@ -1,5 +1,6 @@
-o.bind("SUPER + SPACE", "Launch apps", { omarchy = "walker" })
-o.bind("SUPER + CTRL + E", "Emoji picker", { omarchy = "walker -m symbols" })
+-- Mac fork: fuzzel launcher + dedicated emoji picker instead of walker
+o.bind("SUPER + SPACE", "Launch apps", "omarchy-launch-fuzzel")
+o.bind("SUPER + CTRL + E", "Emoji picker", "omarchy-emoji-picker")
 o.bind_menu("SUPER + CTRL + C", "Capture menu", "capture")
 o.bind_menu("SUPER + CTRL + O", "Toggle menu", "toggle")
 o.bind_menu("SUPER + CTRL + H", "Hardware menu", "hardware")

@@ -415,11 +415,11 @@ dispatch_binding() {
 if [[ $1 == "--print" || $1 == "-p" ]]; then
   output_keybindings
 else
+  # Mac fork: fuzzel frontend (walker's single-instance daemon + rendering); keep
+  # upstream's select-and-dispatch so a chosen binding is executed, not just shown.
   records=$(output_binding_records)
-  monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
-  menu_height=$((monitor_height * 40 / 100))
   selection=$(cut -f1 <<<"$records" |
-    walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height")
+    fuzzel --dmenu --prompt 'Keybindings… ' --placeholder '' --width 60 --lines 15)
 
   if [[ -n $selection ]]; then
     record=$(awk -F '\t' -v selection="$selection" '$1 == selection { print; exit }' <<<"$records")

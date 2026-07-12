@@ -18,8 +18,9 @@ back_to() {
 }
 
 toggle_existing_menu() {
-  if pgrep -f "walker.*--dmenu" >/dev/null; then
-    walker --close >/dev/null 2>&1
+  # Mac fork: fuzzel frontend — detect and close an open menu instance.
+  if pgrep -f "fuzzel.*--dmenu" >/dev/null; then
+    pkill -f "fuzzel.*--dmenu" >/dev/null 2>&1
     exit 0
   fi
 }
@@ -27,20 +28,29 @@ toggle_existing_menu() {
 menu() {
   local prompt="$1"
   local options="$2"
-  local extra="$3"
-  local preselect="$4"
+  local extra="${3:-}"
+  local preselect="${4:-}"
 
-  read -r -a args <<<"$extra"
+  # Mac fork: fuzzel frontend instead of walker (walker's single-instance daemon
+  # breaks nested submenus like Setup, and its text rendering mangles ligatures).
 
+  # Some callers embed literal "\n" via double-quoting; expand to real newlines.
+  options="${options//\\n/$'\n'}"
+
+  # fuzzel has no line-index preselect, so reorder the preselected item to the top.
+  local list="$options"
   if [[ -n $preselect ]]; then
-    local index
-    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
-    if [[ -n $index ]]; then
-      args+=("-c" "$index")
+    local first rest
+    first="$(printf '%s\n' "$options" | awk -v t="$preselect" 'BEGIN{f=0}{if(!f&&$0==t){print;f=1}}')"
+    if [[ -n $first ]]; then
+      rest="$(printf '%s\n' "$options" | awk -v t="$preselect" '$0!=t')"
+      list="$first"$'\n'"$rest"
     fi
   fi
 
-  echo -e "$options" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+  local choice
+  choice="$(printf '%s\n' "$list" | fuzzel --dmenu --width 32 --prompt "$prompt… " --placeholder "" 2>/dev/null || true)"
+  printf '%s' "${choice:-CNCLD}"
 }
 
 terminal() {
@@ -886,7 +896,7 @@ show_main_menu() {
 
 go_to_menu() {
   case "${1,,}" in
-  *apps*) walker -p "Launch…" ;;
+  *apps*) fuzzel ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
   *toggle*) show_toggle_menu ;;
