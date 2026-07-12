@@ -17,6 +17,7 @@ fi
 
 # Suppress Hyprland config errors while git updates default config files mid-pull
 hyprctl keyword debug:suppress_errors true &>/dev/null || true
+hyprctl eval 'hl.config({ debug = { suppress_errors = true } })' &>/dev/null || true
 
 git -C "$OMARCHY_PATH" fetch --tags
 git -C "$OMARCHY_PATH" pull --autostash
