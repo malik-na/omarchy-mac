@@ -752,7 +752,7 @@ show_remove_menu() {
 }
 
 show_update_menu() {
-  case $(menu "Update" "  Omarchy\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  case $(menu "Update" "  Omarchy\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n󰁫  Timezone\n  Time") in
   *Omarchy*) present_terminal omarchy-update ;;
   *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
@@ -778,7 +778,7 @@ show_update_channel_menu() {
 }
 
 show_update_process_menu() {
-  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n󰎟  Mako\n  Swayosd\n󰌧  Fuzzel\n󰍜  Waybar") in
+  case $(menu "Restart" "󰒲  Hypridle\n󰖨  Hyprsunset\n󰎟  Mako\n󰕾  Swayosd\n󰌧  Fuzzel\n󰍜  Waybar") in
   *Hypridle*) omarchy-restart-hypridle ;;
   *Hyprsunset*) omarchy-restart-hyprsunset ;;
   *Mako*) omarchy-restart-mako ;;
@@ -794,7 +794,7 @@ show_update_process_menu() {
 }
 
 show_update_config_menu() {
-  case $(menu "Use default config" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Tmux\n󰌧  Fuzzel\n󰍜  Waybar") in
+  case $(menu "Use default config" "  Hyprland\n󰒲  Hypridle\n  Hyprlock\n󰖨  Hyprsunset\n󱣴  Plymouth\n󰕾  Swayosd\n  Tmux\n󰌧  Fuzzel\n󰍜  Waybar") in
   *Hyprland*) present_terminal omarchy-refresh-hyprland ;;
   *Hypridle*) present_terminal omarchy-refresh-hypridle ;;
   *Hyprlock*) present_terminal omarchy-refresh-hyprlock ;;
@@ -809,7 +809,7 @@ show_update_config_menu() {
 }
 
 show_update_hardware_menu() {
-  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth\n󰟸  Trackpad") in
+  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth\n󰟸  Trackpad") in
   *Audio*) present_terminal omarchy-restart-pipewire ;;
   *Wi-Fi*) present_terminal omarchy-restart-wifi ;;
   *Bluetooth*) present_terminal omarchy-restart-bluetooth ;;
