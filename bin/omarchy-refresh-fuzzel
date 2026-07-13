@@ -1,4 +1,20 @@
 #!/bin/bash
 
+# omarchy:summary=Restore default fuzzel config and clear any open instances
+# omarchy:examples=omarchy refresh fuzzel
+
+set -euo pipefail
+
+export PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}/bin:$PATH"
+
+echo "Refreshing fuzzel configuration..."
 omarchy-refresh-config fuzzel/fuzzel.ini
+
+# Re-copy theme snippet link is owned by theme set; ensure user config dir exists
+mkdir -p "$HOME/.config/fuzzel"
+
 omarchy-restart-fuzzel
+
+echo
+echo "Fuzzel config restored from Omarchy defaults."
+echo "Launch with Super+Space or Super+Alt+Space."
