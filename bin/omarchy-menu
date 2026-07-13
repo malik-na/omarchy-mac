@@ -288,7 +288,7 @@ show_hardware_touchpad_haptics_menu() {
 show_style_menu() {
   case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
   *Theme*) show_theme_menu ;;
-  *Unlock*) omarchy-launch-walker -m menus:omarchyunlocks --width 800 --minheight 400 ;;
+  *Unlock*) show_unlock_menu ;;
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
@@ -296,6 +296,35 @@ show_style_menu() {
   *About*) show_about_menu ;;
   *) show_main_menu ;;
   esac
+}
+
+# Plymouth boot unlock screen — fuzzel picker (Walker/Elephant unavailable on Omarchy Mac)
+show_unlock_menu() {
+  local omarchy_themes="${OMARCHY_PATH:-$HOME/.local/share/omarchy}/themes"
+  local user_themes="$HOME/.config/omarchy/themes"
+  local options selected theme_slug
+
+  options="$(
+    {
+      find -L "$omarchy_themes" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null
+      find -L "$user_themes" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -printf '%f\n' 2>/dev/null
+    } | sort -u | while read -r name; do
+      if [[ -f $user_themes/$name/unlock.png || -f $omarchy_themes/$name/unlock.png ]]; then
+        echo "$name" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'
+      fi
+    done
+    echo "Default"
+  )"
+
+  selected="$(menu "Unlock" "$options")"
+  if [[ $selected == "CNCLD" || -z $selected ]]; then
+    back_to show_style_menu
+  elif [[ $selected == "Default" ]]; then
+    present_terminal omarchy-plymouth-reset
+  else
+    theme_slug=$(echo "$selected" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+    present_terminal "omarchy-plymouth-set-by-theme $theme_slug"
+  fi
 }
 
 show_about_menu() {
@@ -836,6 +865,7 @@ go_to_menu() {
   *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
   *theme*) show_theme_menu ;;
+  *unlock*) show_unlock_menu ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;
   *power*) show_setup_power_menu ;;
