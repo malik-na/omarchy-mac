@@ -1,28 +1,33 @@
 #!/bin/bash
 
-# omarchy:summary=Pick one option with Walker
+# omarchy:summary=Pick one option with fuzzel
 # omarchy:group=menu
 # omarchy:name=select
-# omarchy:args=prompt option... [-- walker args...]
-# omarchy:examples=omarchy menu select Format jpg png|omarchy-menu-select Resolution 4k 1080p 720p -- --width 400
+# omarchy:args=prompt option... [-- fuzzel args...]
+# omarchy:examples=omarchy menu select Format jpg png|omarchy-menu-select Resolution 4k 1080p 720p
 
 set -euo pipefail
 
 if (( $# < 2 )); then
-  echo "Usage: omarchy-menu-select <prompt> <option>... [-- walker args...]" >&2
+  echo "Usage: omarchy-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
   exit 1
+fi
+
+if ! command -v fuzzel >/dev/null 2>&1; then
+  notify-send "Omarchy menu" "Install fuzzel before using selection menus"
+  exit 127
 fi
 
 prompt="$1"
 shift
 
 options=()
-walker_args=()
+extra_args=()
 
 while (( $# > 0 )); do
   if [[ $1 == "--" ]]; then
     shift
-    walker_args=("$@")
+    extra_args=("$@")
     break
   fi
 
@@ -31,8 +36,30 @@ while (( $# > 0 )); do
 done
 
 if (( ${#options[@]} == 0 )); then
-  echo "Usage: omarchy-menu-select <prompt> <option>... [-- walker args...]" >&2
+  echo "Usage: omarchy-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
   exit 1
 fi
 
-printf '%s\n' "${options[@]}" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 300 -p "$prompt…" "${walker_args[@]}" 2>/dev/null
+# Drop legacy Walker-only flags callers may still pass after --
+fuzzel_args=()
+skip_next=false
+for arg in "${extra_args[@]}"; do
+  if [[ $skip_next == true ]]; then
+    skip_next=false
+    continue
+  fi
+  case $arg in
+  --minheight | --maxheight | --width)
+    skip_next=true
+    continue
+    ;;
+  --minheight=* | --maxheight=* | -p | --prompt)
+    continue
+    ;;
+  *)
+    fuzzel_args+=("$arg")
+    ;;
+  esac
+done
+
+printf '%s\n' "${options[@]}" | fuzzel --dmenu --placeholder "${prompt}…" --width 40 "${fuzzel_args[@]}" || true
