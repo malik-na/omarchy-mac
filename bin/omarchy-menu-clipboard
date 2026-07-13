@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Browse clipboard history with fuzzel and cliphist
+
 set -euo pipefail
 
 if omarchy-cmd-missing cliphist || omarchy-cmd-missing fuzzel; then

@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# omarchy:summary=Configure keyboard layout interactively
 # Setup keyboard layout for Omarchy
 # Provides interactive keyboard layout configuration using the first-run script
 

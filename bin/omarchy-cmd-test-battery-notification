@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Send a test low-battery notification
+
 # Send a visible low-battery test notification. Use --service to exercise the
 # systemd battery monitor path with a temporary threshold override.
 
