@@ -129,3 +129,48 @@ if omarchy-cmd-missing fprintd-list || ! fprintd-list "$USER" 2>/dev/null | grep
   sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
 fi
 ```
+
+# Multi-agent loop
+
+For substantive work on this repo (bindings, install, menus, migrations, security), use a **SWE → QA → Review** loop. The main session is the orchestrator.
+
+## Roles
+
+| Role | Responsibility | Edits? |
+|------|----------------|--------|
+| Orchestrator | Scope, handoffs, PR/user communication | Yes if loop stuck |
+| SWE | Implement on `dev` (or a feature branch) | Yes |
+| QA | Run automated suite; report only | No |
+| Reviewer | Diff review vs `origin/main`; bugs block merge | No |
+
+## Rules
+
+- One writer at a time on a shared branch (or use a git worktree for parallel SWE tasks)
+- QA never "fixes" — only commands, output, and FAIL reasons
+- Reviewer: severity `bug` blocks; `suggestion` / `nit` are optional unless requested
+- Max three SWE↔QA rounds, then surface remaining issues to the user
+- Do not force-push `main`; push `dev` only when asked or policy allows
+- Intentional Mac divergences are not bugs: fuzzel (not Walker), Shift+brightness for keyboard backlight, Spotify webapp, Codeberg update remote
+
+## Standard QA commands
+
+Run from the repo root before calling work done:
+
+```bash
+bash tests/test-mac-regression.sh
+bash tests/test-asahi-compatibility.sh
+bash tests/test-codeberg-update-redirect.sh
+bash test/omarchy-cli-test.sh
+bin/omarchy commands --check
+for f in bin/omarchy-*; do bash -n "$f" || exit 1; done
+```
+
+QA should end with `VERDICT: PASS` or `VERDICT: FAIL`.
+
+## Flow
+
+1. Plan if the approach is ambiguous
+2. SWE implements
+3. QA always runs before "done"
+4. Reviewer runs for non-trivial diffs (roughly >50 LOC, or install/bindings/security)
+5. Bugs → SWE → QA again; then orchestrator reports and updates the PR if needed
