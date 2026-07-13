@@ -1,7 +1,7 @@
 echo "Fix Signal launcher binary and restore cliamp Super+Shift+Alt+M binding"
 
 BINDINGS="$HOME/.config/hypr/bindings.conf"
-[[ -f $BINDINGS ]] || return 0
+[[ -f $BINDINGS ]] || exit 0
 
 # signal-desktop-beta is not packaged on aarch64; use signal-desktop
 if grep -q 'signal-desktop-beta' "$BINDINGS"; then
