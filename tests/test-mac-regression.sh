@@ -82,6 +82,58 @@ else
   fail "walker-elephant.sh does not skip Walker setup"
 fi
 
+# First-run must not require Elephant (fresh aarch64 install has no elephant package)
+if grep -qE '^(elephant |systemctl --user start elephant)' "$ROOT/install/first-run/elephant.sh"; then
+  fail "first-run elephant.sh still enables Elephant (breaks first login under set -e)"
+elif grep -qi 'Skipping Elephant' "$ROOT/install/first-run/elephant.sh"; then
+  pass "first-run elephant is no-op on Mac"
+else
+  fail "first-run elephant.sh missing skip guard"
+fi
+
+# Unlock menu must not reintroduce Walker menus
+if grep -q 'omarchy-launch-walker\|menus:omarchyunlocks' "$ROOT/bin/omarchy-menu"; then
+  fail "omarchy-menu still uses Walker unlock menus"
+else
+  pass "omarchy-menu unlock path does not use Walker"
+fi
+
+# Apple media keys: install default is fnmode=1
+if grep -q 'fnmode=1' "$ROOT/install/config/hardware/fix-fkeys.sh"; then
+  pass "fix-fkeys defaults to fnmode=1"
+else
+  fail "fix-fkeys missing fnmode=1"
+fi
+
+# aarch64: never enable seamless-login (dual DM) or force hibernation
+if grep -q 'Skipping seamless-login setup on aarch64' "$ROOT/install/login/plymouth.sh"; then
+  pass "plymouth skips seamless-login on aarch64"
+else
+  fail "plymouth.sh missing aarch64 seamless-login skip"
+fi
+
+if grep -q 'Disabling omarchy-seamless-login in favor of SDDM' "$ROOT/install/login/sddm.sh"; then
+  pass "sddm tears down seamless-login leftovers"
+else
+  fail "sddm.sh missing seamless-login teardown"
+fi
+
+if grep -q 'Skipping hibernation setup on aarch64' "$ROOT/install/login/hibernation.sh" &&
+  grep -q 'not supported on aarch64' "$ROOT/bin/omarchy-hibernation-setup"; then
+  pass "hibernation skipped on aarch64 (install + setup binary)"
+else
+  fail "hibernation aarch64 skip missing"
+fi
+
+# Walker leftover cleanup migration
+if [[ -f $ROOT/migrations/1783964873.sh ]] &&
+  grep -q 'walker.desktop' "$ROOT/migrations/1783964873.sh" &&
+  grep -q 'walker-restart.hook' "$ROOT/migrations/1783964873.sh"; then
+  pass "migration 1783964873 cleans Walker leftovers"
+else
+  fail "migration 1783964873 missing or incomplete"
+fi
+
 # Codeberg update target
 if grep -q 'codeberg.org/malik-na/omarchy-mac' "$ROOT/bin/omarchy-update-git"; then
   pass "updates point at Codeberg omarchy-mac"

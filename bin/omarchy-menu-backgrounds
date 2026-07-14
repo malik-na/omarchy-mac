@@ -23,7 +23,7 @@ collect_backgrounds() {
   declare -gA seen_files=()
 
   local theme_name="" wallpaper_dir background filename label
-  if [[ -f $HOME/.config/omarchy/current/theme.name ]]; then
+  if [[ -f "$HOME/.config/omarchy/current/theme.name" ]]; then
     theme_name="$(<"$HOME/.config/omarchy/current/theme.name")"
   fi
 
@@ -33,7 +33,7 @@ collect_backgrounds() {
   fi
 
   for wallpaper_dir in "${dirs[@]}"; do
-    [[ -d $wallpaper_dir ]] || continue
+    [[ -d "$wallpaper_dir" ]] || continue
 
     while IFS= read -r background; do
       filename="${background##*/}"
@@ -187,7 +187,8 @@ run_dual_pane_picker() {
 
   if [[ -n $selected ]]; then
     path="${selected#*$'\t'}"
-    if [[ -f $path ]]; then
+    # Paths may contain spaces (user backgrounds); always quote the test.
+    if [[ -f "$path" ]]; then
       omarchy-theme-bg-set "$path"
     fi
   fi
@@ -212,10 +213,24 @@ main() {
   # From Super+Ctrl+Space / menu: no TTY — open floating terminal for list pane
   if [[ ! -t 0 || ! -t 1 ]]; then
     if omarchy-cmd-present xdg-terminal-exec; then
-      setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.bgpicker --title="Background" \
-        -e bash -lc "export PATH=$(printf '%q' "$PATH"); $(printf '%q' "${BASH_SOURCE[0]}") --in-terminal" \
-        >/dev/null 2>&1 &
-      exit 0
+      local inner
+      inner="export PATH=$(printf '%q' "$PATH"); $(printf '%q' "${BASH_SOURCE[0]}") --in-terminal"
+      local spawn_pid=""
+      if command -v uwsm-app >/dev/null 2>&1; then
+        setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.bgpicker --title="Background" \
+          -e bash -lc "$inner" >/dev/null 2>&1 &
+        spawn_pid=$!
+      else
+        setsid xdg-terminal-exec --app-id=org.omarchy.bgpicker --title="Background" \
+          -e bash -lc "$inner" >/dev/null 2>&1 &
+        spawn_pid=$!
+      fi
+      # If the terminal dies immediately, fall back instead of silent exit 0
+      sleep 0.4
+      if [[ -n $spawn_pid ]] && kill -0 "$spawn_pid" 2>/dev/null; then
+        exit 0
+      fi
+      notify-send "Background selector" "Terminal picker failed; using image browser" 2>/dev/null || true
     fi
     run_imv_only_picker
     exit 0

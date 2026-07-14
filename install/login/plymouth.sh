@@ -11,12 +11,19 @@ if [ "$(plymouth-set-default-theme)" != "omarchy" ]; then
 fi
 
 # ==============================================================================
-# SEAMLESS LOGIN
+# SEAMLESS LOGIN (x86_64 only — never on Apple Silicon)
 # ==============================================================================
+# Omarchy Mac uses SDDM (install/login/sddm.sh). Enabling seamless-login here
+# races SDDM on aarch64 and can black-screen or loop after reboot on M1/M2.
+# The migration that disabled seamless-login is only marked applied on first
+# install (preflight touches state, does not run bodies), so skip setup here.
 
-if [ ! -x /usr/local/bin/seamless-login ]; then
-  # Compile the seamless login helper -- needed to prevent seeing terminal between loader and desktop
-  cat <<'CCODE' >/tmp/seamless-login.c
+if [[ $(uname -m) == "aarch64" ]]; then
+  echo "Skipping seamless-login setup on aarch64 (Omarchy Mac uses SDDM)"
+else
+  if [ ! -x /usr/local/bin/seamless-login ]; then
+    # Compile the seamless login helper -- needed to prevent seeing terminal between loader and desktop
+    cat <<'CCODE' >/tmp/seamless-login.c
 /*
 * Seamless Login - Minimal SDDM-style Plymouth transition
 * Replicates SDDM's VT management for seamless auto-login
@@ -89,14 +96,14 @@ int main(int argc, char *argv[]) {
 }
 CCODE
 
-  gcc -o /tmp/seamless-login /tmp/seamless-login.c
-  sudo mv /tmp/seamless-login /usr/local/bin/seamless-login
-  sudo chmod +x /usr/local/bin/seamless-login
-  rm /tmp/seamless-login.c
-fi
+    gcc -o /tmp/seamless-login /tmp/seamless-login.c
+    sudo mv /tmp/seamless-login /usr/local/bin/seamless-login
+    sudo chmod +x /usr/local/bin/seamless-login
+    rm /tmp/seamless-login.c
+  fi
 
-if [ ! -f /etc/systemd/system/omarchy-seamless-login.service ]; then
-  cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
+  if [ ! -f /etc/systemd/system/omarchy-seamless-login.service ]; then
+    cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
 [Unit]
 Description=Omarchy Seamless Auto-Login
 Documentation=https://codeberg.org/malik-na/omarchy-mac
@@ -124,29 +131,30 @@ PAMName=login
 [Install]
 WantedBy=graphical.target
 EOF
-fi
+  fi
 
-if [ ! -f /etc/systemd/system/plymouth-quit.service.d/wait-for-graphical.conf ]; then
-  # Make plymouth remain until graphical.target
-  sudo mkdir -p /etc/systemd/system/plymouth-quit.service.d
-  sudo tee /etc/systemd/system/plymouth-quit.service.d/wait-for-graphical.conf <<'EOF'
+  if [ ! -f /etc/systemd/system/plymouth-quit.service.d/wait-for-graphical.conf ]; then
+    # Make plymouth remain until graphical.target
+    sudo mkdir -p /etc/systemd/system/plymouth-quit.service.d
+    sudo tee /etc/systemd/system/plymouth-quit.service.d/wait-for-graphical.conf <<'EOF'
 [Unit]
 After=multi-user.target
 EOF
-fi
+  fi
 
-# Mask plymouth-quit-wait.service only if not already masked
-if ! systemctl is-enabled plymouth-quit-wait.service | grep -q masked; then
-  sudo systemctl mask plymouth-quit-wait.service
-  sudo systemctl daemon-reload
-fi
+  # Mask plymouth-quit-wait.service only if not already masked
+  if ! systemctl is-enabled plymouth-quit-wait.service | grep -q masked; then
+    sudo systemctl mask plymouth-quit-wait.service
+    sudo systemctl daemon-reload
+  fi
 
-# Enable omarchy-seamless-login.service only if not already enabled
-if ! systemctl is-enabled omarchy-seamless-login.service | grep -q enabled; then
-  sudo systemctl enable omarchy-seamless-login.service
-fi
+  # Enable omarchy-seamless-login.service only if not already enabled
+  if ! systemctl is-enabled omarchy-seamless-login.service | grep -q enabled; then
+    sudo systemctl enable omarchy-seamless-login.service
+  fi
 
-# Disable getty@tty1.service only if not already disabled
-if ! systemctl is-enabled getty@tty1.service | grep -q disabled; then
-  sudo systemctl disable getty@tty1.service
+  # Disable getty@tty1.service only if not already disabled
+  if ! systemctl is-enabled getty@tty1.service | grep -q disabled; then
+    sudo systemctl disable getty@tty1.service
+  fi
 fi
