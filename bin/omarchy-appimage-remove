@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Remove an installed AppImage and its desktop entry
+
 APPS_DIR="$HOME/.local/share/applications/appimages"
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_THEME_BASE="$HOME/.local/share/icons/hicolor"

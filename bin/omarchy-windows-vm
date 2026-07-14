@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Install or manage the Windows Docker VM (x86_64 only)
+
 # Check for ARM64 architecture first
 ARCH=$(uname -m)
 if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then

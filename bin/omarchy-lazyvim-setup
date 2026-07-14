@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# omarchy:summary=Install LazyVim configuration for Neovim
 # Omarchy LazyVim setup script
 # Installs LazyVim config for the current user
 

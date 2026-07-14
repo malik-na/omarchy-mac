@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# omarchy:summary=Update timezone with multi-method detection
 # Enhanced timezone update command with multiple detection methods and user choice
 
 # Source the timezone detection functions

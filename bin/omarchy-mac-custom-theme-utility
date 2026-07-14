@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# omarchy:summary=Utilities for custom Omarchy Mac themes
+
 # omarchy-mac-custom-theme-utility
 
 set -euo pipefail

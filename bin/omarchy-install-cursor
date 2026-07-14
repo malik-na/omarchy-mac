@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Install Cursor IDE for the current architecture
+
 set -euo pipefail
 
 VERSION="2.6.20"

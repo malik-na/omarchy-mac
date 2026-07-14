@@ -1,16 +1,24 @@
 #!/bin/bash
 
-# omarchy:summary=Prompt for text input with Walker
+# omarchy:summary=Prompt for free-form text input with fuzzel
 # omarchy:group=menu
 # omarchy:name=input
-# omarchy:args=prompt [walker args...]
-# omarchy:examples=omarchy menu input Reminder|omarchy-menu-input "Reminder in minutes" --width 400
+# omarchy:args=prompt [fuzzel args...]
+# omarchy:examples=omarchy menu input Reminder|omarchy-menu-input "Reminder in minutes"
 
 set -euo pipefail
+
+if ! command -v fuzzel >/dev/null 2>&1; then
+  notify-send "Omarchy menu" "Install fuzzel before using text input prompts"
+  exit 127
+fi
 
 prompt="${1:-Input}"
 if (( $# > 0 )); then
   shift
 fi
 
-omarchy-launch-walker --dmenu --inputonly --width 295 --minheight 1 --maxheight 1 -p "$prompt…" "$@" 2>/dev/null
+# Free-text prompt: no dmenu list, type and press Enter (Esc cancels → empty)
+# Remaining args are forwarded for callers that pass fuzzel flags (e.g. --width 40)
+result="$(fuzzel --dmenu --prompt-only="${prompt}…" --width 40 "$@" || true)"
+printf '%s' "$result"

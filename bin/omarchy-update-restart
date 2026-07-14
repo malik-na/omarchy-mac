@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# omarchy:summary=Prompt for reboot when the kernel package changed after update
+
 # Compare kernel version before and after updates
 kernel_before=$(cat /tmp/omarchy-kernel-before 2>/dev/null)
 kernel_after=$(pacman -Q linux-asahi 2>/dev/null | awk '{print $2}')

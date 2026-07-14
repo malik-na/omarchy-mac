@@ -93,7 +93,9 @@ nvim
 obs-studio
 obsidian
 omarchy-nvim
-omarchy-walker
+# omarchy-walker — not used on Omarchy Mac (fuzzel + imv/fzf instead)
+fuzzel
+cliphist
 pamixer
 pinta
 playerctl

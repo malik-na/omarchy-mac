@@ -1,5 +1,5 @@
-#!/bin/bash
-# Ensure that F-keys on Apple-like keyboards (such as Lofree Flow84) are always F-keys
+# Prefer media/special keys by default on Apple keyboards (Fn for F1–F12).
+# Matches macOS; Hyprland volume/brightness binds use XF86* media keycodes.
 if [[ ! -f /etc/modprobe.d/hid_apple.conf ]]; then
-  echo "options hid_apple fnmode=2" | sudo tee /etc/modprobe.d/hid_apple.conf
+  echo "options hid_apple fnmode=1" | sudo tee /etc/modprobe.d/hid_apple.conf
 fi
