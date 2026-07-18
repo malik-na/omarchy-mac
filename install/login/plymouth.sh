@@ -95,6 +95,31 @@ CCODE
   rm /tmp/seamless-login.c
 fi
 
+# Apple Silicon: simpledrm owns the screen early in boot and apple-drm (the DCP
+# display driver) only takes over ~10s in. If the compositor starts inside that
+# window it binds simpledrm, which can't scan out GPU buffers -> blank 0x0
+# screen. This helper (run as ExecStartPre below) blocks seamless-login until
+# the handoff is done. Harmless / fail-open on non-Apple hardware.
+sudo tee /usr/local/bin/omarchy-wait-for-display >/dev/null <<'WAITEOF'
+#!/bin/bash
+# Wait for the real KMS display driver (apple-drm) to replace the early
+# simpledrm boot framebuffer before the Wayland compositor starts. simpledrm is
+# the platform device *.framebuffer bound to the "simple-framebuffer" driver; it
+# owns card0 until apple-drm takes over ~10s in. Starting the compositor while
+# simpledrm still holds a card binds it and can't scan out GPU buffers ->
+# blank/crash. Fail-open after ~15s so login is never blocked on a broken display.
+apple_drm=/dev/dri/by-path/platform-soc:display-subsystem-card
+for _ in $(seq 1 150); do
+  # simpledrm still active if a device is bound to the simple-framebuffer driver
+  if [ -e "$apple_drm" ] && ! ls /sys/bus/platform/drivers/simple-framebuffer/*.framebuffer >/dev/null 2>&1; then
+    exit 0
+  fi
+  sleep 0.1
+done
+exit 0
+WAITEOF
+sudo chmod +x /usr/local/bin/omarchy-wait-for-display
+
 if [ ! -f /etc/systemd/system/omarchy-seamless-login.service ]; then
   cat <<EOF | sudo tee /etc/systemd/system/omarchy-seamless-login.service
 [Unit]
@@ -106,6 +131,7 @@ PartOf=graphical.target
 
 [Service]
 Type=simple
+ExecStartPre=/usr/local/bin/omarchy-wait-for-display
 ExecStart=/usr/local/bin/seamless-login uwsm start -- hyprland.desktop
 Restart=always
 RestartSec=2
