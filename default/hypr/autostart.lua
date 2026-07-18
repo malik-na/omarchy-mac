@@ -1,5 +1,7 @@
--- Mac fork: lock screen on startup for enhanced security (malik-na, b52fd261)
-o.exec_on_start("hyprlock")
+-- Mac fork: lock screen on startup for enhanced security (malik-na, b52fd261).
+-- Gated on display readiness: bare `hyprlock` here races GPU/DRM init at boot
+-- on Apple Silicon and renders a blank, frozen lock surface. See the script.
+o.exec_on_start("omarchy-mac-lock-on-boot")
 o.launch_on_start("hypridle")
 o.launch_on_start("mako")
 o.exec_on_start("! omarchy-toggle-enabled waybar-off && " .. o.launch("waybar"))
