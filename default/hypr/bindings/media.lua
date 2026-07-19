@@ -5,8 +5,11 @@ o.bind("XF86AudioMute", "Mute", "omarchy-audio-output-volume mute-toggle", { loc
 o.bind("XF86AudioMicMute", "Mute microphone", "omarchy-audio-input-mute", { locked = true })
 o.bind("XF86MonBrightnessUp", "Brightness up", "omarchy-brightness-display +5%", { locked = true, repeating = true })
 o.bind("XF86MonBrightnessDown", "Brightness down", "omarchy-brightness-display 5%-", { locked = true, repeating = true })
-o.bind("SHIFT + XF86MonBrightnessUp", "Brightness maximum", "omarchy-brightness-display 100%", { locked = true, repeating = true })
-o.bind("SHIFT + XF86MonBrightnessDown", "Brightness minimum", "omarchy-brightness-display 1%", { locked = true, repeating = true })
+-- Mac fork: SHIFT+brightness drives the keyboard backlight (F1/F2 Mac layout).
+-- Modern Apple Silicon MacBooks have no dedicated XF86KbdBrightness key, so
+-- SHIFT+F1/F2 is the only accessible control; replaces upstream's max/min.
+o.bind("SHIFT + XF86MonBrightnessUp", "Keyboard brightness up", "omarchy-brightness-keyboard up", { locked = true, repeating = true })
+o.bind("SHIFT + XF86MonBrightnessDown", "Keyboard brightness down", "omarchy-brightness-keyboard down", { locked = true, repeating = true })
 o.bind("XF86KbdBrightnessUp", "Keyboard brightness up", "omarchy-brightness-keyboard up", { locked = true, repeating = true })
 o.bind("XF86KbdBrightnessDown", "Keyboard brightness down", "omarchy-brightness-keyboard down", { locked = true, repeating = true })
 o.bind("XF86KbdLightOnOff", "Keyboard backlight cycle", "omarchy-brightness-keyboard cycle", { locked = true })
@@ -31,3 +34,9 @@ o.bind("ALT + SHIFT + XF86AudioPlay", "Previous track", "omarchy-shell media pre
 o.bind("SHIFT + XF86AudioMute", "Switch audio output", "omarchy-audio-output-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPause", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-switch", { locked = true })
+
+-- Mac fork: screenshot binds on F-keys — Mac keyboards have no PRINT key, so
+-- quattro's PRINT-based screenshot binds are dead keys on this hardware.
+o.bind("SUPER + F12", "Screenshot Display", "omarchy-capture-screenshot fullscreen")
+o.bind("SUPER + F11", "Screenshot Region", "omarchy-capture-screenshot region")
+o.bind("SUPER + F10", "Screenshot Window", "omarchy-capture-screenshot windows")
