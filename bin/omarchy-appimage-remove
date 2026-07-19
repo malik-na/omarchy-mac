@@ -1,0 +1,85 @@
+#!/bin/bash
+
+APPS_DIR="$HOME/.local/share/applications/appimages"
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_THEME_BASE="$HOME/.local/share/icons/hicolor"
+
+if [ "$#" -eq 0 ]; then
+  # Discover AppImage apps by reading .desktop files and checking Exec points to an AppImage.
+  # This avoids guessing names and guarantees we remove exactly what the launcher would start.
+  while IFS= read -r -d '' file; do
+    EXEC_LINE="$(grep -m1 '^Exec=' "$file" | cut -d= -f2-)"
+    [[ -z "$EXEC_LINE" ]] && continue
+    if [[ "$EXEC_LINE" =~ ^\"([^\"]+)\" ]]; then
+      EXEC_PATH="${BASH_REMATCH[1]}"
+    else
+      EXEC_PATH="${EXEC_LINE%% *}"
+    fi
+    [[ -z "$EXEC_PATH" ]] && continue
+    if [[ "$EXEC_PATH" == "$APPS_DIR/"* || "$EXEC_PATH" == *.AppImage ]]; then
+      APPIMAGE_APPS+=("$(basename "${file%.desktop}")")
+    fi
+  done < <(find "$DESKTOP_DIR" -name '*.desktop' -print0)
+
+  if ((${#APPIMAGE_APPS[@]})); then
+    IFS=$'\n' SORTED_APPIMAGE_APPS=($(sort <<<"${APPIMAGE_APPS[*]}"))
+    unset IFS
+    APP_NAMES_STRING=$(gum choose --no-limit --header "Select AppImage to remove..." --selected-prefix="✗ " "${SORTED_APPIMAGE_APPS[@]}")
+    # Convert newline-separated string to array, because users may remove several apps at once.
+    APP_NAMES=()
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && APP_NAMES+=("$line")
+    done <<<"$APP_NAMES_STRING"
+  else
+    echo "No AppImage apps to remove."
+    exit 1
+  fi
+else
+  # Use array to preserve spaces in app names, keeping behavior consistent with the web-app remover.
+  APP_NAMES=("$@")
+fi
+
+if [[ ${#APP_NAMES[@]} -eq 0 ]]; then
+  echo "You must provide AppImage app names."
+  exit 1
+fi
+
+for APP_NAME in "${APP_NAMES[@]}"; do
+  DESKTOP_FILE="$DESKTOP_DIR/$APP_NAME.desktop"
+
+  # Read metadata before deletion so we can safely remove binaries and icons referenced by the launcher.
+  EXEC_PATH=""
+  ICON_VALUE=""
+  if [[ -f "$DESKTOP_FILE" ]]; then
+    EXEC_LINE="$(grep -m1 '^Exec=' "$DESKTOP_FILE" | cut -d= -f2-)"
+    ICON_VALUE="$(grep -m1 '^Icon=' "$DESKTOP_FILE" | cut -d= -f2-)"
+    if [[ "$EXEC_LINE" =~ ^\"([^\"]+)\" ]]; then
+      EXEC_PATH="${BASH_REMATCH[1]}"
+    else
+      EXEC_PATH="${EXEC_LINE%% *}"
+    fi
+  fi
+
+  # Remove the launcher first to immediately hide the app from menus and avoid dangling entries.
+  rm -f "$DESKTOP_FILE"
+
+  # Remove the AppImage file referenced by Exec if it looks like a real AppImage and exists.
+  # This cleans up disk space and prevents stale binaries from lingering in APPS_DIR or Downloads.
+  if [[ -n "$EXEC_PATH" && -f "$EXEC_PATH" && "$EXEC_PATH" == *.AppImage ]]; then
+    rm -f "$EXEC_PATH"
+  fi
+
+  # Remove installed icons. If Icon was an absolute path, delete it directly.
+  # If Icon was a name, remove matching files across sizes in the user's hicolor theme to avoid orphaned icons.
+  if [[ -n "$ICON_VALUE" ]]; then
+    if [[ "$ICON_VALUE" == /* ]]; then
+      rm -f "$ICON_VALUE"
+    else
+      find "$ICON_THEME_BASE" -type f -path "*/apps/${ICON_VALUE}.*" -print0 2>/dev/null | xargs -0r rm -f
+    fi
+  fi
+  # Also try removing icons named after the desktop base name, covering cases where Icon=$APP_NAME was used.
+  find "$ICON_THEME_BASE" -type f -path "*/apps/${APP_NAME}.*" -print0 2>/dev/null | xargs -0r rm -f
+
+  echo "Removed $APP_NAME"
+done

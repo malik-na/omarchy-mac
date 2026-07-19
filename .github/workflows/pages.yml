@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare site files
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp install.sh _site/
+          cp boot.sh _site/
+          cp bootstrap.sh _site/
+          cp -r bin _site/
+          cp -r config _site/
+          cp -r default _site/
+          cp -r install _site/
+          cp -r migrations _site/
+          cp -r applications _site/
+          cp -r autostart _site/
+          cp version _site/
+          cp .nojekyll _site/
+          # Copy any additional assets
+          [ -f icon.png ] && cp icon.png _site/ || true
+          [ -f logo.svg ] && cp logo.svg _site/ || true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

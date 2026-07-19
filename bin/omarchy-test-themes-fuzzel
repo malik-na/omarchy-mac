@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Iterate all themes and verify fuzzel.ini exists and is parsable by fuzzel.
+# Optionally run a quick visual smoke test (2s) if a Wayland session with fuzzel is available.
+
+set -euo pipefail
+
+THEMES_DIR="$HOME/.local/share/omarchy/themes"
+CURRENT_THEME_DIR="$HOME/.config/omarchy/current/theme"
+VISUAL=${VISUAL:-false}
+
+usage() {
+  cat <<USAGE
+Usage: $(basename "$0") [--visual]
+
+  --visual   Launch fuzzel for each theme for ~1.5s (Wayland session required)
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --visual) VISUAL=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+# Ensure converter runs to generate any missing configs
+~/.local/share/omarchy/bin/omarchy-convert-themes-to-fuzzel
+
+printf "\nTesting fuzzel themes in: %s\n\n" "$THEMES_DIR"
+
+ok=0
+fail=0
+
+for theme_dir in "$THEMES_DIR"/*; do
+  [[ -d "$theme_dir" ]] || continue
+  theme_name=$(basename "$theme_dir")
+  [[ "$theme_name" == "default" ]] && continue
+
+  fuzzel_ini="$theme_dir/fuzzel.ini"
+  walker_css="$theme_dir/walker.css"
+
+  if [[ ! -f "$fuzzel_ini" ]]; then
+    echo "[FAIL] $theme_name: missing fuzzel.ini (walker.css present: $([[ -f "$walker_css" ]] && echo yes || echo no))"
+    fail=$((fail+1))
+    continue
+  fi
+
+  # Basic parse: ensure [colors] section and background/text keys exist
+  if ! grep -q "^\[colors\]" "$fuzzel_ini" || ! grep -q "^background=" "$fuzzel_ini" || ! grep -q "^text=" "$fuzzel_ini"; then
+    echo "[FAIL] $theme_name: invalid fuzzel.ini (missing required keys)"
+    fail=$((fail+1))
+    continue
+  fi
+
+  # If requested, try launching fuzzel briefly to ensure it doesn't crash on the theme
+  if [[ "$VISUAL" == true ]]; then
+    if command -v fuzzel >/dev/null 2>&1 && [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+      # Temporarily point current/theme to this theme and spawn fuzzel
+      mkdir -p "$CURRENT_THEME_DIR"
+      ln -nsf "$theme_dir" "$CURRENT_THEME_DIR"
+      FUZZEL_CMD=(fuzzel --log-level=error)
+      timeout 1.5s "${FUZZEL_CMD[@]}" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  echo "[ OK ] $theme_name"
+  ok=$((ok+1))
+
+done
+
+printf "\nSummary: %d OK, %d FAIL\n" "$ok" "$fail"
+
+# Return failure if any failed
+if (( fail > 0 )); then
+  exit 2
+fi

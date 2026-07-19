@@ -1,3 +1,4 @@
+#!/bin/bash
 # This installs hardware video acceleration for Intel GPUs
 
 if INTEL_GPU=$(lspci | grep -iE 'vga|3d|display' | grep -i 'intel'); then

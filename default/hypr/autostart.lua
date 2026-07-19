@@ -1,4 +1,9 @@
 hl.on("hyprland.start", function()
+  -- Mac fork: lock the screen on startup, gated on display readiness — a bare
+  -- hyprlock here races GPU/DRM init at boot on Apple Silicon and renders a
+  -- blank, frozen lock surface. omarchy-mac-lock-on-boot waits for appledrm.
+  hl.exec_cmd("omarchy-mac-lock-on-boot")
+
   -- Slow app launch fix -- set systemd vars before starting session services.
   hl.exec_cmd("systemctl --user import-environment $(env | cut -d'=' -f 1)")
   hl.exec_cmd("dbus-update-activation-environment --systemd --all")

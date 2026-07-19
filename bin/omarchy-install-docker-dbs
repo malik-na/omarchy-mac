@@ -3,7 +3,11 @@
 # omarchy:summary=Install one of the supported databases in a Docker container with the suitable development options.
 # omarchy:requires-sudo=true
 
-options=("MySQL" "PostgreSQL" "Redis" "MongoDB" "MariaDB" "MSSQL")
+options=("MySQL" "PostgreSQL" "Redis" "MongoDB" "MariaDB")
+
+if [[ $(uname -m) == "x86_64" ]]; then
+  options+=("MSSQL")
+fi
 
 if (( $# == 0 )); then
   choices=$(printf "%s\n" "${options[@]}" | gum choose --header "Select database (return to install, esc to cancel)") || main_menu

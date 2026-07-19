@@ -1,0 +1,16 @@
+# Omarchy-zsh rc file - sources all zsh configuration
+# This file loads all the omarchy-zsh components
+
+# Load configuration files
+if [[ -d ~/.local/share/omarchy/default/zsh/conf.d ]]; then
+  for config in ~/.local/share/omarchy/default/zsh/conf.d/*.zsh; do
+    [[ -f "$config" ]] && source "$config"
+  done
+fi
+
+# Load functions and aliases
+if [[ -d ~/.local/share/omarchy/default/zsh/functions ]]; then
+  for func in ~/.local/share/omarchy/default/zsh/functions/*.zsh; do
+    [[ -f "$func" ]] && source "$func"
+  done
+fi

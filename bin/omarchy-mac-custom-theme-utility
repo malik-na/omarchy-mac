@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+# omarchy-mac-custom-theme-utility
+
+set -euo pipefail
+
+THEMES_DIR="${HOME}/.config/omarchy/themes"
+# If walker.css does not contain any color, there are provided defaults
+DEFAULT_BG="343946"
+DEFAULT_TEXT="a9b1bc"
+DEFAULT_ACCENT="cee5ff"
+
+PROMPT_DIM="0.85" #dimming value
+
+# the fuzzel generation component for Mac-Menu
+# This components gives us approach to support the official omarchy themes, which aren't contain fuzzel.ini
+
+make_theme_compatable() {
+  local dir="$1"
+  local walker="$dir/walker.css"
+  local out="$dir/fuzzel.ini"
+
+  [[ -f "$walker" ]] || return 0
+
+  # If fuzzel.ini exist, we continue without making change
+  # [[ -f "$out" ]] && return 0
+
+  awk -v default_bg="$DEFAULT_BG" \
+    -v default_text="$DEFAULT_TEXT" \
+    -v default_accent="$DEFAULT_ACCENT" \
+    -v prompt_dim="$PROMPT_DIM" '
+    BEGIN {
+      IGNORECASE=1
+    }
+    {
+      if (match($0, /@define-color[ \t]+([A-Za-z\-]+)[ \t]+#([0-9A-Fa-f]{6})[ \t]*;/, m)) {
+        name = tolower(m[1])
+        val  = tolower(m[2])
+        color[name] = val    # Last definiton priority
+      }
+    }
+    function pick(a,b,c, d) {
+      if (a != "") return a
+      if (b != "") return b
+      if (c != "") return c
+      return d
+    }
+    function hex2i(h) { return strtonum("0x" h) }
+    function clamp(x) { if (x<0) return 0; if (x>255) return 255; return int(x+0.5) }
+    function darken(hex, f, r,g,b) {
+      r = substr(hex,1,2); g = substr(hex,3,2); b = substr(hex,5,2)
+      r = sprintf("%02x", clamp(hex2i(r)*f))
+      g = sprintf("%02x", clamp(hex2i(g)*f))
+      b = sprintf("%02x", clamp(hex2i(b)*f))
+      return r g b
+    }
+    END {
+      # Fallback palette walker → omarchy
+      bg      = pick(color["background"], color["base"], "", default_bg)
+      text    = pick(color["text"], color["foreground"], "", default_text)
+      accent  = pick(color["border"], "", "", default_accent)
+      seltext = pick(color["selected-text"], "", "", accent)
+
+      # Dimmed text
+      prompt  = darken(text, prompt_dim+0)
+
+      a_bg="f9"; a_full="ff"; a_zero="00"
+
+      print "[colors]"
+      printf("background=%s%s\n",      bg,      a_bg)
+      printf("prompt=%s%s\n",          prompt,  a_full)
+      printf("input=%s%s\n",           text,    a_full)
+      printf("text=%s%s\n",            text,    a_full)
+      printf("match=%s%s\n",           text,    a_full)
+      printf("selection-match=%s%s\n", accent,  a_full)
+      printf("selection=%s\n",         "000000" a_zero)
+      printf("selection-text=%s%s\n",  seltext, a_full)
+      printf("border=%s%s\n",          accent,  a_full)
+    }
+  ' "$walker" >"$out"
+
+  echo "✓ $out"
+}
+
+main() {
+  if [[ ! -d "$THEMES_DIR" ]]; then
+    echo "Themes dir does not exists: $THEMES_DIR"
+    exit 0
+  fi
+
+  if [[ $# -ge 1 ]]; then
+    make_theme_compatable "$1"
+    exit 0
+  fi
+
+  shopt -s nullglob
+  for d in "$THEMES_DIR"/*; do
+    [[ -d "$d" ]] || continue
+    if [[ -f "$d/walker.css" && ! -f "$d/fuzzel.ini" ]]; then
+      make_theme_compatable "$d"
+    fi
+  done
+}
+
+main "$@"

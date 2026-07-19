@@ -35,6 +35,9 @@ hl.config({
     col = {
       border_active = active_border_color,
       border_inactive = inactive_border_color,
+      -- Mac fork: locked groups use theme colors instead of Hyprland's -1 default
+      border_locked_active = active_border_color,
+      border_locked_inactive = inactive_border_color,
     },
 
     groupbar = {

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Detect Surface devices which require additional modules for the keyboard to work.
 # Module list derived from Chris McLeod's manual install instructions
 # https://chrismcleod.dev/blog/installing-arch-linux-with-secure-boot-on-a-microsoft-surface-laptop-studio/

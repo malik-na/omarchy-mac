@@ -1,0 +1,80 @@
+#!/bin/bash
+# Enhanced timezone update command with multiple detection methods and user choice
+
+# Source the timezone detection functions
+if [[ -f "$OMARCHY_PATH/install/config/timezone-detection.sh" ]]; then
+    source "$OMARCHY_PATH/install/config/timezone-detection.sh"
+else
+    echo "Error: Timezone detection script not found"
+    exit 1
+fi
+
+# Function to show current timezone info
+show_current_info() {
+    local current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")
+    local current_time=$(date)
+    
+    notify-send "Current Timezone" "Timezone: $current_tz\nTime: $current_time" -t 5000
+}
+
+# Enhanced timezone update with user choice
+enhanced_tzupdate() {
+    # Check for internet first
+    if ! ping -c1 -W3 1.1.1.1 >/dev/null 2>&1; then
+        notify-send "No Internet" "Internet connection required for automatic timezone detection" -u critical -t 5000
+        return 1
+    fi
+    
+    notify-send "Updating Timezone" "Detecting location and updating timezone..." -t 3000
+    
+    # Try automatic detection
+    local detected_tz
+    detected_tz=$(detect_timezone_ip)
+    
+    if [[ $? -eq 0 && -n "$detected_tz" ]]; then
+        # Successfully detected - apply it
+        sudo timedatectl set-timezone "$detected_tz"
+        sudo systemctl restart systemd-timesyncd
+        
+        local new_time=$(date)
+        notify-send "Timezone Updated" "New timezone: $detected_tz\nTime: $new_time" -t 8000
+        
+        # Restart waybar to update clock display
+        omarchy-restart-waybar >/dev/null 2>&1 || true
+    else
+        # Detection failed - offer manual selection
+        notify-send "Auto-detection Failed" "Click to select timezone manually" -u normal -t 8000 -A "Select Manually=manual_selection"
+    fi
+}
+
+# Manual timezone selection using gum if available
+manual_selection() {
+    if command -v gum >/dev/null 2>&1; then
+        # Use terminal for better interface
+        if command -v alacritty >/dev/null 2>&1; then
+            alacritty --class "Timezone" --title "Timezone Selection" -e bash -c "source '$OMARCHY_PATH/install/config/timezone-detection.sh'; select_timezone_interactive; read -n1 -p 'Press any key to close...'"
+        elif command -v kitty >/dev/null 2>&1; then
+            kitty --class "Timezone" --title "Timezone Selection" -e bash -c "source '$OMARCHY_PATH/install/config/timezone-detection.sh'; select_timezone_interactive; read -n1 -p 'Press any key to close...'"
+        else
+            # Fallback to notification
+            notify-send "Manual Setup" "Open terminal and run: omarchy-cmd-tzupdate-manual" -t 10000
+        fi
+    else
+        # Basic notification fallback
+        notify-send "Manual Setup" "Use 'timedatectl set-timezone' command or install gum for better interface" -t 10000
+    fi
+}
+
+# Check for arguments
+case "${1:-}" in
+    "show")
+        show_current_info
+        ;;
+    "manual")
+        manual_selection
+        ;;
+    *)
+        # Default behavior - try enhanced detection
+        enhanced_tzupdate
+        ;;
+esac

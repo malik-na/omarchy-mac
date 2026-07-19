@@ -1,0 +1,11 @@
+# If not running interactively, don't do anything (leave this at the top of this file)
+[[ $- != *i* ]] && return
+
+# All the default Omarchy zsh configuration
+# (don't mess with these directly, just add your customizations below!)
+source ~/.local/share/omarchy/default/zsh/rc
+
+# Add your own exports, aliases, and functions here.
+#
+# Make an alias for invoking commands you use constantly
+# alias p='python'

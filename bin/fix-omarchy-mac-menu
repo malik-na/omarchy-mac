@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+REPO_URL="https://github.com/tayowrld/omarchy-mac-menu.git"
+APP_NAME="omarchy-mac-menu"
+FUZCONF="${HOME}/.config/fuzzel"
+FUZCONF_BAK="${HOME}/.config/fuzzel.bak"
+OMARCHY_BIN="${HOME}/.local/share/omarchy/bin"
+OMARCHY_BIN_BAK="${HOME}/.local/share/omarchy/bin.bak"
+OMARCHY_MENU="${OMARCHY_BIN}/omarchy-menu"
+
+bold() { printf "\033[1m%s\033[0m\n" "$*"; }
+dim() { printf "\033[2m%s\033[0m\n" "$*"; }
+ok() { printf "✔ %s\n" "$*"; }
+err() { printf "✖ %s\n" "$*" >&2; }
+ask() { printf "› %s " "$*"; }
+
+banner() {
+  cat <<'ASCII'
+         ░▀█▀░█▀█░█░█░█▀█░█░█░█▀▄░█░░░█▀▄
+         ░░█░░█▀█░░█░░█░█░█▄█░█▀▄░█░░░█░█
+         ░░▀░░▀░▀░░▀░░▀▀▀░▀░▀░▀░▀░▀▀▀░▀▀░
+             omarchy • (mac?) • menu
+ASCII
+}
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    err "Required command not found: $1"
+    exit 1
+  }
+}
+
+confirm() {
+  local q="${1:-Continue?}"
+  local d="${2:-y}"
+  local a
+  ask "$q [y/n] (default: $d)"
+  read -r a || true
+  a="${a:-$d}"
+  [[ "${a}" =~ ^[Yy]$ ]]
+}
+
+clone_repo() {
+  local tmp
+  tmp="$(mktemp -d)"
+  git clone --depth=1 "$REPO_URL" "$tmp/$APP_NAME" >/dev/null
+  printf "%s" "$tmp/$APP_NAME"
+}
+
+ensure_dirs() {
+  mkdir -p "$OMARCHY_BIN"
+  mkdir -p "$HOME/.config"
+}
+
+backup_if_needed() {
+  local warn=0
+  if [ -d "$FUZCONF" ] && [ ! -e "$FUZCONF_BAK" ]; then
+    mv "$FUZCONF" "$FUZCONF_BAK"
+    ok "Backed up fuzzel config → ${FUZCONF_BAK}"
+  elif [ -e "$FUZCONF_BAK" ]; then
+    warn=1
+    dim "Existing backup detected: ${FUZCONF_BAK}"
+  fi
+  if [ -d "$OMARCHY_BIN" ] && [ ! -e "$OMARCHY_BIN_BAK" ]; then
+    cp -R "$OMARCHY_BIN" "$OMARCHY_BIN_BAK"
+    ok "Backed up omarchy bin → ${OMARCHY_BIN_BAK}"
+  elif [ -e "$OMARCHY_BIN_BAK" ]; then
+    warn=1
+    dim "Existing backup detected: ${OMARCHY_BIN_BAK}"
+  fi
+  return "$warn"
+}
+
+install_flow() {
+  banner
+  bold "Install"
+  need git
+  ensure_dirs
+  if backup_if_needed; then
+    dim "Backups already exist."
+    if ! confirm "Proceed with install/update without touching *.bak?" "y"; then
+      err "Aborted."
+      exit 1
+    fi
+  fi
+  local src
+  src="$(clone_repo)"
+  rsync -a --delete "${src}/fuzzel/" "$FUZCONF/"
+  mkdir -p "$OMARCHY_BIN"
+  mkdir -p "$(dirname "$OMARCHY_MENU")"
+  if [ -d "${src}/omarchy/bin/omarchy-menu" ] || [ -f "${src}/omarchy/bin/omarchy-menu" ]; then
+    rm -rf "$OMARCHY_MENU"
+    cp -R "${src}/omarchy/bin/omarchy-menu" "$OMARCHY_MENU"
+  fi
+  rm -rf "$(dirname "$src")"
+  ok "Installed."
+}
+
+update_flow() {
+  banner
+  bold "Update"
+  need git
+  ensure_dirs
+  dim "Existing backups (if any) will be kept intact."
+  local src
+  src="$(clone_repo)"
+  rsync -a --delete "${src}/fuzzel/" "$FUZCONF/"
+  if [ -d "${src}/omarchy/bin/omarchy-menu" ] || [ -f "${src}/omarchy/bin/omarchy-menu" ]; then
+    rm -rf "$OMARCHY_MENU"
+    cp -R "${src}/omarchy/bin/omarchy-menu" "$OMARCHY_MENU"
+  fi
+  rm -rf "$(dirname "$src")"
+  ok "Updated."
+}
+
+uninstall_flow() {
+  banner
+  bold "Uninstall"
+  if [ -e "$OMARCHY_BIN_BAK" ]; then
+    rm -rf "$OMARCHY_BIN"
+    mv "$OMARCHY_BIN_BAK" "$OMARCHY_BIN"
+    ok "Restored omarchy bin from backup."
+  else
+    dim "No omarchy bin backup to restore."
+  fi
+  if [ -e "$FUZCONF_BAK" ]; then
+    if confirm "Restore fuzzel config from backup?" "y"; then
+      rm -rf "$FUZCONF"
+      mv "$FUZCONF_BAK" "$FUZCONF"
+      ok "Restored fuzzel config."
+    else
+      dim "Skipped restoration of fuzzel config."
+    fi
+  else
+    dim "No fuzzel config backup to restore."
+  fi
+  if [ -d "$FUZCONF" ]; then
+    if confirm "Delete current fuzzel config folder (${FUZCONF})?" "n"; then
+      rm -rf "$FUZCONF"
+      ok "Deleted fuzzel config."
+    else
+      dim "Kept fuzzel config."
+    fi
+  fi
+  ok "Uninstalled."
+}
+
+menu() {
+  banner
+  echo
+  echo "1) Install"
+  echo "2) Update"
+  echo "3) Uninstall"
+  echo "q) Quit"
+  echo
+  ask "Choose"
+  read -r c || true
+  case "${c:-}" in
+  1) install_flow ;;
+  2) update_flow ;;
+  3) uninstall_flow ;;
+  q | Q) exit 0 ;;
+  *)
+    err "Unknown choice"
+    exit 1
+    ;;
+  esac
+}
+
+case "${1:-}" in
+install) install_flow ;;
+update) update_flow ;;
+uninstall) uninstall_flow ;;
+"") menu ;;
+*)
+  err "Usage: $0 [install|update|uninstall]"
+  exit 1
+  ;;
+esac

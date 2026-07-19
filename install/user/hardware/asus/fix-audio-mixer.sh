@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Fix audio volume on Asus ROG laptops by using a soft mixer.
 
 if omarchy-hw-asus-rog; then

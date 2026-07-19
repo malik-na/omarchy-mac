@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Temporary fix for Dell XPS 14/16 on Panther Lake
 # Disable WiFi 7 (EHT/802.11be) on Intel BE200/BE211 cards
 # The iwlwifi driver has a broken EHT RX data path — APs drop to MCS 0 NSS 1
