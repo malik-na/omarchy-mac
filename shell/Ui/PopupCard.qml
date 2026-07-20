@@ -134,6 +134,16 @@ PopupWindow {
         return
       }
 
+      // Mac fork: edge-aware popup alignment. On top/bottom bars, align the
+      // popup to the side of the screen the widget sits on — right-side widgets
+      // (clock, tray, weather, etc.) open toward the right corner, left-side
+      // ones toward the left — instead of centering under the widget and
+      // sliding to fit. Vertical bars keep their side-anchored behavior.
+      if (root.bar.position === "top" || root.bar.position === "bottom") {
+        var targetCenterX = window.contentItem.mapFromItem(target, target.width / 2, 0).x
+        localX = targetCenterX > window.width / 2 ? (target.width - popupWidth) : 0
+      }
+
       var point = window.contentItem.mapFromItem(target, localX, localY)
 
       if (root.bar.position === "top" || root.bar.position === "bottom") {

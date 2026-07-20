@@ -441,7 +441,9 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    centerOnBar: true
+    // Mac fork: anchor the forecast to its widget (edge-aware) instead of
+    // centering on the bar, so it follows the weather icon to the notch corner.
+    centerOnBar: false
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(480))
     contentHeight: panel.fittedContentHeight(weatherColumn.implicitHeight)
