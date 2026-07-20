@@ -269,7 +269,7 @@ Item {
 
     root.beginLaunchFeedback(entry)
     root.dismiss()
-    Quickshell.execDetached(Util.hyprExecCommand("gtk-launch " + Util.shellQuote(desktopId)))
+    Util.execDetached("gtk-launch " + Util.shellQuote(desktopId))
   }
 
   function requestDeleteIndex(index) {
@@ -297,7 +297,7 @@ Item {
     var name = root.entryName(entry)
     var command = Util.shellQuote(root.omarchyPath + "/bin/omarchy-remove-launcher-entry") + " " + Util.shellQuote(desktopId) + " " + Util.shellQuote(name)
     root.dismiss()
-    Quickshell.execDetached(Util.hyprExecCommand(command))
+    Util.execDetached(command)
   }
 
   function beginLaunchFeedback(entry) {
@@ -464,8 +464,8 @@ Item {
             if (root.filterText.length > 0) root.setFilter("")
             else root.dismiss()
             event.accepted = true
-          } else if (event.key === Qt.Key_Backspace) {
-            if (root.filterText.length > 0) root.setFilter(root.filterText.slice(0, -1))
+          } else if (Util.editsFilter(event, root.filterText)) {
+            root.setFilter(Util.editedFilter(event, root.filterText))
             event.accepted = true
           } else if (event.key === Qt.Key_Up) {
             root.select(-1)
