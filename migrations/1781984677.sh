@@ -1,5 +1,10 @@
 echo "Normalize Snapper snapshot services"
 
+# Nothing to normalize when Snapper isn't installed — e.g. non-btrfs (ext4) roots,
+# common on Apple Silicon/Asahi installs. Skip cleanly instead of failing with
+# 'snapper: command not found'.
+command -v snapper >/dev/null 2>&1 || exit 0
+
 OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
 snapper_config_script=/usr/share/omarchy/install/config/snapper.sh
 if [[ ! -f $snapper_config_script ]]; then
