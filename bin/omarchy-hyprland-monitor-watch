@@ -30,16 +30,39 @@ poll_clamshell_state() {
   done
 }
 
-sync_clamshell_after_monitor_change
-poll_clamshell_state &
+# The internal panel is only ever disabled while a laptop is docked (lid shut
+# with an external monitor active), so the reconciliation poll only has anything
+# to reconcile in that window. Run it while docked, stop it when undocked, and
+# never on a machine without a lid. Lid open/close itself is handled by the
+# Hyprland "switch:*:Lid Switch" binds; this poll is the recovery backstop for
+# drift those binds can miss (e.g. across suspend/resume).
+poll_pid=""
+sync_poll_state() {
+  if omarchy-hw-laptop && omarchy-hyprland-monitor-external-active; then
+    if [[ -z $poll_pid ]] || ! kill -0 "$poll_pid" 2>/dev/null; then
+      poll_clamshell_state &
+      poll_pid=$!
+    fi
+  elif [[ -n $poll_pid ]]; then
+    kill "$poll_pid" 2>/dev/null
+    poll_pid=""
+  fi
+}
 
-socat -U - "UNIX-CONNECT:$SOCKET" | while read -r event; do
+sync_clamshell_after_monitor_change
+sync_poll_state
+
+# Process substitution (not a pipe) keeps this loop in the main shell, so
+# sync_poll_state can start and stop the background poll as monitors come and go.
+while read -r event; do
   case "$event" in
     monitoradded\>\>*|monitoraddedv2\>\>*)
       sync_clamshell_after_monitor_change
+      sync_poll_state
       ;;
     monitorremoved\>\>*|monitorremovedv2\>\>*)
       sync_clamshell_after_monitor_change
+      sync_poll_state
       ;;
   esac
-done
+done < <(socat -U - "UNIX-CONNECT:$SOCKET")

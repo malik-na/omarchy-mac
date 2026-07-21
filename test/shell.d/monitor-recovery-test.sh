@@ -30,6 +30,11 @@ grep -F 'sync_clamshell_after_monitor_change' "$monitor_watch" >/dev/null
 grep -F 'socat -U - "UNIX-CONNECT:$SOCKET"' "$monitor_watch" >/dev/null
 pass "monitor watcher reconciles clamshell state on startup"
 
+grep -F 'omarchy-hw-laptop && omarchy-hyprland-monitor-external-active' "$monitor_watch" >/dev/null
+grep -F 'sync_poll_state' "$monitor_watch" >/dev/null
+grep -F 'done < <(socat' "$monitor_watch" >/dev/null
+pass "clamshell poll only runs on a docked laptop, not desktops or undocked laptops"
+
 grep -F '/proc/acpi/button/lid/*/state' "$hw_clamshell" >/dev/null
 grep -F 'omarchy-hw-external-monitors' "$hw_clamshell" >/dev/null
 pass "clamshell helper detects closed-lid external monitor state"
@@ -58,7 +63,9 @@ grep -F "hyprctl dispatch 'hl.dsp.dpms({ action = \"enable\" })' >/dev/null 2>&1
 grep -F 'hyprctl monitors all -j' "$monitor_internal" >/dev/null
 grep -F 'omarchy-hyprland-monitor-external-active' "$monitor_internal" >/dev/null
 grep -F 'wake' "$monitor_internal" >/dev/null
+grep -F 'omarchy-hyprland-toggle-enabled $TOGGLE || return 0' "$monitor_internal" >/dev/null
 pass "internal monitor helper can re-enable disabled laptop displays"
+pass "internal monitor recovery only wakes displays when it re-enables one"
 
 grep -F 'omarchy-hyprland-monitor-external-active' "$monitor_mirror" >/dev/null
 pass "internal mirror helper recovers when no active external display remains"

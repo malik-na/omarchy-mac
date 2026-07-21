@@ -102,7 +102,9 @@ Panel {
   property int headerIndex: 0
   readonly property bool canDisconnect: !!connectedWifiNetwork
   readonly property bool headerHasDisconnect: false
-  readonly property int headerActionCount: 0
+  readonly property int headerActionCount: networkManagerAvailable ? 1 : 0
+  readonly property bool headerHasCursor: cursorActive && focusSection === "header"
+  readonly property int heroRingPad: Style.space(6)
   readonly property var dnsProviders: ["DHCP", "Cloudflare", "Google", "Custom"]
   property int dnsIndex: 0
 
@@ -118,8 +120,20 @@ Panel {
     headerIndex = Math.max(0, Math.min(headerActionCount - 1, headerIndex + delta))
   }
 
+  function toggleNetwork() {
+    if (!networkManagerAvailable) return
+    Networking.wifiEnabled = !Networking.wifiEnabled
+    Qt.callLater(function() { root.refresh(true) })
+  }
+
   function activateHeader() {
-    if (headerHasDisconnect && headerIndex === 0 && !busy) disconnect(connectedWifiNetwork)
+    toggleNetwork()
+  }
+
+  function setHeaderCursor() {
+    cursorActive = true
+    focusSection = "header"
+    headerIndex = 0
   }
 
   function selectDnsByDelta(delta) {
@@ -245,24 +259,22 @@ Panel {
     connectKnown(net.ssid)
   }
 
-  // Bar pill state. Polled locally so this panel is self-contained;
-  // populated by networkProc + networkTimer below.
-  property string kind: "disconnected"
-  property string label: ""
-  property int signalStrength: -1
-  property string frequency: ""
-
-  function updateNetwork(raw) {
-    var parsed = Model.parseNetworkStatus(raw)
-    kind = parsed.kind
-    label = parsed.label
-    signalStrength = parsed.signalStrength
-    frequency = parsed.frequency
+  // Bar pill state, derived from the native NetworkManager service so the
+  // icon reflects connection changes without polling. Wired is preferred
+  // when both are up, matching the default-route device.
+  readonly property var wiredDevice: findDevice(DeviceType.Wired)
+  readonly property string kind: {
+    if (wiredDevice && wiredDevice.connected) return "ethernet"
+    if (connectedWifiNetwork) return "wifi"
+    return "disconnected"
   }
+  readonly property int signalStrength: connectedWifiNetwork
+    ? Math.round((connectedWifiNetwork.signalStrength || 0) * 100)
+    : -1
 
   function copyToClipboard(value) {
     if (!value || !root.bar) return
-    Quickshell.execDetached(["bash", "-lc", "printf %s " + Util.shellQuote(value) + " | wl-copy"])
+    Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(value) + " | wl-copy"])
   }
 
   readonly property string icon: Model.connectionIcon(kind, signalStrength)
@@ -271,7 +283,7 @@ Panel {
     if (scanWifi === undefined) scanWifi = false
     if (!detailsProc.running) detailsProc.running = true
     if (!dnsProc.running) {
-      dnsProc.command = ["bash", "-lc", root.dnsCommand("")]
+      dnsProc.command = ["bash", "-c", root.dnsCommand("")]
       dnsProc.running = true
     }
     if (wifiDevice) {
@@ -467,7 +479,7 @@ Panel {
     }
 
     root.pendingDnsProvider = provider
-    actionProc.command = ["bash", "-lc", root.dnsCommand(provider)]
+    actionProc.command = ["bash", "-c", root.dnsCommand(provider)]
     actionProc.running = true
     root.close()
   }
@@ -758,7 +770,7 @@ Panel {
             // one; otherwise stays put. j drops into the wifi list if there's
             // anywhere to land.
             if (dy < 0) {
-              if (root.headerHasDisconnect) {
+              if (root.headerActionCount > 0) {
                 root.focusSection = "header"
                 root.headerIndex = 0
               }
@@ -793,6 +805,7 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         if (t === "r" || t === "R") root.refresh()
+        else if (t === "w" || t === "W") root.toggleNetwork()
       }
 
     Column {
@@ -805,7 +818,18 @@ Panel {
       // ---------- Hero: network icon · SSID + state · actions ----------
       Item {
         width: parent.width
-        implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight)
+        implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight) + root.heroRingPad * 2
+
+        // Keyboard focus ring around the hero Wi-Fi toggle. heroIcon is inset
+        // by heroRingPad so this ring stays inside the panel's clip box.
+        BorderSurface {
+          anchors.fill: heroIcon
+          anchors.margins: -root.heroRingPad
+          color: "transparent"
+          radius: Style.cornerRadius
+          visible: root.headerHasCursor
+          borderSpec: Border.controlSpec("hover-cursor", root.bar.foreground, Color.accent)
+        }
 
         Text {
           id: heroIcon
@@ -815,6 +839,7 @@ Panel {
           font.pixelSize: Style.font.display
           opacity: root.networkManagerAvailable ? 1.0 : 0.5
           anchors.left: parent.left
+          anchors.leftMargin: root.heroRingPad
           anchors.verticalCenter: parent.verticalCenter
 
           MouseArea {
@@ -823,6 +848,7 @@ Panel {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             enabled: root.networkManagerAvailable
+            onContainsMouseChanged: if (containsMouse) root.setHeaderCursor()
             onClicked: {
               Networking.wifiEnabled = !Networking.wifiEnabled
               Qt.callLater(function() { root.refresh(true) })
@@ -1493,24 +1519,6 @@ Panel {
     }
   }
 
-  // Poll the wifi/ethernet pill state every 3s. Local to this panel so
-  // Bar.qml does not need to mirror network state.
-  Process {
-    id: networkProc
-    command: ["omarchy-network-status"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.updateNetwork(text)
-    }
-  }
-
-  Timer {
-    interval: 3000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!networkProc.running) networkProc.running = true
-  }
 
   component DetailValue: InfoValue {
     property bool copyable: false

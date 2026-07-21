@@ -42,14 +42,16 @@ Panel {
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool showConnections: tailscale.accounts.length > 1 || tailscale.accountsAccessDenied
-  readonly property bool showPeers: tailscale.running && tailscale.peers.length > 0
+  readonly property bool showPeers: tailscale.active && tailscale.peers.length > 0
   readonly property var recentMullvadRegions: settings.recentMullvadRegions instanceof Array ? settings.recentMullvadRegions : (settings.recentMullvadCountries instanceof Array ? settings.recentMullvadCountries : [])
   readonly property var recentMullvadExitNodes: recentMullvadNodes()
   readonly property var exitNodes: displayExitNodes()
-  readonly property bool showExitNodes: tailscale.running && (exitNodes.length > 0 || tailscale.mullvadRegions.length > 0)
+  readonly property bool showExitNodes: tailscale.active && (exitNodes.length > 0 || tailscale.mullvadRegions.length > 0)
   readonly property var filteredMullvadRegions: filteredMullvadRegionNodes()
-  readonly property color iconColor: tailscale.running ? foreground : dim
-  readonly property color barIconColor: tailscale.running ? barForeground : Qt.darker(barForeground, 1.55)
+  readonly property bool headerHasCursor: cursorActive && focusSection === "header"
+  readonly property int heroRingPad: Style.space(6)
+  readonly property color iconColor: tailscale.active ? foreground : dim
+  readonly property color barIconColor: tailscale.active ? barForeground : Qt.darker(barForeground, 1.55)
   readonly property color hoverFill: bar ? Style.hoverFillFor(bar.foreground, Color.accent) : "transparent"
   readonly property color selectedFill: bar ? Style.selectedFillFor(bar.foreground, Color.accent) : "transparent"
 
@@ -317,6 +319,12 @@ Panel {
     focusSection = "auth"
   }
 
+  function setHeaderCursor() {
+    cursorActive = true
+    focusSection = "header"
+    headerIndex = 0
+  }
+
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -355,7 +363,7 @@ Panel {
     function toggle(): void { root.toggle() }
     function refresh(): string { tailscale.refresh(); return "ok" }
     function up(): string { tailscale.loginOrUp(); return "ok" }
-    function down(): string { tailscale.runAction(["tailscale", "down"], "Turning Tailscale off…"); return "ok" }
+    function down(): string { tailscale.down(); return "ok" }
     function status(): string { return tailscale.statusText }
   }
 
@@ -370,7 +378,7 @@ Panel {
           iconSize: Style.space(11)
           color: root.barIconColor
           badgeColor: root.urgent
-          crossed: !tailscale.running && !tailscale.needsLogin
+          crossed: !tailscale.active && !tailscale.needsLogin
           warning: tailscale.needsLogin
         }
       }
@@ -429,27 +437,46 @@ Panel {
           Item {
             id: header
             width: parent.width
-            implicitHeight: hero.implicitHeight
+            implicitHeight: hero.implicitHeight + root.heroRingPad
+            // Exposed for the hero's iconComponent, whose `root` resolves to
+            // PanelHero (not this Panel) — reach panel state via `header`.
+            readonly property bool ringVisible: root.headerHasCursor
+            readonly property int ringPad: root.heroRingPad
+            function focusHero() { root.setHeaderCursor() }
 
             PanelHero {
               id: hero
-              width: parent.width
+              x: root.heroRingPad
+              y: root.heroRingPad
+              width: parent.width - root.heroRingPad
               title: tailscale.installed ? (tailscale.selfName || "Tailscale") : "Tailscale"
-              meta: root.heroPhraseText
+              meta: tailscale.active ? root.heroPhraseText : "Tailscale is disconnected"
               foreground: root.foreground
               fontFamily: root.fontFamily
-              iconOpacity: tailscale.running ? 1.0 : 0.5
+              iconOpacity: tailscale.active ? 1.0 : 0.5
               iconComponent: Component {
                 Item {
                   implicitWidth: icon.implicitWidth
                   implicitHeight: icon.implicitHeight
+
+                  // Keyboard focus ring around the hero toggle. The hero is
+                  // inset by heroRingPad so this ring stays inside the
+                  // Flickable's clip box instead of being cut off.
+                  BorderSurface {
+                    anchors.fill: icon
+                    anchors.margins: -header.ringPad
+                    color: "transparent"
+                    radius: Style.cornerRadius
+                    visible: header.ringVisible
+                    borderSpec: Border.controlSpec("hover-cursor", hero.foreground, Color.accent)
+                  }
 
                   TailscaleIcon {
                     id: icon
                     iconSize: Style.font.display
                     color: root.iconColor
                     badgeColor: root.urgent
-                    crossed: !tailscale.running && !tailscale.needsLogin
+                    crossed: !tailscale.active && !tailscale.needsLogin
                     warning: tailscale.needsLogin
                     anchors.centerIn: parent
                   }
@@ -460,63 +487,16 @@ Panel {
                     hoverEnabled: true
                     enabled: tailscale.installed && !tailscale.busy
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onContainsMouseChanged: if (containsMouse) {
-                      root.focusSection = "header"
-                      root.headerIndex = 0
-                    }
+                    onContainsMouseChanged: if (containsMouse) header.focusHero()
                     onClicked: tailscale.toggleTailscale()
                   }
+
+                  PanelToolTip {
+                    visible: heroIconMouse.containsMouse
+                    text: tailscale.active ? "Turn Tailscale off" : (tailscale.needsLogin ? "Authorize this device" : "Turn Tailscale on")
+                    fontFamily: root.fontFamily
+                  }
                 }
-              }
-            }
-          }
-
-          CursorSurface {
-            id: connectionRow
-            visible: tailscale.installed && !tailscale.running
-            width: parent.width
-            implicitHeight: connectionText.implicitHeight + Style.spacing.rowPaddingX
-            hasCursor: root.cursorActive && root.focusSection === "header"
-            foreground: root.foreground
-            fill: root.hoverFill
-
-            MouseArea {
-              anchors.fill: parent
-              hoverEnabled: true
-              enabled: !tailscale.busy
-              cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onEntered: {
-                root.cursorActive = true
-                root.focusSection = "header"
-              }
-              onClicked: tailscale.loginOrUp()
-            }
-
-            Column {
-              id: connectionText
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.leftMargin: Style.space(12)
-              anchors.rightMargin: Style.space(12)
-              spacing: Style.space(2)
-
-              Text {
-                width: parent.width
-                text: tailscale.needsLogin ? "Authorize this device" : "Connect Tailscale"
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.body
-                font.weight: Font.Medium
-              }
-
-              Text {
-                width: parent.width
-                text: tailscale.needsLogin ? "Open Tailscale to restore this device's access" : "Reconnect with the current Tailscale settings"
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                wrapMode: Text.WordWrap
               }
             }
           }
@@ -689,12 +669,12 @@ Panel {
           }
 
           PanelSeparator {
-            visible: tailscale.installed && tailscale.running
+            visible: tailscale.installed && tailscale.active
             foreground: root.foreground
           }
 
           Column {
-            visible: tailscale.installed && tailscale.running
+            visible: tailscale.installed && tailscale.active
             width: parent.width
             spacing: Style.space(10)
 
@@ -705,7 +685,7 @@ Panel {
             }
 
             Text {
-              visible: tailscale.installed && tailscale.running && tailscale.peers.length === 0
+              visible: tailscale.installed && tailscale.active && tailscale.peers.length === 0
               width: parent.width
               text: "No machines found on this tailnet."
               color: root.dim
@@ -740,7 +720,7 @@ Panel {
   Timer {
     id: phraseTimer
     interval: 2800
-    running: root.opened
+    running: root.opened && tailscale.active
     repeat: true
     onTriggered: phraseSwap.restart()
   }

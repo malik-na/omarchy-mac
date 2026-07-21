@@ -36,8 +36,10 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property color iconColor: dropbox.authenticated ? foreground : dim
-  readonly property color barIconColor: dropbox.authenticated ? barForeground : Qt.darker(barForeground, 1.55)
+  readonly property color iconColor: dropbox.authenticated && dropbox.active ? foreground : dim
+  readonly property color barIconColor: dropbox.authenticated && dropbox.active ? barForeground : Qt.darker(barForeground, 1.55)
+  readonly property bool headerHasCursor: cursorActive && focusSection === "header"
+  readonly property int heroRingPad: Style.space(6)
 
   function ensureCursor() {
     if (!dropbox.authenticated) {
@@ -50,7 +52,7 @@ Panel {
       fileIndex = 0
       return
     }
-    if (focusSection !== "files") focusSection = "files"
+    if (focusSection !== "files" && focusSection !== "header") focusSection = "files"
     if (fileIndex >= dropbox.files.length) fileIndex = Math.max(0, dropbox.files.length - 1)
     if (fileIndex < 0) fileIndex = 0
   }
@@ -58,15 +60,39 @@ Panel {
   function moveCursor(dx, dy) {
     cursorActive = true
     ensureCursor()
-    if (focusSection === "files" && dy !== 0) {
+    if (dy === 0) return
+    if (focusSection === "header") {
+      if (dy > 0 && dropbox.files.length > 0) {
+        focusSection = "files"
+        fileIndex = 0
+        scrollCursorIntoView()
+      }
+      return
+    }
+    if (focusSection === "files") {
+      if (dy < 0 && fileIndex === 0) {
+        setHeaderCursor()
+        return
+      }
       fileIndex = Math.max(0, Math.min(dropbox.files.length - 1, fileIndex + dy))
       scrollCursorIntoView()
     }
   }
 
+  function setHeaderCursor() {
+    cursorActive = true
+    focusSection = "header"
+    if (panelFlick) panelFlick.contentY = 0
+  }
+
+  function toggleRunning() {
+    if (dropbox.installed && !dropbox.busy) dropbox.toggleRunning()
+  }
+
   function activateCursor() {
     ensureCursor()
     if (focusSection === "login") dropbox.login()
+    else if (focusSection === "header") toggleRunning()
     else if (focusSection === "files") dropbox.openFile(selectedFile())
   }
 
@@ -149,7 +175,7 @@ Panel {
           anchors.centerIn: parent
           iconSize: Style.space(12)
           color: root.barIconColor
-          opacity: dropbox.authenticated ? 1.0 : 0.6
+          opacity: dropbox.active ? 1.0 : 0.6
         }
       }
     }
@@ -183,6 +209,7 @@ Panel {
       onTextKey: function(t) {
         if (t === "r" || t === "R") dropbox.refresh()
         else if (t === "l" || t === "L") dropbox.login()
+        else if (t === "p" || t === "P") root.toggleRunning()
       }
 
       Flickable {
@@ -201,19 +228,67 @@ Panel {
           width: panelFlick.width
           spacing: Style.space(12)
 
-          PanelHero {
-            id: hero
+          Item {
+            id: header
             visible: dropbox.authenticated
             width: parent.width
-            title: "Dropbox"
-            meta: root.heroPhraseText
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            iconOpacity: 1.0
-            iconComponent: Component {
-              DropboxIcon {
-                iconSize: Style.font.display
-                color: root.iconColor
+            implicitHeight: hero.implicitHeight + root.heroRingPad
+            // Exposed for the hero's iconComponent, whose `root` resolves to
+            // PanelHero (not this Panel) — reach panel state via `header`.
+            readonly property bool ringVisible: root.headerHasCursor
+            readonly property int ringPad: root.heroRingPad
+            function focusHero() { root.setHeaderCursor() }
+
+            PanelHero {
+              id: hero
+              x: root.heroRingPad
+              y: root.heroRingPad
+              width: parent.width - root.heroRingPad
+              title: "Dropbox"
+              meta: dropbox.active ? root.heroPhraseText : "Syncing paused"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              iconOpacity: dropbox.active ? 1.0 : 0.5
+              iconComponent: Component {
+                Item {
+                  implicitWidth: heroIcon.implicitWidth
+                  implicitHeight: heroIcon.implicitHeight
+
+                  // Keyboard focus ring around the hero toggle. The hero is
+                  // inset by heroRingPad so this ring stays inside the
+                  // Flickable's clip box instead of being cut off.
+                  BorderSurface {
+                    anchors.fill: heroIcon
+                    anchors.margins: -header.ringPad
+                    color: "transparent"
+                    radius: Style.cornerRadius
+                    visible: header.ringVisible
+                    borderSpec: Border.controlSpec("hover-cursor", hero.foreground, Color.accent)
+                  }
+
+                  DropboxIcon {
+                    id: heroIcon
+                    iconSize: Style.font.display
+                    color: root.iconColor
+                    anchors.centerIn: parent
+                  }
+
+                  MouseArea {
+                    id: heroMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: dropbox.installed && !dropbox.busy
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onContainsMouseChanged: if (containsMouse) header.focusHero()
+                    onClicked: dropbox.toggleRunning()
+                  }
+
+                  PanelToolTip {
+                    visible: heroMouse.containsMouse
+                    text: dropbox.active ? "Pause syncing" : "Resume syncing"
+                    fontFamily: root.fontFamily
+                  }
+                }
               }
             }
           }
@@ -297,7 +372,7 @@ Panel {
   Timer {
     id: phraseTimer
     interval: 2800
-    running: root.opened && dropbox.authenticated
+    running: root.opened && dropbox.authenticated && dropbox.active
     repeat: true
     onTriggered: phraseSwap.restart()
   }
