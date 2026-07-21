@@ -40,3 +40,7 @@ o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-swi
 o.bind("SUPER + F12", "Screenshot Display", "omarchy-capture-screenshot fullscreen")
 o.bind("SUPER + F11", "Screenshot Region", "omarchy-capture-screenshot region")
 o.bind("SUPER + F10", "Screenshot Window", "omarchy-capture-screenshot windows")
+
+-- Screen recording: SUPER+ALT+F12 mirrors the Display screenshot key. Starts a
+-- fullscreen recording and toggles off on the next press (no options menu).
+o.bind("SUPER + ALT + F12", "Screen recording Display", "omarchy-capture-screenrecording --fullscreen")
