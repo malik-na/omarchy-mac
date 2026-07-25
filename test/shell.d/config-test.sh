@@ -16,25 +16,24 @@ pass "default shell.json is valid JSON"
 jq -e '.version == 1 and (.bar.layout.left | type == "array") and (.bar.layout.center | type == "array") and (.bar.layout.right | type == "array")' "$ROOT/config/omarchy/shell.json" >/dev/null
 pass "default shell.json has versioned bar layout"
 
+# Mac fork: the notch design keeps the bar center empty (nothing sits behind the
+# camera housing) and places clock/weather/update/indicators on the right, so
+# these assertions target the right section instead of upstream's center.
 jq -e '
   def ids: map(.id // .);
-  .bar.layout.center | ids == [
-    "omarchy.clock",
-    "omarchy.weather",
-    "omarchy.system-update",
-    "omarchy.indicators"
-  ]
+  (.bar.layout.right | ids) as $r |
+  ($r | index("omarchy.weather")) as $w |
+  $w != null and $r[$w + 1] == "omarchy.system-update" and $r[$w + 2] == "omarchy.indicators"
 ' "$ROOT/config/omarchy/shell.json" >/dev/null
-pass "default center layout keeps update next to weather"
+pass "default right layout keeps update next to weather"
 
 jq -e '
-  (.bar.centerAnchor // "") as $anchor |
-  any(.bar.layout.center[]; (.id // .) == $anchor)
+  (.bar.layout.center | length == 0) and (.bar.centerAnchor // "") == ""
 ' "$ROOT/config/omarchy/shell.json" >/dev/null
-pass "default center anchor exists in center layout"
+pass "default center is empty for the notch (no center anchor)"
 
 jq -e '
-  any(.bar.layout.center[]; (.id // .) == "omarchy.clock" and (.formatAlt // "") == "d MMMM \u0027W\u0027ww yyyy")
+  any(.bar.layout.right[]; (.id // .) == "omarchy.clock" and (.formatAlt // "") == "d MMMM \u0027W\u0027ww yyyy")
 ' "$ROOT/config/omarchy/shell.json" >/dev/null
 pass "default clock date format has no leading zero"
 

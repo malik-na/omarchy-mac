@@ -1,17 +1,18 @@
 #!/bin/bash
+# omarchy:summary=Install the LazyVim Neovim configuration
 # Omarchy LazyVim setup script
 # Installs LazyVim config for the current user
 
 set -e
 
 # Check for nvim
-if ! command -v nvim &>/dev/null; then
+if ! omarchy-cmd-present nvim; then
   echo "[ERROR] Neovim (nvim) is not installed. Please install it first."
   exit 1
 fi
 
 # Check for git
-if ! command -v git &>/dev/null; then
+if ! omarchy-cmd-present git; then
   echo "[ERROR] git is not installed. Please install it first."
   exit 1
 fi

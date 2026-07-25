@@ -1,4 +1,5 @@
 #!/bin/bash
+# omarchy:summary=Refresh the pacman mirrorlist from the bundled default
 
 # Safe mirrorlist updater
 # Usage: omarchy-refresh-pacman-mirrorlist [--force] [--backup]

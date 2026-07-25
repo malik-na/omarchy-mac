@@ -1,4 +1,5 @@
 #!/bin/bash
+# omarchy:summary=Set up a Windows VM (unsupported on Apple Silicon)
 
 # Check for ARM64 architecture first
 ARCH=$(uname -m)

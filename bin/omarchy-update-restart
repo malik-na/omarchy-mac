@@ -1,4 +1,5 @@
 #!/bin/bash
+# omarchy:summary=Restart after an update when the kernel changed
 
 # Compare kernel version before and after updates.
 # Mac fork: this fork ships the Apple-Silicon kernel, so kernel-update detection

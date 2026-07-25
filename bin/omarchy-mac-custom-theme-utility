@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# omarchy:summary=Generate a custom Omarchy theme from chosen colors
 
 # omarchy-mac-custom-theme-utility
 

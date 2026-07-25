@@ -1,4 +1,5 @@
 #!/bin/bash
+# omarchy:summary=Configure the keyboard layout
 # Setup keyboard layout for Omarchy
 # Provides interactive keyboard layout configuration using the first-run script
 
@@ -15,7 +16,7 @@ if [[ ! -f "$KEYBOARD_SCRIPT" ]]; then
 fi
 
 # Check if gum is installed
-if ! command -v gum &>/dev/null; then
+if ! omarchy-cmd-present gum; then
   echo "Error: gum is not installed. Please install it first:"
   echo "  sudo pacman -S gum"
   exit 1

@@ -1,4 +1,5 @@
 #!/bin/bash
+# omarchy:summary=Install an AppImage as a launchable app
 echo -e "\e[32mLet's install a very useful appimage, that you can start with omarchy-mac-menu.\n\e[0m"
 echo -e "\e[32mINSERT AN ABSOLUTE PATH, or ENTER for default:\n\e[0m"
 GUM_DIR=$(gum input --prompt "Path> " --placeholder "/home/${USER}/Downloads/ (default)")

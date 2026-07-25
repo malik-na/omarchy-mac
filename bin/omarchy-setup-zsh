@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# omarchy:summary=Set up zsh as the default interactive shell
 # Setup zsh as the default interactive shell for Omarchy
 # This configures zsh with Omarchy customizations and optionally auto-launches it from bash
 
@@ -13,7 +14,7 @@ BASHRC_BACKUP="${HOME}/.bashrc.backup-$(date +%Y%m%d-%H%M%S)"
 BASHRC_DEFAULT="${HOME}/.local/share/omarchy/default/bashrc"
 
 # Check if zsh is installed
-if ! command -v zsh &> /dev/null; then
+if ! omarchy-cmd-present zsh; then
     echo "Error: zsh is not installed. Please install it first:"
     echo "  yay -S zsh"
     exit 1
@@ -89,7 +90,7 @@ if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
 [[ $- != *i* ]] && return
 
 # Auto-launch zsh shell if in interactive bash
-if command -v zsh &> /dev/null; then
+if omarchy-cmd-present zsh; then
   if [[ $(ps --no-header --pid=$PPID --format=comm) != "zsh" && -z ${BASH_EXECUTION_STRING} && ${SHLVL} == 1 ]]
   then
     shopt -q login_shell && LOGIN_OPTION='--login' || LOGIN_OPTION=''

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# omarchy-mac:summary=Lock the screen on boot, once the display is ready (Apple Silicon safe)
-# omarchy-mac:group=system
-# omarchy-mac:name=lock-on-boot
+# omarchy:summary=Lock the screen on boot, once the display is ready (Apple Silicon safe)
+# omarchy:group=system
+# omarchy:name=lock-on-boot
 #
 # The Mac fork locks the screen on startup for security: an Asahi ALARM /
 # Omarchy install is unencrypted by default, so the boot lock is the only

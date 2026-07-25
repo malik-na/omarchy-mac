@@ -61,9 +61,9 @@ REC_PID=""
 select_recorder_backend() {
   if grep -qa apple /proc/device-tree/compatible 2>/dev/null; then
     echo "wf-recorder"
-  elif command -v gpu-screen-recorder >/dev/null; then
+  elif omarchy-cmd-present gpu-screen-recorder; then
     echo "gpu-screen-recorder"
-  elif command -v wf-recorder >/dev/null; then
+  elif omarchy-cmd-present wf-recorder; then
     echo "wf-recorder"
   else
     echo "gpu-screen-recorder"

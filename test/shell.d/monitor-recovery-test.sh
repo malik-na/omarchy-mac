@@ -36,7 +36,9 @@ grep -F 'sync_poll_state' "$monitor_watch" >/dev/null
 grep -F 'done < <(socat' "$monitor_watch" >/dev/null
 pass "clamshell poll only runs on a docked laptop, not desktops or undocked laptops"
 
-grep -F '/proc/acpi/button/lid/*/state' "$hw_clamshell" >/dev/null
+# omarchy-hw-clamshell delegates lid detection to omarchy-hw-laptop-closed, so the
+# lid-path assertion targets that helper (the clamshell script just composes the two).
+grep -F '/proc/acpi/button/lid/*/state' "$ROOT/bin/omarchy-hw-laptop-closed" >/dev/null
 grep -F 'omarchy-hw-external-monitors' "$hw_clamshell" >/dev/null
 pass "clamshell helper detects closed-lid external monitor state"
 
