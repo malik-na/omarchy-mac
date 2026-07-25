@@ -72,7 +72,10 @@ grep -Fx 'systemctl enable --now snapper-cleanup.timer limine-snapper-sync.servi
 pass "snapshot configure normalizes Snapper policy and services"
 
 setup_system="$ROOT/bin/omarchy-setup-system"
-grep -F 'config/snapper.sh' "$setup_system" >/dev/null
+# setup-system sources install/config/all.sh, which runs config/snapper.sh; the
+# direct call moved out of setup-system, so assert the wiring at its new home.
+grep -F 'config/all.sh' "$setup_system" >/dev/null
+grep -F 'config/snapper.sh' "$ROOT/install/config/all.sh" >/dev/null
 pass "system setup normalizes Snapper during fresh installs"
 
 migration=$(grep -rl 'Normalize Snapper snapshot services' "$ROOT/migrations" | head -n 1 || true)
@@ -98,18 +101,23 @@ find_omarchy_pks_root() {
   return 1
 }
 
-pkgs_root=$(find_omarchy_pks_root) || fail "omarchy-pkgs checkout is available for packaging coverage"
-settings_pkgbuild="$pkgs_root/omarchy-settings-dev/PKGBUILD"
-omarchy_pkgbuild="$pkgs_root/omarchy-dev/PKGBUILD"
+# Packaging coverage lives in the sibling omarchy-pkgs checkout, which is present
+# in CI/dev but not on an installed machine. Skip (don't fail) when it's absent.
+if pkgs_root=$(find_omarchy_pks_root); then
+  settings_pkgbuild="$pkgs_root/omarchy-settings-dev/PKGBUILD"
+  omarchy_pkgbuild="$pkgs_root/omarchy-dev/PKGBUILD"
 
-grep -F 'cp -a default/. "$pkgdir/usr/share/omarchy/default/"' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package bundles default/"
-grep -F 'install -Dm644 default/snapper/root \' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package installs Snapper template source"
-grep -F '"$pkgdir/etc/snapper/config-templates/omarchy"' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package installs Snapper template destination"
-grep -F "'snapper'" "$omarchy_pkgbuild" >/dev/null || fail "omarchy package depends on snapper"
-grep -F "'limine-snapper-sync'" "$omarchy_pkgbuild" >/dev/null || fail "omarchy package depends on limine-snapper-sync"
-grep -F 'cp -a install "$pkgdir/usr/share/omarchy/"' "$omarchy_pkgbuild" >/dev/null || fail "omarchy package bundles install scripts"
-grep -F 'cp -a migrations "$pkgdir/usr/share/omarchy/"' "$omarchy_pkgbuild" >/dev/null || fail "omarchy package bundles migrations"
-pass "omarchy-pkgs packages Snapper template, setup, and migration coverage"
+  grep -F 'cp -a default/. "$pkgdir/usr/share/omarchy/default/"' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package bundles default/"
+  grep -F 'install -Dm644 default/snapper/root \' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package installs Snapper template source"
+  grep -F '"$pkgdir/etc/snapper/config-templates/omarchy"' "$settings_pkgbuild" >/dev/null || fail "omarchy-settings package installs Snapper template destination"
+  grep -F "'snapper'" "$omarchy_pkgbuild" >/dev/null || fail "omarchy package depends on snapper"
+  grep -F "'limine-snapper-sync'" "$omarchy_pkgbuild" >/dev/null || fail "omarchy package depends on limine-snapper-sync"
+  grep -F 'cp -a install "$pkgdir/usr/share/omarchy/"' "$omarchy_pkgbuild" >/dev/null || fail "omarchy package bundles install scripts"
+  grep -F 'cp -a migrations "$pkgdir/usr/share/omarchy/"' "$omarchy_pkgbuild" >/dev/null || fail "omarchy package bundles migrations"
+  pass "omarchy-pkgs packages Snapper template, setup, and migration coverage"
+else
+  pass "omarchy-pkgs checkout absent; skipping packaging coverage"
+fi
 
 find_omarchy_iso_root() {
   local candidate
@@ -125,19 +133,23 @@ find_omarchy_iso_root() {
   return 1
 }
 
-iso_root=$(find_omarchy_iso_root) || fail "omarchy-iso checkout is available for installer coverage"
-configurator="$iso_root/configs/airootfs/root/configurator"
-phases="$iso_root/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py"
-manifest="$iso_root/manifests/fresh-4-semantic.json"
+# Installer coverage lives in the sibling omarchy-iso checkout; skip when absent.
+if iso_root=$(find_omarchy_iso_root); then
+  configurator="$iso_root/configs/airootfs/root/configurator"
+  phases="$iso_root/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py"
+  manifest="$iso_root/manifests/fresh-4-semantic.json"
 
-! grep -F 'snapshot_config' "$configurator" >/dev/null || fail "ISO does not ask archinstall to create Snapper timeline config"
+  ! grep -F 'snapshot_config' "$configurator" >/dev/null || fail "ISO does not ask archinstall to create Snapper timeline config"
 
-# The phases/manifest assertions cover the newer ISO orchestrator structure.
-# Skip them when the checkout predates that layout.
-if [[ -f $phases && -f $manifest ]]; then
-  ! grep -F '_configure_snapper_root' "$phases" >/dev/null || fail "ISO does not duplicate Omarchy Snapper setup"
-  grep -F 'run_system_finalizer' "$phases" >/dev/null || fail "ISO runs packaged system setup"
-  grep -F '/etc/systemd/system/timers.target.wants/snapper-cleanup.timer' "$manifest" >/dev/null || fail "fresh ISO manifest has snapper-cleanup timer enabled"
-  ! grep -F '/etc/systemd/system/timers.target.wants/snapper-timeline.timer' "$manifest" >/dev/null || fail "fresh ISO manifest does not enable snapper timeline timer"
+  # The phases/manifest assertions cover the newer ISO orchestrator structure.
+  # Skip them when the checkout predates that layout.
+  if [[ -f $phases && -f $manifest ]]; then
+    ! grep -F '_configure_snapper_root' "$phases" >/dev/null || fail "ISO does not duplicate Omarchy Snapper setup"
+    grep -F 'run_system_finalizer' "$phases" >/dev/null || fail "ISO runs packaged system setup"
+    grep -F '/etc/systemd/system/timers.target.wants/snapper-cleanup.timer' "$manifest" >/dev/null || fail "fresh ISO manifest has snapper-cleanup timer enabled"
+    ! grep -F '/etc/systemd/system/timers.target.wants/snapper-timeline.timer' "$manifest" >/dev/null || fail "fresh ISO manifest does not enable snapper timeline timer"
+  fi
+  pass "omarchy-iso delegates Snapper setup to packaged system setup"
+else
+  pass "omarchy-iso checkout absent; skipping installer coverage"
 fi
-pass "omarchy-iso delegates Snapper setup to packaged system setup"
