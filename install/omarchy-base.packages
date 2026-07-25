@@ -24,7 +24,7 @@ docker
 docker-buildx
 docker-compose
 dosfstools
-dotnet-runtime-9.0
+dotnet-runtime
 dua-cli
 evince
 exfatprogs
@@ -106,7 +106,7 @@ python-poetry-core
 python-terminaltexteffects
 qemu-user-static-binfmt
 qt5-wayland
-quickshell
+quickshell-git
 ripgrep
 ruby
 rust

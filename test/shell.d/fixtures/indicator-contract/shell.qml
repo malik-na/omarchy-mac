@@ -25,9 +25,29 @@ ShellRoot {
   }
 
   QtObject {
+    id: idleService
+    property bool stayAwake: false
+    readonly property bool idleEnabled: !stayAwake
+    function setIdleEnabled(value) {
+      stayAwake = !value
+    }
+  }
+
+  QtObject {
+    id: nightlightService
+    property bool enabled: false
+    function setNightlight(value) {
+      enabled = !!value
+    }
+  }
+
+  QtObject {
     id: mockShell
     function firstPartyServiceFor(id) {
-      return id === "omarchy.notifications" ? notificationService : null
+      if (id === "omarchy.notifications") return notificationService
+      if (id === "omarchy.idle") return idleService
+      if (id === "omarchy.nightlight") return nightlightService
+      return null
     }
   }
 
@@ -36,6 +56,11 @@ ShellRoot {
     property bool vertical: false
     property int barSize: 26
     property string fontFamily: "monospace"
+    property color barForeground: "white"
+    property color urgent: "red"
+    property bool foregroundAnimationEnabled: false
+    property bool centerSectionRevealHeld: false
+    property bool centerHoverRevealSuppressed: false
     property var shell: mockShell
     function run(command) {
       root.commands.push(String(command))
@@ -97,6 +122,43 @@ ShellRoot {
     }
   }
 
+  function checkIndicatorTray() {
+    idleService.setIdleEnabled(true)
+
+    var component = Qt.createComponent("file://" + rootPath + "/shell/plugins/bar/widgets/Indicators.qml")
+    if (component.status !== Component.Ready) {
+      fail("Indicators failed to load: " + component.errorString())
+      writeResult()
+      return
+    }
+
+    var tray = component.createObject(root, {
+      bar: mockBar,
+      settings: { items: ["StayAwake"] }
+    })
+    if (!tray) {
+      fail("Indicators failed to instantiate: " + component.errorString())
+      writeResult()
+      return
+    }
+
+    Qt.callLater(function() {
+      root.assertTrue(tray.implicitWidth === 0, "inactive indicator tray starts collapsed")
+      mockBar.centerSectionRevealHeld = true
+
+      Qt.callLater(function() {
+        root.assertTrue(tray.implicitWidth > 0, "inactive indicator tray expands on center hover")
+        mockBar.centerSectionRevealHeld = false
+
+        Qt.callLater(function() {
+          root.assertTrue(tray.implicitWidth === 0, "inactive indicator tray collapses after hover")
+          tray.destroy()
+          root.writeResult()
+        })
+      })
+    })
+  }
+
   function shellQuote(value) {
     return "'" + String(value).replace(/'/g, "'\\''") + "'"
   }
@@ -122,7 +184,7 @@ ShellRoot {
         nightLight.moduleName = "NightLight"
         root.injectBar(nightLight)
         nightLight.triggerPress(Qt.LeftButton)
-        root.assertTrue(root.commandCount("omarchy-toggle-nightlight") === 1, "Night Light left click runs toggle command")
+        root.assertTrue(nightlightService.enabled === true, "Night Light left click toggles the nightlight service")
       }
 
       var screenRecording = root.createIndicator("ScreenRecording")
@@ -151,10 +213,10 @@ ShellRoot {
         stayAwake.moduleName = "StayAwake"
         root.injectBar(stayAwake)
         stayAwake.triggerPress(Qt.LeftButton)
-        root.assertTrue(root.commandCount("omarchy-toggle-idle") === 1, "Stay Awake left click runs idle toggle command")
+        root.assertTrue(idleService.stayAwake === true, "Stay Awake left click toggles the idle service")
       }
 
-      root.writeResult()
+      root.checkIndicatorTray()
     }
   }
 }

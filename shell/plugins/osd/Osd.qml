@@ -17,11 +17,38 @@ Item {
   property int maxValue: 100
   property bool hasProgress: true
   property int duration: 1200
-  readonly property int cardWidth: Style.space(269)
-  readonly property int mediaCardWidth: Math.round(cardWidth * 1.5)
-  readonly property int messageWidth: Style.space(190)
-  readonly property int mediaMessageWidth: messageWidth + mediaCardWidth - cardWidth
+
   readonly property bool mediaOsd: iconKey.indexOf("media") === 0 || iconKey.indexOf("player") === 0
+
+  // The card is built out of measured columns instead of fixed widths, so it
+  // keeps exactly `pad` between border and content on every side whatever
+  // glyph or message it carries. Messages grow with their text up to
+  // `maxMessageWidth` and elide beyond it.
+  readonly property int pad: Style.space(16)
+  readonly property int gap: Style.space(16)
+  // A glyph next to a message reads airier than it measures: the icon outline
+  // and the letterforms both fall away from their ink extremes, so the space
+  // between them opens up well past the nominal gap. Text takes two thirds of
+  // it; the progress bar's hard edge keeps the full gap.
+  readonly property int messageGap: Math.round(root.gap * 2 / 3)
+  readonly property int barWidth: Style.space(142)
+  readonly property int maxMessageWidth: root.mediaOsd ? Style.space(325) : Style.space(190)
+
+  // Nerd Font glyphs draw well outside their monospace cell, so the icon
+  // column is measured by ink rather than by advance width. Progress OSDs pin
+  // it to the widest glyph the model can return, so the bar doesn't shift when
+  // volume crosses an icon threshold.
+  readonly property int iconInkWidth: Math.ceil(iconMetrics.tightBoundingRect.width)
+  readonly property int iconWidth: root.hasProgress
+    ? Math.max(root.iconInkWidth, Math.ceil(widestIconMetrics.tightBoundingRect.width))
+    : root.iconInkWidth
+  // Same idea for the readout: it is as wide as the longest percentage so the
+  // digits don't jitter between 9% and 100%.
+  readonly property int valueWidth: Math.ceil(Math.max(valueMetrics.advanceWidth, messageMetrics.advanceWidth))
+  readonly property int messageWidth: Math.min(Math.ceil(messageMetrics.advanceWidth), root.maxMessageWidth)
+  readonly property int contentWidth: root.hasProgress
+    ? root.iconWidth + root.gap + root.barWidth + root.gap + root.valueWidth
+    : (root.message === "" ? root.iconWidth : root.iconWidth + root.messageGap + root.messageWidth)
 
   function iconFor(name, percent) {
     return OsdModel.iconFor(name, percent)
@@ -56,6 +83,33 @@ Item {
     onTriggered: root.opened = false
   }
 
+  TextMetrics {
+    id: messageMetrics
+    font.family: Style.font.family
+    font.bold: true
+    font.pixelSize: Style.font.title
+    text: root.message
+  }
+
+  TextMetrics {
+    id: valueMetrics
+    font: messageMetrics.font
+    text: "100%"
+  }
+
+  TextMetrics {
+    id: iconMetrics
+    font.family: Style.font.family
+    font.pixelSize: Style.font.displayLarge
+    text: root.icon
+  }
+
+  TextMetrics {
+    id: widestIconMetrics
+    font: iconMetrics.font
+    text: OsdModel.widestIcon
+  }
+
   IpcHandler {
     target: "osd"
     function show(payloadJson: string): string {
@@ -82,8 +136,8 @@ Item {
 
     BorderSurface {
       id: card
-      width: root.mediaOsd ? root.mediaCardWidth : root.cardWidth
-      height: Math.max(Style.space(68), Style.font.displayLarge + Style.spacing.panelGap)
+      width: card.borderLeft + root.pad + root.contentWidth + root.pad + card.borderRight
+      height: card.borderTop + root.pad + Style.font.displayLarge + root.pad + card.borderBottom
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
       anchors.bottomMargin: Style.space(67)
@@ -94,23 +148,27 @@ Item {
 
       Row {
         anchors.fill: parent
-        anchors.topMargin: card.borderTop
-        anchors.rightMargin: card.borderRight + Style.space(16)
-        anchors.bottomMargin: card.borderBottom
-        anchors.leftMargin: card.borderLeft + Style.space(16)
-        spacing: Style.space(16)
-        Text {
-          width: Style.space(28)
-          anchors.verticalCenter: parent.verticalCenter
-          horizontalAlignment: Text.AlignHCenter
-          text: root.icon
-          font.family: Style.font.family
-          font.pixelSize: Style.font.displayLarge
-          color: Color.popups.text
+        anchors.topMargin: card.borderTop + root.pad
+        anchors.rightMargin: card.borderRight + root.pad
+        anchors.bottomMargin: card.borderBottom + root.pad
+        anchors.leftMargin: card.borderLeft + root.pad
+        spacing: root.hasProgress ? root.gap : root.messageGap
+        Item {
+          width: root.iconWidth
+          height: parent.height
+          Text {
+            // Sit the glyph's ink flush in the column, centered when the
+            // column is wider than this particular glyph.
+            x: Math.round((root.iconWidth - root.iconInkWidth) / 2 - iconMetrics.tightBoundingRect.x)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.icon
+            font: iconMetrics.font
+            color: Color.popups.text
+          }
         }
         Rectangle {
           visible: root.hasProgress
-          width: visible ? Style.space(142) : 0
+          width: root.barWidth
           height: Math.max(Style.space(6), Style.spacing.sm)
           anchors.verticalCenter: parent.verticalCenter
           color: Util.alpha(Color.popups.text, 0.45)
@@ -121,16 +179,17 @@ Item {
           }
         }
         Text {
-          width: root.hasProgress ? Style.space(41) : (root.mediaOsd ? root.mediaMessageWidth : root.messageWidth)
+          visible: root.message !== ""
+          width: root.hasProgress ? root.valueWidth : root.messageWidth
+          // The readout hugs the card edge so a short percentage doesn't leave
+          // a hole in the padding; the slack lands in the gap after the bar.
+          horizontalAlignment: root.hasProgress ? Text.AlignRight : Text.AlignLeft
           anchors.verticalCenter: parent.verticalCenter
           text: root.message
-          font.family: Style.font.family
-          font.bold: true
-          font.pixelSize: Style.font.title
+          font: messageMetrics.font
           color: Color.popups.text
           elide: Text.ElideRight
           maximumLineCount: 1
-          clip: true
         }
       }
     }

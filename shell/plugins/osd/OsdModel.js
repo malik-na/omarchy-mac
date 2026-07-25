@@ -2,6 +2,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
+// The widest glyph `iconFor` can return. The progress OSD sizes its icon
+// column to it so the bar keeps its place as the icon changes.
+var widestIcon = ""
+
 function iconFor(name, percent) {
   var n = String(name || "").toLowerCase()
   if (n === "volume-muted" || n === "volume-mute" || n === "muted" || n === "mute") return ""
@@ -16,6 +20,7 @@ function iconFor(name, percent) {
   if (n === "touch" || n === "touchscreen") return "󰝁"
   if (n === "reboot" || n === "restart") return "󰜉"
   if (n === "shutdown" || n === "power" || n === "poweroff") return "󰐥"
+  if (n === "logout" || n === "sign-out" || n === "leave") return "󰍃"
   if (n === "media" || n === "player") return "󰝚"
   if (n === "media-source" || n === "player-source") return "󰝚"
   if (n === "media-play" || n === "player-play") return "󰐊"
@@ -50,6 +55,7 @@ function stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, r
 
 if (typeof module !== "undefined") {
   module.exports = {
+    widestIcon: widestIcon,
     iconFor: iconFor,
     stateForShow: stateForShow
   }

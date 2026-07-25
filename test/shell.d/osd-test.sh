@@ -9,7 +9,9 @@ const osd = requireFromRoot('shell/plugins/osd/OsdModel.js')
 
 assertEqual(osd.iconFor('', 0), osd.iconFor('muted', 50), 'osd falls back to muted icon at zero percent')
 assertEqual(osd.iconFor('volume-high', 1), osd.iconFor('', 100), 'osd maps high volume aliases')
+assertEqual(osd.iconFor('logout', 50), '󰍃', 'osd maps logout icon')
 assertEqual(osd.iconFor('custom-symbol', 50), 'custom-symbol', 'osd preserves unknown explicit icons')
+assertEqual(osd.widestIcon, osd.iconFor('volume-high', 100), 'osd sizes the icon column to a glyph it can show')
 
 assertDeepEqual(
   osd.stateForShow('volume', '', '75', '100', '', '800'),

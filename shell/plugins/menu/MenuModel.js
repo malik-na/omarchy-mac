@@ -10,19 +10,6 @@ function normalizeAliases(value) {
   return []
 }
 
-function normalizeKeywords(id, aliases, raw) {
-  var parts = String(raw || "").split(/\s+/)
-  var seen = {}
-  var out = []
-  for (var i = 0; i < parts.length; i++) {
-    var p = parts[i]
-    if (!p || seen[p]) continue
-    seen[p] = true
-    out.push(p)
-  }
-  return out.join(" ")
-}
-
 function normalizeItem(id, raw) {
   var value = raw || {}
   var aliases = normalizeAliases(value.aliases)
@@ -40,8 +27,8 @@ function normalizeItem(id, raw) {
     icon: value.icon || "",
     iconFont: value.iconFont || "",
     label: value.label || id,
+    title: value.title || "",
     target: value.target || "",
-    keywords: normalizeKeywords(id, aliases, value.keywords),
     description: value.description || "",
     action: value.action || "",
     provider: value.provider || "",
@@ -96,7 +83,7 @@ function mergeMenuSources(defaultItems, userItems) {
   }
 
   if (!nextItems.root) {
-    nextItems.root = { id: "root", parent: "", kind: "menu", icon: "", iconFont: "", label: "Go", target: "", keywords: "", description: "", aliases: [], when: "", checked: "", action: "", provider: "" }
+    nextItems.root = { id: "root", parent: "", kind: "menu", icon: "", iconFont: "", label: "Go", title: "", target: "", description: "", aliases: [], when: "", checked: "", action: "", provider: "" }
     nextOrder.unshift("root")
   }
   for (var k3 = 0; k3 < nextOrder.length; k3++) nextItems[nextOrder[k3]].order = k3
@@ -105,6 +92,65 @@ function mergeMenuSources(defaultItems, userItems) {
     items: nextItems,
     itemOrder: nextOrder
   }
+}
+
+// Both merges below return fresh items/itemOrder objects for the caller to
+// assign in one go. They must never write into the maps they are handed: those
+// live in QML `var` properties, and an in-place write into such an object is
+// occasionally dropped by the engine — the key lands with an undefined value.
+// A lost write used to leave an id in itemOrder with no item behind it, and
+// the next merge then kept that orphan and appended a second row for the same
+// app, so the launcher listed it twice (and again on every later rescan).
+
+// Swaps every app row for the current set. Rows keep the order they arrive in;
+// ids already claimed (including duplicate desktop ids) are listed once.
+function mergeAppRows(items, itemOrder, appRows) {
+  var source = items || ({})
+  var order = Array.isArray(itemOrder) ? itemOrder : []
+  var rows = Array.isArray(appRows) ? appRows : []
+  var nextItems = ({})
+  var nextOrder = []
+
+  for (var i = 0; i < order.length; i++) {
+    var id = order[i]
+    var existing = source[id]
+    // Orphans (an id with no item) are dropped rather than carried forward,
+    // so a single lost write cannot compound into a duplicate row.
+    if (!existing || existing.kind === "app") continue
+    nextItems[id] = existing
+    nextOrder.push(id)
+  }
+
+  for (var j = 0; j < rows.length; j++) {
+    var row = rows[j]
+    if (!row || !row.id || nextItems[row.id]) continue
+    row.order = nextOrder.length
+    nextItems[row.id] = row
+    nextOrder.push(row.id)
+  }
+
+  return { items: nextItems, itemOrder: nextOrder }
+}
+
+// Adds or replaces rows by id, leaving every other item untouched. Used by the
+// bash-backed providers, which contribute rows to one submenu at a time.
+function mergeRowsById(items, itemOrder, rows) {
+  var source = items || ({})
+  var incoming = Array.isArray(rows) ? rows : []
+  var nextItems = ({})
+  var nextOrder = (Array.isArray(itemOrder) ? itemOrder : []).slice()
+
+  for (var k in source) nextItems[k] = source[k]
+
+  for (var i = 0; i < incoming.length; i++) {
+    var row = incoming[i]
+    if (!row || !row.id) continue
+    if (!nextItems[row.id]) nextOrder.push(row.id)
+    nextItems[row.id] = row
+    row.order = nextOrder.indexOf(row.id)
+  }
+
+  return { items: nextItems, itemOrder: nextOrder }
 }
 
 function item(items, id) {
@@ -173,6 +219,25 @@ function childCount(items, itemOrder, id) {
   return count
 }
 
+function isVisible(items, itemOrder, whenResults, entry, depth) {
+  if (!entry) return false
+  if (entry.when && whenResults && whenResults[entry.id] === false) return false
+  if (entry.kind !== "menu" && entry.kind !== "link") return true
+  if (entry.provider) return true
+
+  var guard = depth || 0
+  if (guard >= 32) return false
+
+  var target = entry.kind === "link" ? entry.target : entry.id
+  var order = Array.isArray(itemOrder) ? itemOrder : []
+  for (var i = 0; i < order.length; i++) {
+    var child = item(items, order[i])
+    if (child && child.parent === target && isVisible(items, itemOrder, whenResults, child, guard + 1)) return true
+  }
+
+  return false
+}
+
 function labelFor(entry, checkedResults) {
   if (!entry) return ""
   if (entry.checked && checkedResults && checkedResults[entry.id]) return entry.label + " ✓"
@@ -204,7 +269,7 @@ function termInSearchWords(term, text) {
   return false
 }
 
-function keywordTextMatches(query, text) {
+function descriptionTextMatches(query, text) {
   var terms = String(query || "").toLowerCase().trim().split(/\s+/)
   for (var i = 0; i < terms.length; i++) {
     if (terms[i] && !termInSearchWords(terms[i], text)) return false
@@ -217,13 +282,13 @@ function matchesQuery(entry, query, visible) {
   if (!visible) return false
 
   var nameText = nameSearchText(entry)
-  var keywordText = (entry.keywords + " " + entry.description).toLowerCase()
+  var descriptionText = String(entry.description || "").toLowerCase()
   var terms = String(query || "").toLowerCase().trim().split(/\s+/)
 
   for (var i = 0; i < terms.length; i++) {
     if (!terms[i]) continue
     if (nameText.indexOf(terms[i]) >= 0) continue
-    if (termInSearchWords(terms[i], keywordText)) continue
+    if (termInSearchWords(terms[i], descriptionText)) continue
     return false
   }
 
@@ -234,14 +299,14 @@ function searchScore(items, entry, query) {
   var needle = String(query || "").toLowerCase().trim()
   var label = entry.label.toLowerCase()
   var nameText = nameSearchText(entry)
-  var keywordText = (entry.keywords + " " + entry.description).toLowerCase()
+  var descriptionText = String(entry.description || "").toLowerCase()
   var score = 80
 
   if (label === needle) score = entry.parent === "root" ? 2 : 0
   else if (label.indexOf(needle) === 0) score = 10
   else if (label.indexOf(needle) >= 0) score = 30
   else if (nameText.indexOf(needle) >= 0) score = 40
-  else if (keywordTextMatches(needle, keywordText)) score = 60
+  else if (descriptionTextMatches(needle, descriptionText)) score = 60
 
   if (entry.kind === "menu" || entry.kind === "link") score -= 2
 
@@ -255,6 +320,8 @@ function displayRow(items, itemOrder, checkedResults, entry, detail, score, sect
     kind: entry.kind,
     icon: entry.icon,
     iconFont: entry.iconFont || "",
+    appIcon: entry.appIcon || "",
+    appId: entry.appId || "",
     label: labelFor(entry, checkedResults),
     target: target,
     detail: detail || "",
@@ -271,10 +338,11 @@ if (typeof module !== "undefined") {
   module.exports = {
     stripJsonc: stripJsonc,
     normalizeAliases: normalizeAliases,
-    normalizeKeywords: normalizeKeywords,
     normalizeItem: normalizeItem,
     parseMenuJsonc: parseMenuJsonc,
     mergeMenuSources: mergeMenuSources,
+    mergeAppRows: mergeAppRows,
+    mergeRowsById: mergeRowsById,
     item: item,
     slugify: slugify,
     depthFor: depthFor,
@@ -282,12 +350,13 @@ if (typeof module !== "undefined") {
     parentPathFor: parentPathFor,
     isDescendantOf: isDescendantOf,
     childCount: childCount,
+    isVisible: isVisible,
     labelFor: labelFor,
     searchableToken: searchableToken,
     leafIdFor: leafIdFor,
     nameSearchText: nameSearchText,
     termInSearchWords: termInSearchWords,
-    keywordTextMatches: keywordTextMatches,
+    descriptionTextMatches: descriptionTextMatches,
     matchesQuery: matchesQuery,
     searchScore: searchScore,
     displayRow: displayRow

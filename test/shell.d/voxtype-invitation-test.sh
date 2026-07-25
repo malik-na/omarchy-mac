@@ -28,6 +28,20 @@ echo launch >>"$TEST_LOG"
 EOF
 chmod +x "$test_bin/omarchy-launch-floating-terminal-with-presentation"
 
+cat >"$test_bin/systemd-run" <<'EOF'
+#!/bin/bash
+echo "systemd-run:$*" >>"$TEST_LOG"
+while (($# > 0)); do
+  case $1 in
+    -p) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+exec "$@"
+EOF
+chmod +x "$test_bin/systemd-run"
+
 run_invitation_hook() {
   cp "$ROOT/install/user/first-run/install-voxtype.hook" "$hook_path"
   HOME="$test_home" PATH="$test_bin:$ROOT/bin:$PATH" TEST_LOG="$log_file" bash "$hook_path"
@@ -35,20 +49,20 @@ run_invitation_hook() {
 
 run_invitation_hook
 
-for _ in {1..50}; do
-  [[ $(wc -l <"$log_file") -eq 2 ]] && break
-  sleep 0.02
-done
-
 [[ -f $test_home/.local/state/omarchy/done/voxtype-install-invitation ]] || fail "Voxtype invitation records completion"
 [[ -f $hook_path ]] || fail "Voxtype invitation keeps its hook installed"
+[[ $(grep -c '^systemd-run:' "$log_file") -eq 2 ]] || fail "Voxtype invitation uses durable user services"
+grep -q -- '--user --collect --quiet --service-type=exec --unit=omarchy-voxtype-install-invitation' "$log_file" || fail "Voxtype invitation configures its user service"
+# KillMode=process keeps the launcher's setsid child alive once the short-lived
+# main process exits, otherwise the install terminal never appears.
+grep -q -- '--user --collect --quiet -p KillMode=process --unit=omarchy-voxtype-install ' "$log_file" || fail "Voxtype invitation outlives its launcher unit"
 [[ $(grep -c '^notification$' "$log_file") -eq 1 ]] || fail "Voxtype invitation sends one notification"
 [[ $(grep -c '^launch$' "$log_file") -eq 1 ]] || fail "Voxtype invitation handles the notification action"
 
 HOME="$test_home" PATH="$test_bin:$ROOT/bin:$PATH" TEST_LOG="$log_file" bash "$hook_path"
-sleep 0.05
 
 [[ -f $hook_path ]] || fail "completed Voxtype invitation keeps its hook installed"
+[[ $(grep -c '^systemd-run:' "$log_file") -eq 2 ]] || fail "completed Voxtype invitation does not schedule again"
 [[ $(grep -c '^notification$' "$log_file") -eq 1 ]] || fail "completed Voxtype invitation hook does not notify again"
 [[ $(grep -c '^launch$' "$log_file") -eq 1 ]] || fail "completed Voxtype invitation hook does not launch again"
 

@@ -12,8 +12,8 @@ BarWidget {
   property date displayDate: clock.date
 
   readonly property string activeFormat: alt
-    ? setting("formatAlt", "d MMMM 'W'ww yyyy")
-    : (bar && bar.vertical ? setting("verticalFormat", "HH\n—\nmm") : setting("format", "dddd HH:mm"))
+    ? (vertical ? setting("verticalFormatAlt", "dd\nMMM\n'W'ww\n''yy") : setting("formatAlt", "d MMMM 'W'ww yyyy"))
+    : (vertical ? setting("verticalFormat", "HH\n—\nmm") : setting("format", "dddd HH:mm"))
   readonly property string displayText: formatted(displayDate)
   readonly property var verticalLines: displayText.split("\n")
 
@@ -49,7 +49,7 @@ BarWidget {
 
   IpcHandler {
     target: "omarchy.clock"
-    function refresh(): void { root.refresh() }
+    function refresh(): void { root.broadcast("refresh") }
   }
 
   WidgetButton {
@@ -81,7 +81,9 @@ BarWidget {
           height: Style.bar.iconSlot
           text: modelData
           fontFamily: button.fontFamily
-          fontSize: button.fontSize
+          fontSize: modelData.length > 3
+            ? button.fontSize * 0.9
+            : button.fontSize
           color: button.foreground
         }
       }

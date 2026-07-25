@@ -105,6 +105,20 @@ grep -Fq $'SUPER + RETURN	Terminal' <<<"$fresh_output" || fail "default applicat
 grep -Fq $'SUPER + SHIFT + A	ChatGPT' <<<"$fresh_output" || fail "default application bindings include preinstalled web apps"
 pass "default application bindings load from package defaults"
 
+grep -F 'hl.dsp.send_key_state({ mods = mods, key = key, state = "down" })' "$ROOT/default/hypr/bindings/clipboard.lua" >/dev/null ||
+  fail "universal clipboard shortcuts send explicit mods to the focused surface"
+pass "universal clipboard shortcuts send explicit mods to the focused surface"
+
+if grep -E 'send_key_state\(\{[^}]*window' "$ROOT/default/hypr/bindings/clipboard.lua" >/dev/null; then
+  fail "universal clipboard shortcuts do not target only normal windows"
+fi
+pass "universal clipboard shortcuts do not exclude layer-shell fields"
+
+if grep -F 'wtype -M' "$ROOT/default/hypr/bindings/clipboard.lua" >/dev/null; then
+  fail "universal clipboard shortcuts avoid the virtual keyboard so held SUPER cannot merge in"
+fi
+pass "universal clipboard shortcuts avoid virtual keyboard modifier merging"
+
 removed_home="$tmpdir/removed-home"
 mkdir -p "$removed_home/.local/state/omarchy"
 touch "$removed_home/.local/state/omarchy/preinstalls-removed"
@@ -129,6 +143,37 @@ mkdir -p "$no_bindings_home"
 no_bindings_output=$(run_omarchy_bindings "$no_bindings_home" 'omarchy_default_bindings = false')
 [[ -z $no_bindings_output ]] || fail "default binding variable disables all Omarchy bindings" "$no_bindings_output"
 pass "default binding variable disables all Omarchy bindings"
+
+voxtype_home="$tmpdir/voxtype-home"
+voxtype_bin="$tmpdir/voxtype-bin"
+mkdir -p "$voxtype_home" "$voxtype_bin"
+touch "$voxtype_bin/voxtype"
+chmod +x "$voxtype_bin/voxtype"
+voxtype_output=$(PATH="$voxtype_bin:$PATH" run_omarchy_bindings "$voxtype_home")
+grep -Fq $'SUPER + CTRL + X	Toggle dictation' <<<"$voxtype_output" ||
+  fail "installed Voxtype enables its toggle binding"
+grep -Fq $'F9	Start dictation (push-to-talk)' <<<"$voxtype_output" ||
+  fail "installed Voxtype enables its push-to-talk binding"
+grep -Fq $'F9	Stop dictation (push-to-talk)' <<<"$voxtype_output" ||
+  fail "installed Voxtype enables its release binding"
+pass "installed Voxtype conditionally enables dictation bindings"
+
+voxtype_without_execute_output=$(PATH="$voxtype_bin:$PATH" run_omarchy_bindings \
+  "$voxtype_home" 'os.execute = function() return nil, "No child processes", 10 end')
+grep -Fq $'SUPER + CTRL + X	Toggle dictation' <<<"$voxtype_without_execute_output" ||
+  fail "Voxtype detection does not require spawning a subprocess"
+pass "installed Voxtype detection works without os.execute"
+
+missing_bin="$tmpdir/missing-bin"
+mkdir -p "$missing_bin"
+ln -s "$(command -v lua)" "$missing_bin/lua"
+ln -s "$(command -v lspci)" "$missing_bin/lspci"
+ln -s "$(command -v sort)" "$missing_bin/sort"
+missing_voxtype_output=$(PATH="$missing_bin" run_omarchy_bindings "$voxtype_home")
+if grep -Fq $'SUPER + CTRL + X	Toggle dictation' <<<"$missing_voxtype_output"; then
+  fail "missing Voxtype skips its bindings"
+fi
+pass "missing Voxtype skips dictation bindings"
 
 migration=$(grep -rl 'Move stock Hyprland user overrides into package defaults' "$ROOT/migrations" | head -n 1 || true)
 [[ -n $migration ]] || fail "Hyprland default config migration exists"
