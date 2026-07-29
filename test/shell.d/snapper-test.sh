@@ -72,10 +72,10 @@ grep -Fx 'systemctl enable --now snapper-cleanup.timer limine-snapper-sync.servi
 pass "snapshot configure normalizes Snapper policy and services"
 
 setup_system="$ROOT/bin/omarchy-setup-system"
-# setup-system sources install/config/all.sh, which runs config/snapper.sh; the
-# direct call moved out of setup-system, so assert the wiring at its new home.
-grep -F 'config/all.sh' "$setup_system" >/dev/null
-grep -F 'config/snapper.sh' "$ROOT/install/config/all.sh" >/dev/null
+grep -F 'config/all.sh' "$setup_system" >/dev/null ||
+  fail "system setup runs the config phase"
+grep -F 'config/snapper.sh' "$ROOT/install/config/all.sh" >/dev/null ||
+  fail "config phase normalizes Snapper"
 pass "system setup normalizes Snapper during fresh installs"
 
 migration=$(grep -rl 'Normalize Snapper snapshot services' "$ROOT/migrations" | head -n 1 || true)
@@ -87,12 +87,18 @@ grep -F 'as_root env OMARCHY_PATH="$OMARCHY_PATH" bash -euo pipefail "$snapper_c
 ! grep -F 'NUMBER_LIMIT="5"' "$migration" >/dev/null || fail "Snapper service migration does not overwrite working custom retention"
 pass "Snapper service migration only repairs broken services idempotently"
 
+# Checkouts differ per machine, so allow an explicit pointer at the sibling repo.
+# Accepts either the omarchy-pkgs checkout or its pkgbuilds/ directory.
 find_omarchy_pks_root() {
   local candidate
   for candidate in \
+    ${OMARCHY_PKGS_PATH:+"$OMARCHY_PKGS_PATH/pkgbuilds" "$OMARCHY_PKGS_PATH"} \
     "$ROOT/../omarchy-pkgs/pkgbuilds" \
     "$ROOT/../omarchy/omarchy-pkgs/pkgbuilds" \
-    "$ROOT/../../omarchy-pkgs/pkgbuilds"; do
+    "$ROOT/../../omarchy-pkgs/pkgbuilds" \
+    "$ROOT/../omacom/omarchy-pkgs/pkgbuilds" \
+    "$ROOT/../../omacom/omarchy-pkgs/pkgbuilds" \
+    "$HOME/Work/omacom/omarchy-pkgs/pkgbuilds"; do
     if [[ -d $candidate ]]; then
       cd "$candidate" && pwd
       return 0
@@ -119,12 +125,17 @@ else
   pass "omarchy-pkgs checkout absent; skipping packaging coverage"
 fi
 
+# Same per-machine checkout problem as omarchy-pkgs; OMARCHY_ISO_PATH points at it.
 find_omarchy_iso_root() {
   local candidate
   for candidate in \
+    ${OMARCHY_ISO_PATH:+"$OMARCHY_ISO_PATH"} \
     "$ROOT/../omarchy-iso" \
     "$ROOT/../omarchy/omarchy-iso" \
-    "$ROOT/../../omarchy-iso"; do
+    "$ROOT/../../omarchy-iso" \
+    "$ROOT/../omacom/omarchy-iso" \
+    "$ROOT/../../omacom/omarchy-iso" \
+    "$HOME/Work/omacom/omarchy-iso"; do
     if [[ -d $candidate ]]; then
       cd "$candidate" && pwd
       return 0

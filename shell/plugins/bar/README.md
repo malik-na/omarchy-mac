@@ -56,10 +56,9 @@ Example `shell.json` (bar subtree only shown):
 |---|---|---|
 | `omarchy.menu` | Omarchy menu launcher | left = menu · right = terminal |
 | `omarchy.workspaces` | Hyprland workspace switcher | left = focus workspace |
-| `omarchy.clock` | Date/time label | left = alternate format · right = timezone selector |
+| `omarchy.clock` | Date/time label + popup with a month grid, ISO week numbers, and month stepping | left = popup · right = cycle label format · middle = timezone selector |
 | `omarchy.media` | MPRIS now-playing — scrolling track + artist, cover-art popup | left = play/pause · middle = next · scroll = prev/next · right = popup |
 | `omarchy.indicators` | Manual state indicators | left = indicator action |
-| `omarchy.notifications` | Bell with badge + popup with recent notifications, DND toggle | left = popup · right = toggle DND |
 | `omarchy.system-update` | Available update indicator | left = update |
 | `omarchy.tray` | System tray | hover = reveal drawer · right on chevron = manage |
 | `omarchy.weather` | Weather icon + popup with forecast | left = popup · right = full notification |
@@ -68,7 +67,7 @@ Example `shell.json` (bar subtree only shown):
 | `omarchy.audio` | Volume icon + popup with master slider, output-device picker, per-app mixer | left = popup · right = mute · middle = popup · scroll = volume |
 | `omarchy.network` | Wi-Fi/Ethernet icon + popup with Wi-Fi scan, signal, connect, DNS provider selection | left = popup · right = nmtui |
 | `omarchy.tailscale` | Tailscale status, connection switcher, machine browser, and copy actions | left = popup · right = toggle · middle = refresh |
-| `omarchy.model-usage` | Claude Code and Codex usage, limits, synced usage aggregation, and settings | left = popup · right = settings · middle = refresh |
+| `omarchy.model-usage` | Claude Code and Codex limits with pace, today, last week, and all-time model breakdown | left = panel · right = refresh · middle = next subscription |
 | `omarchy.power` | Battery/AC icon + popup with battery stats, power profiles, and system info | left = popup |
 | `omarchy.bluetooth` | Bluetooth icon + popup with device list, connect/disconnect, battery | left = popup · right = toggle radio · middle = bluetoothctl TUI |
 | `omarchy.monitor` | Brightness and laptop display controls | left = popup |
@@ -167,10 +166,10 @@ Widgets receive `bar` (the shell root), `moduleName` (string), and `settings` (o
 - `bar.requestPopout(owner)` / `bar.releasePopout(owner)` — one-popup-at-a-time coordinator
 
 First-party bar widgets are manifest-backed just like third-party widgets.
-Simple widgets carry sibling manifests such as `widgets/Clock.manifest.json`;
+Simple widgets carry sibling manifests such as `widgets/Workspaces.manifest.json`;
 richer popup plugins live in feature directories such as `../panels/audio/`,
-`../panels/network/`, and `../model-usage/`; and feature plugins such as `omarchy.menu`, `omarchy.media`, and
-`omarchy.notifications` declare their bar-widget entry points in their own
+`../panels/network/`, and `../model-usage/`; and feature plugins such as
+`omarchy.menu` and `omarchy.media` declare their bar-widget entry points in their own
 `manifest.json`. Bar layout ids are namespaced, e.g. `omarchy.audio`,
 `omarchy.network`, and `omarchy.clock`. Older UpperCamelCase ids such as
 `AudioPanel` and `Clock` are migrated forward; new configs should use the
