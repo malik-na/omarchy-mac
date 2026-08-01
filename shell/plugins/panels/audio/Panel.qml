@@ -121,6 +121,9 @@ Panel {
   // selected while a tuning still exists.
   property string volumeSinkName: ""
 
+  // Carry sub-notch touchpad deltas between wheel events.
+  property real wheelAccumulator: 0
+
   readonly property var volumeSink: {
     if (volumeSinkName === "" || !sink) return sink
     if (volumeSinkName === String(sink.name)) return sink
@@ -395,14 +398,14 @@ Panel {
     if (selectedIndex < floor) selectedIndex = floor
   }
 
-  function outputIcon() {
+  function outputIcon(volume) {
     // Material Design volume ladder, matching the neighbouring MD bar icons
     // (bluetooth/network/monitor/power). The Font Awesome glyphs this replaced
     // rendered undersized on aarch64/JetBrainsMono Nerd Font.
     if (!sink || !sink.audio) return "󰖁"
     if (isHeadphones(sink)) return "󰋋"
     if (outputMuted) return "󰖁"
-    var v = outputVolume
+    var v = volume === undefined ? outputVolume : volume
     if (v >= 0.67) return "󰕾"
     if (v >= 0.34) return "󰖀"
     if (v > 0) return "󰕿"
@@ -422,8 +425,18 @@ Panel {
   }
 
   function setOutputVolume(v) {
-    if (!sink || !sink.audio) return
-    volumeSink.audio.volume = Math.max(0, Math.min(1, v))
+    if (!volumeSink || !volumeSink.audio) return outputVolume
+    var volume = Math.max(0, Math.min(1, v))
+    volumeSink.audio.volume = volume
+    return volume
+  }
+
+  function showVolumeOsd(volume) {
+    if (!bar || !bar.shell) return
+    bar.shell.summon("omarchy.osd", JSON.stringify({
+      icon: outputIcon(volume),
+      value: Math.round(volume * 100)
+    }))
   }
 
   function setInputVolume(v) {
@@ -626,8 +639,12 @@ Panel {
     }
 
     onWheelMoved: function(delta) {
-      var step = 0.05
-      root.setOutputVolume(root.outputVolume + (delta > 0 ? step : -step))
+      if (!root.hasOutput) return
+      var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
+      root.wheelAccumulator = wheel.remainder
+      if (wheel.steps === 0) return
+      var volume = root.setOutputVolume(root.outputVolume + wheel.steps * 0.05)
+      root.showVolumeOsd(volume)
     }
   }
 

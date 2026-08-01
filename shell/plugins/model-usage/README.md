@@ -11,22 +11,25 @@ adapter per subscription.
   Auth and endpoint problems replace the plan line and repeat in a card.
 - **Subscription switch** — one chip per enabled provider (`h`/`l` or click).
   It appears only when more than one provider is enabled.
-- **Limits** — a meter per window (session, weekly). The notch on the meter
-  marks where an evenly paced window would have you right now, so the gap
-  between the fill and the notch is the whole story: fill behind the notch
-  means budget in reserve, fill past it means you are burning faster than
-  the clock and the row says when it runs out.
-- **Usage this week** — one row per day for the last week: day, bar, tokens, with today
+- **Limits** — the percentage of each allowance used, a matching meter, and
+  the time until the session or weekly window resets.
+- **Tokens by day** — one row per day for the last week: day, bar, tokens, with today
   bolded at the bottom. Hover today for its prompt and session count.
-- **Usage by model** — total tokens and active days in the header, then
-  tokens per model with the bar behind each row showing its share of the
-  heaviest one. Hover for the input / output / cache split.
+- **Tokens by model** — tokens per model with the bar behind each row scaled
+  to the heaviest model,
+  the same way the weekly chart scales to its busiest day. Hover for the
+  input / output / cache split.
 
 A subscription appears only when it is enabled in settings and has actually
 recorded usage — on this machine or on a synced one. With one such provider
 there is no switch row at all; with none, the module leaves the bar entirely
 rather than sitting there with nothing to say. A CLI installed mid-session
 shows up at the next refresh, so nothing polls the disk waiting for it.
+
+That self-hiding is why the widget ships in the default bar layout: a machine
+that has never run Claude Code or Codex draws nothing, and the icon arrives on
+its own the first time a scan finds usage. Drop it with
+`omarchy plugin disable omarchy.model-usage`.
 
 ## Providers
 
@@ -49,7 +52,7 @@ falls back to local stats only.
 
 Settings live in the widget's entry in `~/.config/omarchy/shell.json`. The
 top-level keys can be set with
-`omarchy bar plugin set omarchy.model-usage <key> <value>`:
+`omarchy bar set omarchy.model-usage <key> <value>`:
 
 | Key | Default | What it does |
 |---|---|---|
@@ -62,8 +65,8 @@ top-level keys can be set with
 Numbers need `--json`, or they land in `shell.json` as strings:
 
 ```bash
-omarchy bar plugin set omarchy.model-usage refreshIntervalSec 300 --json
-omarchy bar plugin set omarchy.model-usage syncDir '~/Sync/model-usage'
+omarchy bar set omarchy.model-usage refreshIntervalSec 300 --json
+omarchy bar set omarchy.model-usage syncDir '~/Sync/model-usage'
 ```
 
 Per-provider settings are nested, and `set` writes its key literally rather
@@ -71,7 +74,7 @@ than walking a dotted path — so pass the whole `providers` object as JSON (or
 edit `shell.json` directly):
 
 ```bash
-omarchy bar plugin set omarchy.model-usage providers '{
+omarchy bar set omarchy.model-usage providers '{
   "claude": {
     "enabled": true,
     "statsPath": "~/.claude/stats-cache.json",
