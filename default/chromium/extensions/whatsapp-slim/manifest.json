@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Slim",
-  "version": "1.0",
-  "description": "Collapse WhatsApp Web's chat list to an avatar rail in narrow windows, this extension is installed by Omarchy",
+  "version": "1.1",
+  "description": "Make WhatsApp Web follow the system theme and collapse its chat list in narrow windows, this extension is installed by Omarchy",
   "content_scripts": [
     {
       "matches": ["https://web.whatsapp.com/*"],
-      "css": ["whatsapp.css"]
+      "css": ["whatsapp.css"],
+      "js": ["system-theme.js"],
+      "run_at": "document_start"
     }
   ]
 }
