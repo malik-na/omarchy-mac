@@ -20,6 +20,7 @@ cups
 cups-browsed
 cups-filters
 cups-pdf
+ddcutil
 docker
 docker-buildx
 docker-compose
@@ -41,7 +42,6 @@ fontconfig
 foot
 fzf
 git
-gnome-calculator
 gnome-keyring
 gnome-themes-extra
 grim
@@ -90,6 +90,7 @@ nss-mdns
 nvim
 obs-studio
 obsidian
+omacalc
 omacut
 omawrite
 omarchy-nvim
@@ -108,7 +109,6 @@ qrencode
 quickshell-git
 ripgrep
 ruby
-rust
 tensaku
 sddm
 slurp

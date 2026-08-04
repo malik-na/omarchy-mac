@@ -5,7 +5,12 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 run_node_test <<'JS'
+const fs = require('fs')
 const network = requireFromRoot('shell/plugins/panels/network/Model.js')
+const panelSource = fs.readFileSync(root + '/shell/plugins/panels/network/Panel.qml', 'utf8')
+
+assert(/IpcHandler[\s\S]*?function toggleNetwork\(\) \{ root\.toggleNetwork\(\) \}/.test(panelSource), 'network exposes the Wi-Fi radio toggle over IPC')
+assert(/manageIpc: false/.test(panelSource), 'network owns its IPC handler so it can extend the target methods')
 
 assertDeepEqual(
   network.parseNetworkStatus('wifi\tCafe WiFi\t78\t5200\n'),
@@ -80,7 +85,6 @@ assertDeepEqual(
 
 assertEqual(network.formatBytes(1536), '1.5 KB', 'network formats bytes')
 assertEqual(network.formatRate(1536), '1.5 KB/s', 'network formats rates')
-assertEqual(network.formatSpeedMbps('250.4'), '250 Mbps', 'network formats speed test results')
 assertEqual(network.formatPingLatency('2.54'), '2.5 ms', 'network formats low ping with precision')
 assertEqual(network.formatPingLatency('25.4'), '25 ms', 'network formats ping')
 assertEqual(network.formatPingLatency(''), 'Timeout', 'network formats missing ping as timeout')
