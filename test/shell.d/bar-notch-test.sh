@@ -15,12 +15,14 @@ const styleSource = fs.readFileSync(root + '/shell/Commons/Style.qml', 'utf8')
 assertEqual(bar.notchHeight('eDP-1', 1512, 982, 2), 32, 'MacBook Pro 14" at scale 2 uses its measured 32px cutout')
 assertEqual(bar.notchHeight('eDP-1', 1890, 1227, 1.6), 40, 'MacBook Pro 14" at scale 1.6 uses its measured cutout')
 assertEqual(bar.notchHeight('eDP-1', 1728, 1117, 2), 32, 'MacBook Pro 16" at scale 2 uses the cutout inferred from the 14"')
+assertEqual(bar.notchHeight('eDP-1', 1280, 832, 2), 28, 'MacBook Air 13.6" at scale 2 uses its density-scaled cutout')
+assertEqual(bar.notchHeight('eDP-1', 1600, 1040, 1.6), 35, 'MacBook Air 13.6" at scale 1.6 uses its density-scaled cutout')
+assertEqual(bar.notchHeight('eDP-1', 1440, 932, 2), 28, 'MacBook Air 15" at scale 2 uses its density-scaled cutout')
 
 // Unmeasured panels fall back to the full strip above the 16:10 area, which
 // errs taller than the cutout, never shorter. The display scale applies to
 // both axes, so the same panel yields its strip at any scale.
-assertEqual(bar.notchHeight('eDP-1', 1280, 832, 2), 32, 'MacBook Air 13.6" at scale 2 falls back to its 32px strip')
-assertEqual(bar.notchHeight('eDP-1', 1600, 1040, 1.6), 40, 'MacBook Air 13.6" at scale 1.6 falls back to its 40px strip')
+assertEqual(bar.notchHeight('eDP-1', 1536, 990, 2), 30, 'an unmeasured notched panel falls back to its strip')
 
 assertEqual(bar.notchHeight('eDP-1', 1280, 800, 2), 0, 'an exactly 16:10 panel (M1 Air) has no notch')
 assertEqual(bar.notchHeight('DP-1', 1512, 982, 2), 0, 'external monitors never report a notch')

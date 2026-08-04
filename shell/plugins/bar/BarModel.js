@@ -195,7 +195,11 @@ var measuredNotchPanels = [
   { width: 3024, height: 1964, cutoutRows: 64 },
   // MacBook Pro 16" (3456x2234): inferred from the 14" — same 254ppi panel
   // family and camera module, so the cutout spans the same 64 rows.
-  { width: 3456, height: 2234, cutoutRows: 64 }
+  { width: 3456, height: 2234, cutoutRows: 64 },
+  // MacBook Air 13.6" and 15" (224ppi): the cutout is physically the same
+  // size as the Pros', so it spans fewer rows there (64 x 224/254 ~= 56).
+  { width: 2560, height: 1664, cutoutRows: 56 },
+  { width: 2880, height: 1864, cutoutRows: 56 }
 ]
 
 function measuredCutoutRows(physicalWidth, physicalHeight) {
