@@ -192,7 +192,10 @@ function nearestDropTarget(candidates, point, vertical) {
 // keeps the full strip — which errs taller, never shorter.
 var measuredNotchPanels = [
   // MacBook Pro 14" (3024x1964): 64 of the 74 rows above the 16:10 area.
-  { width: 3024, height: 1964, cutoutRows: 64 }
+  { width: 3024, height: 1964, cutoutRows: 64 },
+  // MacBook Pro 16" (3456x2234): inferred from the 14" — same 254ppi panel
+  // family and camera module, so the cutout spans the same 64 rows.
+  { width: 3456, height: 2234, cutoutRows: 64 }
 ]
 
 function measuredCutoutRows(physicalWidth, physicalHeight) {
