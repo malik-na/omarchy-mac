@@ -957,12 +957,15 @@ Item {
       right: root.position === "right" || !root.vertical
     }
 
-    // A top bar shorter than the camera strip of an Apple notched panel
+    // A top bar shorter than the camera cutout of an Apple notched panel
     // leaves a sliver of every window peeking out beside the camera, so the
-    // strip height is this panel's minimum sensible top-bar height. An
-    // intentionally taller bar still wins.
+    // cutout height is this panel's minimum sensible top-bar height. An
+    // intentionally taller bar still wins, and a calibrated [bar]
+    // notch-height in shell.toml overrides the derived value.
     readonly property int notchFloor: root.appleSiliconHost && root.position === "top"
-      ? BarModel.notchStripHeight(screen.name, screen.width, screen.height)
+      ? (Style.bar.notchHeight > 0
+          ? Style.bar.notchHeight
+          : BarModel.notchHeight(screen.name, screen.width, screen.height, screen.devicePixelRatio))
       : 0
 
     implicitWidth: root.vertical ? root.barSize : 0
