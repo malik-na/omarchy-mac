@@ -13,9 +13,7 @@ active           = "{{ red }}"
 # top/bottom bars; size-vertical is the width of left/right bars. With
 # scale-with-font enabled, these grow/shrink with [font] base-size.
 scale-with-font  = true
-# Mac fork: taller top bar (34 vs upstream 26) to fill the Apple Silicon notch
-# strip, so bar content sits centered beside the camera instead of high in it.
-size-horizontal  = 34
+size-horizontal  = 26
 size-vertical    = 28
 
 [hyprland]

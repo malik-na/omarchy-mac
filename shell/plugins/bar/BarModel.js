@@ -185,9 +185,32 @@ function nearestDropTarget(candidates, point, vertical) {
   return best
 }
 
+// Apple's notched laptop panels are a 16:10 display plus a camera strip above
+// it, so whatever extends beyond the 16:10 area is the notch strip. Hyprland
+// applies the display scale to both axes, so the scale cancels out and the
+// strip height falls straight out of the logical screen size.
+//
+// Callers gate on the machine being Apple Silicon; this only guards against
+// panels the formula does not describe: external monitors (not eDP), 16:10
+// or wider panels (no leftover), and taller aspect ratios (rotated or 3:2
+// panels), where the leftover is far more than a camera strip. Every notched
+// Apple panel's strip is ~3.8% of its height, so 5% is a comfortable bound.
+function notchStripHeight(screenName, logicalWidth, logicalHeight) {
+  if (String(screenName || "").indexOf("eDP") !== 0) return 0
+
+  var width = Number(logicalWidth)
+  var height = Number(logicalHeight)
+  if (!(width > 0) || !(height > 0)) return 0
+
+  var strip = height - (width * 10) / 16
+  if (strip <= 0 || strip > height / 20) return 0
+  return Math.ceil(strip)
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     isDrawnSlot: isDrawnSlot,
+    notchStripHeight: notchStripHeight,
     pickDrawnSlot: pickDrawnSlot,
     nearestDropTarget: nearestDropTarget,
     normalizePosition: normalizePosition,
