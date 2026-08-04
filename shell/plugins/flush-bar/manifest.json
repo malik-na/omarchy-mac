@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "scottjones.flush-bar",
+  "name": "Flush bar",
+  "version": "1.0.0",
+  "author": "Scott Jones",
+  "description": "Let a transparent bar sit flush over the windows below it",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
