@@ -12,6 +12,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 ## Quick links
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
+- Upgrading from 3.x to Quattro (Omarchy 4) — [docs/upgrade-to-quattro.md](docs/upgrade-to-quattro.md)
 - External monitor guide — https://codeberg.org/malik-na/omarchy-mac/discussions/73
 - Support — https://buymeacoffee.com/malik2015no
 - Discord — https://discord.gg/KNQRk7dMzy
