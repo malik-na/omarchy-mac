@@ -283,3 +283,49 @@ New migration format:
 Omarchy 4.0 is upgraded through `bin/omarchy-upgrade-to-quattro`, not through the normal migration runner. Do not add compatibility migrations for old installer layouts; put pre-4 package-layout transition work in the upgrade command instead.
 
 Migrations may use raw `pacman`, `command -v`, or direct config edits when needed for one-off repair work.
+
+# Multi-agent loop
+
+For substantive work on this repo (bindings, install, menus, migrations, security), use a **SWE → QA → Review** loop. The main session is the orchestrator.
+
+## Roles
+
+| Role | Responsibility | Edits? |
+|------|----------------|--------|
+| Orchestrator | Scope, handoffs, PR/user communication | Yes if loop stuck |
+| SWE | Implement on `dev` (or a feature branch) | Yes |
+| QA | Run automated suite; report only | No |
+| Reviewer | Diff review vs `origin/main`; bugs block merge | No |
+
+## Rules
+
+- One writer at a time on a shared branch (or use a git worktree for parallel SWE tasks)
+- QA never "fixes" — only commands, output, and FAIL reasons
+- Reviewer: severity `bug` blocks; `suggestion` / `nit` are optional unless requested
+- Max three SWE↔QA rounds, then surface remaining issues to the user
+- Do not force-push `main`; push `dev` only when asked or policy allows
+- Intentional Mac divergences are not bugs: notch-height bar sizing, `hid_apple fnmode=1` media keys, Shift+brightness for keyboard backlight, wf-recorder capture on the Asahi GPU, Spotify webapp, Codeberg update remote
+
+## Standard QA commands
+
+Run from the repo root before calling work done:
+
+```bash
+./test/all
+bin/omarchy commands --check
+for f in bin/omarchy-*; do bash -n "$f" || exit 1; done
+```
+
+`./test/all` aggregates `./test/cli` and `./test/shell`; run those individually
+when iterating on one area. It deliberately skips the graphical acceptance
+suite, which belongs in a disposable VM (see Acceptance Tests above).
+
+QA should end with `VERDICT: PASS` or `VERDICT: FAIL`.
+
+## Flow
+
+1. Plan if the approach is ambiguous
+2. SWE implements
+3. QA always runs before "done"
+4. Reviewer runs for non-trivial diffs (roughly >50 LOC, or install/bindings/security)
+5. Bugs → SWE → QA again; then orchestrator reports and updates the PR if needed
