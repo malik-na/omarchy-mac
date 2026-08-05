@@ -21,3 +21,13 @@ echo "options hid_apple fnmode=1" | sudo tee "$config" >/dev/null
 if [[ -f /sys/module/hid_apple/parameters/fnmode ]]; then
   echo 1 | sudo tee /sys/module/hid_apple/parameters/fnmode >/dev/null || true
 fi
+
+# The write above is not enough on its own. hid_apple ships inside the initramfs
+# so a LUKS passphrase can be typed before root is mounted, and mkinitcpio's
+# modconf hook snapshots /etc/modprobe.d at build time. Module options only take
+# effect when the module loads, so a stale snapshot keeps the old fnmode and this
+# change would never reach boot.
+echo "Rebuilding the initramfs so fnmode=1 survives a reboot"
+if ! sudo mkinitcpio -P; then
+  echo "mkinitcpio failed. Run 'sudo mkinitcpio -P' to make fnmode=1 apply at boot." >&2
+fi
