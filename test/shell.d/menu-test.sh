@@ -135,6 +135,24 @@ assert(
   rankScore('style.font', 'font') < rankScore('apps.fontforge', 'font'),
   'menu keeps a better-matching menu entry above a weaker app match'
 )
+
+// Routing: htop ships `Keywords=system;...`, which app rows carry as aliases.
+// An installed app must never capture a menu route (SUPER+ESCAPE opens the
+// `system` menu), while its keywords keep working for search.
+const routed = menu.mergeAppRows(rankBase.items, rankBase.itemOrder, [
+  { id: 'apps.htop', parent: 'apps', kind: 'app', label: 'Htop', description: 'Process Viewer', aliases: ['Process Viewer', 'system', 'process'] }
+])
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, 'system'), 'system', 'menu routes an exact id even when an app keyword matches it')
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, 'process'), 'process', 'menu never routes to an app row through its keywords')
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, 'power-menu'), 'system', 'menu routes declared aliases to their item')
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, 'power_menu'), 'system', 'menu normalizes underscores in routes')
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, ''), 'root', 'menu routes empty input to root')
+assertEqual(menu.resolveRoute(routed.items, routed.itemOrder, 'no-such-route'), 'no-such-route', 'menu falls through to the literal input')
+assert(menu.matchesQuery(routed.items['apps.htop'], 'system', true), 'menu still finds an app by its keywords in search')
+assert(
+  /function resolveRoute\(input\) \{\s*\n\s*return MenuModel\.resolveRoute\(root\.items, root\.itemOrder, input\)\s*\n\s*\}/.test(menuQml),
+  'menu delegates route resolution to the shared model'
+)
 const triggerItems = defaultItems.filter(item => item.parent === 'trigger')
 assertEqual(
   triggerItems[0].id,
@@ -162,10 +180,11 @@ assert(
   defaultById['setup.direct-boot'].action.includes('omarchy-setup-direct-boot'),
   'menu places Direct Boot directly under Setup'
 )
+const setupEntries = defaultItems.filter(item => item.parent === 'setup')
 assertEqual(
-  defaultItems.findIndex(item => item.id === 'setup.direct-boot'),
-  defaultItems.findIndex(item => item.id === 'setup.input') + 1,
-  'menu lists Direct Boot immediately below Input'
+  setupEntries[setupEntries.length - 1].id,
+  'setup.direct-boot',
+  'menu lists Direct Boot last under Setup'
 )
 const expectedAgents = {
   pi: { icon: '\ue901', iconFont: 'omarchy', label: 'Pi' },
@@ -272,18 +291,18 @@ assert(
   /"omarchy-plugin-\$1" "\$id"/.test(pluginPicker),
   'plugin picker delegates enable and disable without interpreting plugin kinds'
 )
-// Icons ride along as "<glyph>\tlabel"; the menu shows the glyph and hands
-// back the label, so nothing downstream has to strip one off. The id rides in
-// a third field, cut off before the menu is ever shown it. What the picker
+// Icons ride along as "<glyph>\tlabel\tsubtext"; the menu shows the glyph,
+// renders the subtext under the label, and hands back "label\tsubtext" so the
+// picker can act on the id without resolving a display name. What the picker
 // then does with the row it gets back is checked in menu-plugin-test.sh.
 assert(
-  /\$label \+ \\"\\\\t\\" \+ \.id/.test(pluginPicker)
-    && /omarchy-menu-select "\$\{1\^\} plugin" < <\(cut -f1,2 <<<"\$rows"\)/.test(pluginPicker),
-  'plugin picker labels its rows with glyphs and keeps the id out of the label'
+  /\.name \+ \\"\\\\t\\" \+ \.id/.test(pluginPicker)
+    && /id=\$\(cut -f2 <<<"\$selection"\)/.test(pluginPicker),
+  'plugin picker shows the id as row subtext and acts on the id the selection hands back'
 )
 assert(
-  /var icon = parts\.length > 1 \? parts\.shift\(\) : ""\s*\n\s*var label = parts\.join\("\\t"\)/.test(menuQml),
-  'menu select mode reads a leading icon off an option and filters on the label alone'
+  /var icon = parts\.length > 1 \? parts\.shift\(\) : ""\s*\n\s*var label = parts\.shift\(\) \|\| ""\s*\n\s*var detail = parts\.join\("\\t"\)/.test(menuQml),
+  'menu select mode reads a leading icon and a trailing subtext off an option'
 )
 assert(
   /omarchy-launch-floating-terminal-with-presentation "omarchy-plugin-remove/.test(pluginPicker),

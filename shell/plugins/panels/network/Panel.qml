@@ -17,28 +17,9 @@ Panel {
   manageIpc: false
 
   // Centralized close so callers can't forget to drop the passphrase prompt.
-  readonly property bool overlayVisible: qrVisible || speedTestModalOpen
-
-  // Shadows the base open(): a summon or toggle while a centered card is up
-  // dismisses the card instead of opening the compact panel behind an
-  // exclusive overlay. The base toggle() dispatches here, so the keybind,
-  // the bar icon, and every IPC route all get this behavior.
-  function open() {
-    if (overlayVisible) {
-      hideWifiQr()
-      hideSpeedTest()
-      return
-    }
-    root.controller.show()
-  }
-
   function close() {
     root.controller.hide()
     cancelPasswordPrompt()
-    // The centered cards outlive the compact panel, but the widget's
-    // canonical close must not leave an overlay (or its traffic) behind.
-    hideWifiQr()
-    hideSpeedTest()
   }
 
   function cancelPasswordPrompt() {
@@ -101,15 +82,6 @@ Panel {
   property string bandSelected: "auto"
   property var bandAvailable: []
   property string pendingBand: ""
-  property bool speedTestRunning: false
-  property bool speedTestModalOpen: false
-  property bool speedTestExpectedStop: false
-  property bool pendingSpeedRun: false
-  property string speedTestPhase: ""
-  property string speedTestStderr: ""
-  property string speedTestDownloadMbps: ""
-  property string speedTestUploadMbps: ""
-  property string speedTestError: ""
 
   // Per-row in-flight state. `actionSsid` flips on for the row whose action
   // is currently running so it can render "Connecting…" / "Disconnecting…" /
@@ -126,17 +98,15 @@ Panel {
   property string passwordText: ""
   property string identityText: ""
 
-  property var qrRows: []
-  property int qrSize: 0
-  property string qrError: ""
-  property bool qrLoading: false
-  property bool qrExpectedStop: false
-  property bool pendingQrShow: false
-  property bool pendingQrDetect: false
-  property string qrPassword: ""
-  property bool qrPasswordVisible: false
-  property string qrPasswordError: ""
-  readonly property bool qrVisible: qrLoading || qrSize > 0 || qrError !== ""
+  // ConnectionFailReason values as a plain object, so Model.js helpers stay
+  // pure JS and Node-testable.
+  readonly property var connectionFailReasons: ({
+    NoSecrets: ConnectionFailReason.NoSecrets,
+    WifiAuthTimeout: ConnectionFailReason.WifiAuthTimeout,
+    WifiNetworkLost: ConnectionFailReason.WifiNetworkLost,
+    WifiClientDisconnected: ConnectionFailReason.WifiClientDisconnected,
+    WifiClientFailed: ConnectionFailReason.WifiClientFailed
+  })
 
   // True while any wifi action is mid-flight. Rows
   // disable themselves on this so clicks on the other rows don't silently
@@ -246,20 +216,15 @@ Panel {
     function hide() { root.close() }
     function toggle() { root.toggle() }
     function toggleNetwork() { root.toggleNetwork() }
-    // Menu routes: summon the centered cards directly, panel open or not.
-    function showQr() {
-      root.refresh()
-      root.showWifiQr(true)
-    }
-    function speedTest() {
-      root.refresh()
-      root.showSpeedTest()
-    }
+    // Compat routes for configs that summon the centered cards through the
+    // network target; both cards are their own plugins now.
+    function showQr() { root.summonWifiQr(true) }
+    function speedTest() { root.summonSpeedTest() }
   }
 
   function activateHeader() {
-    if (headerIndex === qrHeaderIndex) showWifiQr()
-    else if (headerIndex === speedHeaderIndex) showSpeedTest()
+    if (headerIndex === qrHeaderIndex) summonWifiQr()
+    else if (headerIndex === speedHeaderIndex) summonSpeedTest()
     else if (headerIndex === toggleHeaderIndex) toggleNetwork()
   }
 
@@ -432,7 +397,10 @@ Panel {
     var net = wifiNetworks[selectedIndex]
     if (!net) return
     if (wifiActionFocused && canForgetNetwork(net)) { forget(net); return }
-    if (net.connected) { disconnect(net.network); return }
+    // Only act on a row that still resolves. disconnect() falls back to
+    // connectedWifiNetwork when handed null, so a row left stale by scan churn
+    // would otherwise tear down whatever is connected now instead.
+    if (net.connected) { disconnectRow(net.ssid); return }
     if (isProtected(net.security) && !net.known) { openPasswordPrompt(net.ssid); return }
     connectKnown(net.ssid)
   }
@@ -457,63 +425,20 @@ Panel {
 
   readonly property string icon: Model.connectionIcon(kind, signalStrength)
 
-  function showWifiQr(forceDetect) {
-    if (qrProc.running) {
-      // A dismissal's SIGTERM is still in flight; Process.running stays true
-      // until the child exits, so queue the reopen for onExited.
-      if (qrExpectedStop) {
-        pendingQrShow = true
-        pendingQrDetect = !!forceDetect
-      }
-      return
-    }
-    qrSize = 0
-    qrRows = []
-    qrError = ""
-    qrLoading = true
-    qrExpectedStop = false
-    // The panel's own button shares the interface it is showing. The IPC
-    // route forces self-detection instead: details polling stops while the
-    // panel is closed, so its cached interface can be stale.
-    qrProc.command = !forceDetect && info.type === "wifi" && info.iface
-      ? ["omarchy-network-qr", info.iface]
-      : ["omarchy-network-qr"]
-    qrProc.running = true
-
-    // Leave the compact network panel behind while the centered share card is open.
+  // The share card is its own panel plugin (omarchy.wifiqr) so a replacement
+  // design can take it over; summon() routes to whichever implementation is
+  // enabled. The panel's own button pins the interface it is showing. The
+  // IPC route forces self-detection instead: details polling stops while the
+  // panel is closed, so its cached interface can be stale.
+  function summonWifiQr(forceDetect) {
     controller.hide()
     cancelPasswordPrompt()
-  }
-
-  function hideWifiQr() {
-    pendingQrShow = false
-    if (qrProc.running) {
-      qrExpectedStop = true
-      qrProc.running = false
+    var payload = {}
+    if (!forceDetect && info.type === "wifi" && info.iface) {
+      payload.iface = info.iface
+      if (info.ssid) payload.ssid = info.ssid
     }
-    if (pwProc.running) pwProc.running = false
-    qrSize = 0
-    qrRows = []
-    qrError = ""
-    qrLoading = false
-    qrPassword = ""
-    qrPasswordVisible = false
-    qrPasswordError = ""
-  }
-
-  function updateQr(raw) {
-    var matrix = Model.parseQrMatrix(raw)
-    qrRows = matrix.rows
-    qrSize = matrix.size
-  }
-
-  function toggleQrPassword() {
-    if (qrPasswordVisible) { qrPasswordVisible = false; return }
-    if (qrPassword !== "") { qrPasswordVisible = true; return }
-    if (pwProc.running || !info.iface) return
-    qrPasswordError = ""
-    pwProc.command = ["omarchy-network-password", info.iface]
-    pwProc.running = true
+    bar.shell.summon("omarchy.wifiqr", JSON.stringify(payload))
   }
 
   function refresh(scanWifi) {
@@ -691,83 +616,17 @@ Panel {
     actionProc.running = true
   }
 
-  function updateSpeedTestLine(line) {
-    var value = parseFloat(line)
-    if (!isFinite(value) || value < 0) return
-
-    if (speedTestPhase === "down") speedTestDownloadMbps = String(value)
-    else if (speedTestPhase === "up") speedTestUploadMbps = String(value)
-    speedTestError = ""
-  }
-
-  // The speed test lives in a centered modal card like the QR share.
-  // Opening it starts a fresh run; dismissing it stops the traffic, so the
-  // download workers never keep saturating the link behind a closed card.
-  function showSpeedTest() {
-    if (!speedTestModalOpen) {
-      speedTestModalOpen = true
-      controller.hide()
-      cancelPasswordPrompt()
-    }
-    runSpeedTest()
-  }
-
-  function hideSpeedTest() {
-    speedTestModalOpen = false
-    pendingSpeedRun = false
-    speedTestPhaseTimer.stop()
-    // Clear the phase before killing the process: onExited advances to the
-    // upload phase when it still reads "down".
-    speedTestPhase = ""
-    speedTestRunning = false
-    if (speedTestProc.running) {
-      speedTestExpectedStop = true
-      speedTestProc.running = false
-    }
-  }
-
-  function runSpeedTest() {
-    if (speedTestProc.running) {
-      // A dismissal's SIGTERM is still in flight; Process.running stays true
-      // until the child exits, so queue the fresh run for onExited.
-      if (speedTestExpectedStop) pendingSpeedRun = true
-      return
-    }
-    speedTestError = ""
-    speedTestDownloadMbps = ""
-    speedTestUploadMbps = ""
-    speedTestRunning = true
-    startSpeedTestPhase("down")
-  }
-
-  function startSpeedTestPhase(phase) {
-    speedTestExpectedStop = false
-    speedTestPhase = phase
-    speedTestStderr = ""
-    speedTestProc.command = ["omarchy-network-speedtest", phase]
-    speedTestProc.running = true
-    speedTestPhaseTimer.restart()
-  }
-
-  function stopSpeedTestPhase() {
-    speedTestPhaseTimer.stop()
-    if (speedTestProc.running) {
-      speedTestExpectedStop = true
-      speedTestProc.running = false
-      return
-    }
-    finishSpeedTestPhase()
-  }
-
-  function finishSpeedTestPhase() {
-    if (speedTestPhase === "down") {
-      startSpeedTestPhase("up")
-      return
-    }
-
-    speedTestPhase = ""
-    speedTestRunning = false
-    speedTestExpectedStop = false
+  // The speed test is its own panel plugin (omarchy.speedtest) so a
+  // replacement design can take it over; summon() routes to whichever
+  // implementation is enabled. The payload names the connection when this
+  // panel knows it; the plugin looks it up itself otherwise.
+  function summonSpeedTest() {
+    controller.hide()
+    cancelPasswordPrompt()
+    var connection = ""
+    if (info.type === "wifi") connection = info.ssid || "Wi-Fi"
+    else if (info.type === "ethernet") connection = "Ethernet"
+    bar.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
   }
 
   function dnsCommand(provider) {
@@ -854,13 +713,11 @@ Panel {
   }
 
   function networkFailureReason(reason) {
-    return Model.networkFailureReason(reason, {
-      NoSecrets: ConnectionFailReason.NoSecrets,
-      WifiAuthTimeout: ConnectionFailReason.WifiAuthTimeout,
-      WifiNetworkLost: ConnectionFailReason.WifiNetworkLost,
-      WifiClientDisconnected: ConnectionFailReason.WifiClientDisconnected,
-      WifiClientFailed: ConnectionFailReason.WifiClientFailed
-    })
+    return Model.networkFailureReason(reason, connectionFailReasons)
+  }
+
+  function shouldRepromptPassphrase(reason, isProtected) {
+    return Model.shouldRepromptPassphrase(reason, isProtected, connectionFailReasons)
   }
 
   function checkActionCompletion(network) {
@@ -902,8 +759,17 @@ Panel {
     runNetworkAction("disconnect", network || connectedWifiNetwork, function(net) { net.disconnect() })
   }
 
+  // Disconnect from a row's SSID. Rows are primitive snapshots that can outlive
+  // their WifiNetwork, and disconnect()'s null fallback targets whatever is
+  // connected now, so a stale row must do nothing rather than hit an unrelated
+  // network. Callers that mean "drop the current connection" call disconnect().
+  function disconnectRow(ssid) {
+    var network = networkForSsid(ssid)
+    if (network) disconnect(network)
+  }
+
   function forget(net) {
-    runNetworkAction("forget", net ? net.network : null, function(network) { network.forget() })
+    runNetworkAction("forget", net ? networkForSsid(net.ssid) : null, function(network) { network.forget() })
   }
 
   implicitWidth: button.implicitWidth
@@ -939,55 +805,6 @@ Panel {
   }
 
   Process {
-    id: qrProc
-    // Both collectors check qrExpectedStop: a dismissal mid-generation kills
-    // the process, but buffered output still arrives afterwards and would
-    // repopulate qrSize -- reopening the card the user just closed. The flag
-    // stays set through onExited (showWifiQr resets it) because the exit and
-    // stream-finished signals have no guaranteed order.
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (!root.qrExpectedStop) root.updateQr(text)
-    }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (!root.qrExpectedStop) root.qrError = String(text || "").trim()
-    }
-    onExited: function(exitCode) {
-      root.qrLoading = false
-      if (root.pendingQrShow) {
-        root.pendingQrShow = false
-        root.qrExpectedStop = false
-        Qt.callLater(function() { root.showWifiQr(root.pendingQrDetect) })
-        return
-      }
-      if (root.qrExpectedStop) return
-      if (exitCode !== 0 || root.qrSize === 0) {
-        root.qrSize = 0
-        root.qrRows = []
-        if (root.qrError === "") root.qrError = "Could not generate the Wi-Fi QR code"
-      }
-    }
-  }
-
-  // The Wi-Fi password only enters shell memory when the user clicks to
-  // reveal it, and hideWifiQr drops it again when the share card closes.
-  // Both handlers bail when the card is gone so a fetch that was in flight
-  // during dismissal can't stash the secret into a closed panel's state.
-  Process {
-    id: pwProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (root.qrVisible) root.qrPassword = String(text || "").trim()
-    }
-    onExited: function(exitCode) {
-      if (!root.qrVisible) return
-      if (exitCode === 0 && root.qrPassword !== "") root.qrPasswordVisible = true
-      else root.qrPasswordError = "Could not read the Wi-Fi password"
-    }
-  }
-
-  Process {
     id: dnsProc
     stdout: StdioCollector {
       waitForEnd: true
@@ -1015,42 +832,6 @@ Panel {
       bandProc.command = ["omarchy-network-band"]
       bandProc.running = true
     }
-  }
-
-  Process {
-    id: speedTestProc
-    stdout: SplitParser { onRead: function(line) { root.updateSpeedTestLine(line) } }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.speedTestStderr = String(text || "").trim()
-    }
-    onExited: function(exitCode) {
-      speedTestPhaseTimer.stop()
-
-      if (root.pendingSpeedRun) {
-        root.pendingSpeedRun = false
-        root.speedTestExpectedStop = false
-        if (root.speedTestModalOpen) Qt.callLater(root.runSpeedTest)
-        return
-      }
-
-      if (!root.speedTestExpectedStop && exitCode !== 0) {
-        root.speedTestError = root.speedTestStderr || "Speed test failed"
-        root.speedTestPhase = ""
-        root.speedTestRunning = false
-        return
-      }
-
-      root.speedTestExpectedStop = false
-      root.finishSpeedTestPhase()
-    }
-  }
-
-  Timer {
-    id: speedTestPhaseTimer
-    interval: 5000
-    repeat: false
-    onTriggered: root.stopSpeedTestPhase()
   }
 
   // Action runner for DNS provider changes. Wi-Fi actions use the
@@ -1121,7 +902,11 @@ Panel {
 
   Timer {
     id: actionTimeout
-    interval: 15000
+    // Must outlast NetworkManager's 25s supplicant timeout: a wrong saved
+    // PSK fails with WifiAuthTimeout at ~25s, and that failure has to land
+    // while the action is still tracked to show "Wrong password" and reopen
+    // the passphrase prompt.
+    interval: 30000
     repeat: false
     onTriggered: {
       if (!root.actionKind) return
@@ -1145,7 +930,11 @@ Panel {
 
     onPressed: function(b) {
       if (root.opened) root.close()
-      else { root.open(); root.refresh() }
+      // open() is enough: onOpenedChanged runs refresh(true), which defers the
+      // PHY scan past the first frame. The bare refresh() that used to follow
+      // took the no-scan branch and set scannerEnabled synchronously, undoing
+      // that deferral and stalling the open on NetworkManager's AP flood.
+      else root.open()
     }
   }
 
@@ -1300,7 +1089,7 @@ Panel {
             hasCursor: root.qrHeaderHasCursor
             Layout.alignment: Qt.AlignVCenter
             onHovered: function(on) { if (on) root.setHeaderCursor(root.qrHeaderIndex) }
-            onClicked: root.showWifiQr()
+            onClicked: root.summonWifiQr()
           }
 
           Button {
@@ -1316,7 +1105,7 @@ Panel {
             hasCursor: root.speedHeaderHasCursor
             Layout.alignment: Qt.AlignVCenter
             onHovered: function(on) { if (on) root.setHeaderCursor(root.speedHeaderIndex) }
-            onClicked: root.showSpeedTest()
+            onClicked: root.summonSpeedTest()
           }
 
           ToggleSwitch {
@@ -1703,41 +1492,6 @@ Panel {
     }
   }
 
-  WifiQrPanel {
-    anchorItem: button
-    bar: root.bar
-    qrRows: root.qrRows
-    qrSize: root.qrSize
-    loading: root.qrLoading
-    error: root.qrError
-    ssid: root.info.ssid || ""
-    secured: root.connectedWifiNetwork ? root.isProtected(root.connectedWifiNetwork.security) : false
-    password: root.qrPassword
-    passwordVisible: root.qrPasswordVisible
-    passwordError: root.qrPasswordError
-    open: root.qrVisible
-    onCloseRequested: root.hideWifiQr()
-    onPasswordToggleRequested: root.toggleQrPassword()
-  }
-
-  SpeedTestPanel {
-    anchorItem: button
-    bar: root.bar
-    running: root.speedTestRunning
-    phase: root.speedTestPhase
-    downloadMbps: root.speedTestDownloadMbps
-    uploadMbps: root.speedTestUploadMbps
-    error: root.speedTestError
-    connectionName: {
-      if (root.info.type === "wifi") return root.info.ssid || "Wi-Fi"
-      if (root.info.type === "ethernet") return "Ethernet"
-      return ""
-    }
-    open: root.speedTestModalOpen
-    onCloseRequested: root.hideSpeedTest()
-    onRunAgainRequested: root.runSpeedTest()
-  }
-
   // One Wi-Fi band pill. `active` (fill) is the band actually in use and
   // `selected` (bold) is the pinned choice; with Automatic on nothing is
   // pinned, so only the live band lights up and the two can no longer read as
@@ -1839,19 +1593,23 @@ Panel {
     }
 
     Connections {
-      target: row.net ? row.net.network : null
+      target: row.net ? root.networkForSsid(row.net.ssid) : null
       function onConnectionFailed(reason) {
-        root.failNetworkAction(row.net.network, reason)
-        if (reason === ConnectionFailReason.NoSecrets) root.openPasswordPrompt(row.net.ssid)
+        // Background auto-connect retries fire this too; only reprompt for
+        // the connect started from this panel. Checked before
+        // failNetworkAction, which clears the action state.
+        var ours = root.actionKind === "connect" && root.actionSsid === (row.net.ssid || "")
+        root.failNetworkAction(root.networkForSsid(row.net.ssid), reason)
+        if (ours && root.shouldRepromptPassphrase(reason, row.isProtected)) root.openPasswordPrompt(row.net.ssid)
       }
       function onConnectedChanged() {
-        if (row.net) root.checkActionCompletion(row.net.network)
+        if (row.net) root.checkActionCompletion(root.networkForSsid(row.net.ssid))
       }
       function onKnownChanged() {
-        if (row.net) root.checkActionCompletion(row.net.network)
+        if (row.net) root.checkActionCompletion(root.networkForSsid(row.net.ssid))
       }
       function onStateChangingChanged() {
-        if (row.net) root.checkActionCompletion(row.net.network)
+        if (row.net) root.checkActionCompletion(root.networkForSsid(row.net.ssid))
       }
     }
 
@@ -1900,7 +1658,7 @@ Panel {
         root.selectedIndex = row.index
         root.wifiActionFocused = false
         if (row.isConnected) {
-          root.disconnect(row.net.network)
+          root.disconnectRow(row.net.ssid)
           return
         }
         if (row.isProtected && !row.isKnown) {
@@ -2024,9 +1782,10 @@ Panel {
       }
     }
 
-    // Inline passphrase prompt — only shown when we hit a protected network
-    // we don't have saved credentials for. Submitting (Enter or the check
-    // button) fires connect; Esc cancels back to the row.
+    // Inline passphrase prompt — shown when we hit a protected network we
+    // don't have saved credentials for, or when a connect fails because the
+    // saved passphrase is wrong. Submitting (Enter or the check button) fires
+    // connect; Esc cancels back to the row.
     Item {
       id: passwordPanel
       visible: row.isPasswordOpen

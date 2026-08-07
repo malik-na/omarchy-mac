@@ -141,8 +141,10 @@ Item {
     Util.execDetached(command)
   }
 
+  // Menu rows only surface their detail while a search is narrowing them;
+  // dmenu rows carry caller-supplied subtext that must always be visible.
   function rowHeightForDetail(detail) {
-    return root.filterText && detail ? root.detailRowHeight : root.baseRowHeight
+    return (root.filterText || root.dmenuActive) && detail ? root.detailRowHeight : root.baseRowHeight
   }
 
   // Height the card can devote to rows before running off the screen — or
@@ -152,6 +154,9 @@ Item {
   function availableRowsHeight() {
     var top = panel.cardTop >= 0 ? panel.cardTop : Style.gapsOut
     var available = panel.height - top - Style.gapsOut - root.contentMargin * 2 - root.headerHeight - root.contentSpacing
+    // The starting menu sets the ceiling along with the offset: drilling into
+    // a longer submenu scrolls behind the fold instead of growing the card.
+    if (panel.maxRowsHeight >= 0) available = Math.min(available, panel.maxRowsHeight)
     // A card that swallows the whole screen reads as a page, not a menu.
     return Math.min(available, Math.round(panel.height * 0.6))
   }
@@ -203,7 +208,7 @@ Item {
     var total = 0
     for (var i = 0; i < displayModel.count; i++) {
       if (i > 0) total += root.rowSpacing
-      total += root.baseRowHeight
+      total += root.rowHeightForDetail(displayModel.get(i).detail)
       totals.push(total)
     }
 
@@ -513,13 +518,16 @@ Item {
 
     var query = root.filterText.trim().toLowerCase()
     for (var i = 0; i < root.dmenuOptions.length; i++) {
-      // An option may lead with an icon, as "<glyph>\t<label>". Only the label
-      // is filtered against and handed back, so the caller never sees a glyph
-      // it has to strip off the selection.
+      // An option is "<label>", "<glyph>\t<label>", or
+      // "<glyph>\t<label>\t<subtext>". The glyph never comes back with the
+      // selection; the subtext renders under the label, filters alongside it,
+      // and returns with the selection as a stable key for same-named rows.
       var parts = String(root.dmenuOptions[i] || "").split("\t")
       var icon = parts.length > 1 ? parts.shift() : ""
-      var label = parts.join("\t")
-      if (query && label.toLowerCase().indexOf(query) < 0) continue
+      var label = parts.shift() || ""
+      var detail = parts.join("\t")
+      if (query && label.toLowerCase().indexOf(query) < 0
+          && detail.toLowerCase().indexOf(query) < 0) continue
       displayModel.append({
         itemId: "dmenu." + i,
         kind: "dmenu",
@@ -529,7 +537,7 @@ Item {
         appId: "",
         label: label,
         target: "",
-        detail: "",
+        detail: detail,
         path: "",
         childCount: 0,
         action: "",
@@ -714,7 +722,8 @@ Item {
         return
       }
       if (index < 0 || index >= displayModel.count) return
-      root.applyDmenuSelection(displayModel.get(index).label)
+      var picked = displayModel.get(index)
+      root.applyDmenuSelection(picked.detail ? picked.label + "\t" + picked.detail : picked.label)
       return
     }
 
@@ -838,17 +847,7 @@ Item {
   // in JSONC (`power`, `reminder-set`). Unknown strings fall through to the
   // id-as-route behavior so misspellings still attempt to open the literal id.
   function resolveRoute(input) {
-    var raw = String(input || "").toLowerCase().replace(/_/g, "-")
-    if (!raw || raw === "go" || raw === "menu") return "root"
-    for (var i = 0; i < root.itemOrder.length; i++) {
-      var entry = root.items[root.itemOrder[i]]
-      if (!entry || !entry.aliases) continue
-      for (var j = 0; j < entry.aliases.length; j++) {
-        var alias = String(entry.aliases[j] || "").toLowerCase().replace(/_/g, "-")
-        if (alias === raw) return entry.id
-      }
-    }
-    return raw
+    return MenuModel.resolveRoute(root.items, root.itemOrder, input)
   }
 
   function openRoute(initialMenu) {
@@ -948,16 +947,22 @@ Item {
 
   property var whenResults: ({})       // id → true|false (allow visibility)
   property var checkedResults: ({})    // id → true|false (show ✓)
+  property bool guardsPending: false
 
   function evaluateGuards() {
-    var script = ""
-    var ids = Object.keys(root.items)
-    for (var i = 0; i < ids.length; i++) {
-      var entry = root.items[ids[i]]
-      if (!entry) continue
-      if (entry.when) script += "if { " + entry.when + "; } >/dev/null 2>&1; then echo " + ids[i] + ":w:1; else echo " + ids[i] + ":w:0; fi\n"
-      if (entry.checked) script += "if { " + entry.checked + "; } >/dev/null 2>&1; then echo " + ids[i] + ":c:1; else echo " + ids[i] + ":c:0; fi\n"
+    // Process ignores a command change while it is running, and `collected`
+    // belongs to the run in flight, so a second evaluation cannot overwrite
+    // the first: it would throw away the lines already read and never start.
+    // The surviving tail then lands as the whole answer, and every id lost
+    // with it goes back to showing, since a `when:` only hides on an explicit
+    // false. Wait for the run in flight and evaluate once it lands instead.
+    if (guardProc.running) {
+      root.guardsPending = true
+      return
     }
+    root.guardsPending = false
+
+    var script = MenuModel.guardScript(root.items)
     if (!script) {
       root.whenResults = ({})
       root.checkedResults = ({})
@@ -974,7 +979,16 @@ Item {
     stdout: SplitParser {
       onRead: function(data) { guardProc.collected += data + "\n" }
     }
-    onExited: {
+    onExited: function(exitCode, exitStatus) {
+      // A batch that was killed rather than finished has only told us about
+      // the rows it reached, and a row whose `when:` went unanswered shows.
+      // Keep the last complete set rather than let a half-read one through.
+      // A signal leaves the exit code at 0, so the status is what tells us.
+      if (exitCode !== 0 || exitStatus !== 0) {
+        if (root.guardsPending) Qt.callLater(function() { root.evaluateGuards() })
+        return
+      }
+
       var nextWhen = ({})
       var nextChecked = ({})
       var lines = guardProc.collected.split("\n")
@@ -995,6 +1009,9 @@ Item {
       root.whenResults = nextWhen
       root.checkedResults = nextChecked
       if (root.opened) root.rebuildDisplay()
+      // Run the evaluation that had to stand aside. Deferred by a turn so the
+      // process is settled before its command is set again.
+      if (root.guardsPending) Qt.callLater(function() { root.evaluateGuards() })
     }
   }
   PanelWindow {
@@ -1010,14 +1027,20 @@ Item {
     // The card opens centered exactly as always. The first search keystroke
     // or submenu move freezes the top line where it currently sits — from
     // then on the card grows and shrinks downward instead of re-centering
-    // on every resize, which made the menu jump around. Closing unfreezes.
+    // on every resize, which made the menu jump around. The rows height is
+    // frozen at the same moment, so the starting menu also caps how tall the
+    // card may grow from there. Closing unfreezes both.
     property int cardTop: -1
+    property int maxRowsHeight: -1
     readonly property int centeredTop: Math.max(Style.gapsOut, Math.round((height - root.cardHeight) / 2))
     readonly property int effectiveCardTop: cardTop >= 0 ? cardTop : centeredTop
     function freezeCardTop() {
-      if (visible && cardTop < 0) cardTop = effectiveCardTop
+      if (visible && cardTop < 0) {
+        cardTop = effectiveCardTop
+        maxRowsHeight = root.visibleRowsHeight
+      }
     }
-    onVisibleChanged: if (!visible) cardTop = -1
+    onVisibleChanged: if (!visible) { cardTop = -1; maxRowsHeight = -1 }
 
     Rectangle {
       anchors.fill: parent
@@ -1265,7 +1288,7 @@ Item {
                 Text {
                   width: parent.width
                   text: row.detail
-                  visible: root.filterText && row.detail.length > 0
+                  visible: (root.filterText || row.kind === "dmenu") && row.detail.length > 0
                   color: root.foreground
                   opacity: 0.52
                   font.family: root.fontFamily
