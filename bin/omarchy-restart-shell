@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# omarchy:summary=Restart the Omarchy shell
+# omarchy:examples=omarchy restart shell
+
+# A caller opened after dev link/unlink may disagree with the still-running
+# desktop. The user manager receives Hyprland's environment at session start.
+session_omarchy_path=$(systemctl --user show-environment 2>/dev/null | sed -n 's/^OMARCHY_PATH=//p' | tail -n 1)
+: "${session_omarchy_path:=$OMARCHY_PATH}"
+
+CONFIG_DIR="$session_omarchy_path/shell"
+[[ -f $CONFIG_DIR/shell.qml ]] || { echo "Omarchy shell config not found: $CONFIG_DIR" >&2; exit 1; }
+
+# Allow running from outside the session (e.g. over ssh) by deriving the
+# Hyprland instance signature from the newest instance runtime dir.
+if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  hypr_dir=$(find "${XDG_RUNTIME_DIR:-/run/user/$UID}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)
+  [[ -n $hypr_dir ]] && export HYPRLAND_INSTANCE_SIGNATURE=${hypr_dir##*/}
+fi
+
+if [[ $(hyprctl -j monitors 2>/dev/null) == *'"LOCK"'* ]]; then
+  echo "Refusing to restart Omarchy shell while the session is locked." >&2
+  exit 1
+fi
+
+# Each kill stops the oldest matching instance and only returns once it has
+# fully exited, so the no-duplicate launch below can't race a dying shell.
+# Requires our quickshell-git build; 0.3.0's kill returns immediately.
+while timeout 5 quickshell kill -p "$CONFIG_DIR" --any-display >/dev/null 2>&1; do :; done
+
+# Spawn from Hyprland so the shell inherits the canonical session environment,
+# not transient variables from a terminal, SSH connection, or development tool.
+hyprctl dispatch 'hl.dsp.exec_cmd("quickshell -n -p $OMARCHY_PATH/shell")' >/dev/null
+
+for (( attempt = 0; attempt < 20; attempt++ )); do
+  if OMARCHY_PATH="$session_omarchy_path" OMARCHY_SHELL_IPC_TIMEOUT=0.5s omarchy-shell shell ping >/dev/null 2>&1; then
+    # Invitation toasts (like Voxtype/fingerprint setup) die with the old
+    # shell, and their notify-send waiters hang forever: the dying server
+    # never emits NotificationClosed. A still-running omarchy-*-invitation
+    # unit is therefore an unanswered invitation — re-run it so its toast
+    # reappears on the new shell. Answered invitations have already exited
+    # and been collected, so the glob no longer matches them.
+    systemctl --user try-restart 'omarchy-*-invitation.service' 2>/dev/null || true
+    exit 0
+  fi
+  sleep 0.1
+done
+
+echo "Omarchy shell did not become ready after restart." >&2
+exit 1

@@ -2,50 +2,76 @@
 # Utilized by ISO builder to ensure package availability in the ISO
 
 autoconf-archive
+asusctl
 base
 base-devel
-#broadcom-wl (x86_64 DKMS driver, unsupported on aarch64)
+broadcom-wl
 btrfs-progs
-#dart (binary distribution not available on aarch64)
+dkms
 egl-wayland
-git
-grim
 gst-plugin-pipewire
 gtk4-layer-shell
-htop
-intltool
-iwd
-jdk-openjdk
 libpulse
-libsass
-#libva-intel-driver (Intel VA-API stack is x86_64-only)
-#libva-nvidia-driver (NVIDIA VA-API shim is x86_64-only)
-#limine
-#limine-mkinitcpio-hook
-#limine-snapper-sync
-#linux (x86_64 kernel package)
+intel-ipu7-camera
+intel-lpmd
+intel-media-driver
+libva-intel-driver
+libva-nvidia-driver
+limine
+limine-mkinitcpio-hook
+limine-snapper-sync
+linux
 linux-firmware
-#linux-headers (x86_64 kernel headers)
-#macbook12-spi-driver-dkms (Intel Mac keyboard driver, not for aarch64)
-#nvidia-dkms
-#nvidia-open-dkms
-#nvidia-utils
-#lib32-nvidia-utils (multilib, x86_64-only)
+linux-headers
+linux-ptl
+linux-ptl-headers
+macbook12-spi-driver-dkms
+nvidia-580xx-dkms
+nvidia-dkms
+nvidia-open-dkms
+nvidia-580xx-utils
+nvidia-utils
+lib32-nvidia-580xx-utils
+lib32-nvidia-utils
 pipewire
 pipewire-alsa
 pipewire-jack
 pipewire-pulse
 qt6-wayland
-sassc
 snapper
-wayfreeze-git
+sof-firmware
+thermald
 webp-pixbuf-loader
-wget
 yay-debug
+tuxedo-drivers-nocompatcheck-dkms
+yt6801-dkms
 zram-generator
 
-# Apple Silicon Vulkan driver, installed by hardware detection when present
+# Intel encoding processing
+libvpl
+vpl-gpu-rt
+
+# Vulkan drivers (auto-detected by hardware)
+vulkan-intel
+vulkan-radeon
 vulkan-asahi
 
-# Available for optional DKMS-based hardware packages and ISO package availability
-dkms
+# Surface laptop support packages
+linux-firmware-marvell
+
+# Dell laptop support packages
+dell-xps-touchpad-haptics
+
+# Speaker tunings (LV2 limiter every tuning ends in)
+lsp-plugins-lv2
+
+# T2 MacBook support packages
+apple-bcm-firmware
+apple-t2-audio-config
+linux-t2
+linux-t2-headers
+t2fanrd
+tiny-dfr
+
+# Framework 16
+qmk-hid

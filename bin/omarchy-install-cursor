@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# omarchy:summary=Install Cursor IDE for the current architecture
+# omarchy:summary=Install the Cursor editor
 
 set -euo pipefail
 

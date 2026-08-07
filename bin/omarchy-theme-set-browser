@@ -3,7 +3,7 @@
 # omarchy:summary=Apply the current theme color to Chromium, Chrome, Edge, and Brave
 # omarchy:hidden=true
 
-CHROMIUM_THEME=~/.config/omarchy/current/theme/chromium.theme
+CHROMIUM_THEME=$HOME/.local/state/omarchy/current/theme/chromium.theme
 
 if [[ -f $CHROMIUM_THEME ]]; then
   THEME_RGB_COLOR=$(<$CHROMIUM_THEME)
@@ -41,4 +41,6 @@ refresh_running_browser msedge microsoft-edge-stable
 
 set_browser_policy /etc/brave/policies/managed
 refresh_running_browser brave brave
-refresh_running_browser brave-origin-beta brave-origin-beta -f
+# Match on the binary path: the running process is named plain "brave", and a
+# bare -f brave-origin pattern would also match the installer's own terminal.
+refresh_running_browser /opt/brave-origin-bin/ brave-origin -f

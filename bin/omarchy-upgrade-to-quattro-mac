@@ -1,0 +1,298 @@
+#!/bin/bash
+
+# omarchy:summary=Upgrade an Omarchy Mac 3.x install to the Quattro source-checkout layout
+# omarchy:args=[--yes] [--reboot] [--ref BRANCH]
+# omarchy:examples=omarchy upgrade to quattro mac
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy-upgrade-to-quattro-mac [--yes] [--reboot] [--ref BRANCH]
+
+Upgrade an Omarchy Mac 3.x install to Quattro (Omarchy 4). There are no
+Omarchy packages for Apple Silicon, so unlike the upstream x86 upgrade this
+keeps Omarchy running from the git checkout at ~/.local/share/omarchy and
+wires that checkout into the places a packaged install would occupy.
+
+This script is self-contained so 3.x users can run it directly:
+
+  curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-upgrade-to-quattro-mac | bash
+
+Options:
+  -y, --yes      Do not prompt before upgrading
+  --reboot       Reboot automatically after a successful upgrade
+  --ref BRANCH   Check out BRANCH instead of quattro
+  -h, --help     Show this help
+USAGE
+}
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+confirm() {
+  local question="$1"
+
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm "$question" </dev/tty
+  else
+    local answer
+    read -r -p "$question [y/N] " answer </dev/tty
+    [[ $answer == "y" || $answer == "Y" ]]
+  fi
+}
+
+checkout="$HOME/.local/share/omarchy"
+upgrade_ref="${OMARCHY_UPGRADE_REF:-quattro}"
+yes=0
+auto_reboot=0
+
+while (($#)); do
+  case "$1" in
+    -y|--yes)
+      yes=1
+      shift
+      ;;
+    --reboot)
+      auto_reboot=1
+      shift
+      ;;
+    --ref)
+      upgrade_ref="${2:-}"
+      [[ -n $upgrade_ref ]] || fail "--ref requires a branch name"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "Unknown option: $1"
+      ;;
+  esac
+done
+
+(( EUID != 0 )) || fail "Run this as your regular user, not as root. It uses sudo where needed."
+command -v sudo >/dev/null 2>&1 || fail "sudo is required."
+command -v pacman >/dev/null 2>&1 || fail "This upgrade is only supported on Arch-based systems with pacman."
+command -v yay >/dev/null 2>&1 || fail "yay is required to build AUR packages. Install it first."
+[[ $(uname -m) == "aarch64" ]] || fail "This is the Apple Silicon upgrade. On x86 machines use omarchy-upgrade-to-quattro."
+grep -qi apple /proc/device-tree/compatible 2>/dev/null || warn "This does not look like Apple hardware; continuing anyway."
+[[ -d $checkout/.git ]] || fail "No Omarchy checkout found at $checkout. Is Omarchy Mac 3.x installed?"
+
+if (( ! yes )); then
+  cat <<EOF
+
+Upgrading Omarchy Mac to Quattro is a one-way street!
+You cannot downgrade to 3.x afterwards.
+Make sure you have a backup.
+
+The upgrade will:
+  - switch $checkout to the '$upgrade_ref' branch
+  - install the Quattro package set (Quickshell and friends; AUR builds take a while)
+  - wire the checkout into /usr/share/omarchy, /etc, and /usr/bin
+  - replace your Hyprland config (the old one is backed up, not deleted)
+  - remove the retired Waybar/Walker/Mako desktop and switch to NetworkManager
+
+EOF
+  confirm "Continue with the upgrade?" || exit 0
+fi
+
+sudo -v
+sudo_keepalive_pid=""
+while true; do sudo -n true; sleep 60; done 2>/dev/null &
+sudo_keepalive_pid=$!
+trap '[[ -n $sudo_keepalive_pid ]] && kill "$sudo_keepalive_pid" 2>/dev/null || true' EXIT
+
+backup_suffix=$(date +%Y%m%d%H%M%S)
+
+backup_user_config() {
+  log "Backing up ~/.config to ~/.config.omarchy3.$backup_suffix.bak"
+  cp -a "$HOME/.config" "$HOME/.config.omarchy3.$backup_suffix.bak"
+}
+
+switch_checkout_to_quattro() {
+  log "Switching $checkout to the '$upgrade_ref' branch"
+
+  if [[ -n $(git -C "$checkout" status --porcelain) ]]; then
+    fail "The checkout at $checkout has local changes. Commit, stash, or discard them first."
+  fi
+
+  git -C "$checkout" fetch origin "$upgrade_ref"
+  git -C "$checkout" checkout "$upgrade_ref"
+  git -C "$checkout" merge --ff-only "origin/$upgrade_ref"
+}
+
+install_quattro_packages() {
+  local package skipped=()
+
+  log "Installing the Quattro package set (this builds AUR packages and takes a while)"
+  while read -r package; do
+    if ! yay -S --needed --noconfirm "$package" </dev/null; then
+      skipped+=("$package")
+    fi
+  done < <(grep -vE '^\s*(#|$)' "$checkout/install/omarchy-base.packages")
+
+  # Apple GPUs cannot run gpu-screen-recorder; screen recording falls back to wf-recorder.
+  yay -S --needed --noconfirm wf-recorder </dev/null
+
+  if (( ${#skipped[@]} )); then
+    warn "Skipped packages that would not install on aarch64: ${skipped[*]}"
+  fi
+}
+
+wire_system_paths() {
+  log "Wiring the checkout into /usr/share/omarchy, /etc, and /usr/bin"
+
+  sudo ln -sfn "$checkout" /usr/share/omarchy
+  printf 'export OMARCHY_PATH="%s"\n' "$checkout" | sudo tee /etc/omarchy.conf >/dev/null
+
+  sudo install -Dm644 "$checkout/etc/profile.d/omarchy.sh" /etc/profile.d/omarchy.sh
+  sudo install -Dm644 "$checkout/default/uwsm/env.d/10-omarchy" /usr/share/uwsm/env.d/10-omarchy
+  sudo install -Dm644 "$checkout/default/environment.d/10-omarchy-fcitx.conf" /usr/lib/environment.d/10-omarchy-fcitx.conf
+
+  # Omarchy's systemd units start commands by their /usr/bin/omarchy-* path,
+  # which packaged installs provide. Symlink the checkout's commands there.
+  local command
+  for command in "$checkout/bin"/omarchy-*; do
+    sudo ln -sf "$command" "/usr/bin/$(basename "$command")"
+  done
+}
+
+update_bashrc() {
+  local bashrc="$HOME/.bashrc" line replaced=0 rewritten
+
+  if grep -q "env-bootstrap" "$bashrc" 2>/dev/null; then
+    return 0
+  fi
+
+  log "Updating ~/.bashrc to the Quattro bootstrap"
+  cp "$bashrc" "$bashrc.omarchy3.$backup_suffix.bak"
+
+  rewritten=$(mktemp)
+  while IFS= read -r line; do
+    # Replace the 3.x line that sourced the checkout's bash rc directly.
+    if [[ $line == *"share/omarchy/default/bash/rc"* && $line != \#* ]]; then
+      if (( ! replaced )); then
+        printf '%s\n' '[[ -r /usr/share/omarchy/default/bash/env-bootstrap ]] && source /usr/share/omarchy/default/bash/env-bootstrap' >>"$rewritten"
+        printf '%s\n' 'source "$OMARCHY_PATH/default/bash/rc"' >>"$rewritten"
+        replaced=1
+      fi
+      continue
+    fi
+    printf '%s\n' "$line" >>"$rewritten"
+  done <"$bashrc"
+
+  if (( ! replaced )); then
+    printf '%s\n' '[[ -r /usr/share/omarchy/default/bash/env-bootstrap ]] && source /usr/share/omarchy/default/bash/env-bootstrap' >>"$rewritten"
+    printf '%s\n' 'source "$OMARCHY_PATH/default/bash/rc"' >>"$rewritten"
+  fi
+
+  mv "$rewritten" "$bashrc"
+}
+
+replace_hyprland_config() {
+  log "Replacing the Hyprland config with Quattro defaults"
+
+  if [[ -d $HOME/.config/hypr ]]; then
+    mv "$HOME/.config/hypr" "$HOME/.config/hypr.omarchy3.$backup_suffix.bak"
+  fi
+  mkdir -p "$HOME/.config/hypr" "$HOME/.config/omarchy"
+  cp -R "$checkout/config/hypr/." "$HOME/.config/hypr/"
+  cp -R "$checkout/config/omarchy/." "$HOME/.config/omarchy/"
+}
+
+run_quattro_setup() {
+  log "Running Quattro system setup"
+  sudo omarchy-setup-system --install-user "$USER" --upgrade
+
+  log "Running Quattro user setup and migrations"
+  export OMARCHY_PATH="$checkout"
+  export PATH="$checkout/bin:$PATH"
+  omarchy-finalize-user --force
+  omarchy-migrate
+}
+
+retire_legacy_packages() {
+  local retired_packages=(
+    waybar
+    walker
+    omarchy-walker
+    elephant
+    elephant-all
+    elephant-bluetooth
+    elephant-calc
+    elephant-clipboard
+    elephant-desktopapplications
+    elephant-files
+    elephant-menus
+    elephant-providerlist
+    elephant-runner
+    elephant-symbols
+    elephant-todo
+    elephant-unicode
+    elephant-websearch
+    mako
+    swayosd
+    hypridle
+    hyprlock
+    satty
+    swaybg
+    polkit-gnome
+  )
+
+  log "Removing the retired 3.x desktop stack"
+  local package
+  for package in "${retired_packages[@]}"; do
+    pacman -Q "$package" &>/dev/null || continue
+    sudo pacman -Rns --noconfirm "$package" || warn "Could not remove '$package'; leaving it installed."
+  done
+}
+
+switch_to_networkmanager() {
+  if ! pacman -Q networkmanager &>/dev/null; then
+    warn "NetworkManager is not installed; leaving iwd in charge of networking."
+    return 0
+  fi
+
+  log "Switching networking from iwd to NetworkManager (takes effect after reboot)"
+  sudo systemctl enable NetworkManager >/dev/null 2>&1 || true
+  sudo systemctl disable iwd >/dev/null 2>&1 || true
+}
+
+# Everything that changes the system lives behind main, so a truncated
+# curl | bash download cannot run half an upgrade.
+main() {
+  backup_user_config
+  switch_checkout_to_quattro
+  install_quattro_packages
+  wire_system_paths
+  update_bashrc
+  replace_hyprland_config
+  run_quattro_setup
+  retire_legacy_packages
+  switch_to_networkmanager
+
+  log "Upgrade complete. Reboot to start the Quattro desktop."
+  echo "After rebooting: pick your theme again with 'omarchy theme set <name>',"
+  echo "and use 'omarchy update' for all future updates."
+
+  if (( auto_reboot )); then
+    sudo reboot
+  elif (( ! yes )) && confirm "Reboot now?"; then
+    sudo reboot
+  fi
+}
+
+main

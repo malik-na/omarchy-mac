@@ -26,32 +26,46 @@ declare -A ROUTE_IS_ALIAS
 declare -A BINARY_TO_KEY
 declare -A GROUP_DESCRIPTIONS
 
-GROUP_DESCRIPTIONS[ac]="AC power detection"
+GROUP_DESCRIPTIONS[audio]="Audio input and output controls"
+GROUP_DESCRIPTIONS[bar]="Omarchy shell bar layout and settings"
 GROUP_DESCRIPTIONS[battery]="Battery status helpers"
+GROUP_DESCRIPTIONS[bluetooth]="Bluetooth device controls"
 GROUP_DESCRIPTIONS[branch]="Omarchy git branch management"
 GROUP_DESCRIPTIONS[branding]="About and screensaver branding"
 GROUP_DESCRIPTIONS[brightness]="Display and keyboard brightness"
 GROUP_DESCRIPTIONS[capture]="Screenshots and screen recording"
 GROUP_DESCRIPTIONS[channel]="Omarchy release channel management"
+GROUP_DESCRIPTIONS[clipboard]="Clipboard helpers"
 GROUP_DESCRIPTIONS[cmd]="Command and shortcut helpers"
 GROUP_DESCRIPTIONS[config]="System configuration helpers"
 GROUP_DESCRIPTIONS[debug]="Diagnostics and support logs"
+GROUP_DESCRIPTIONS[finalize]="Finalize user setup"
 GROUP_DESCRIPTIONS[default]="Default application selection"
 GROUP_DESCRIPTIONS[dev]="Omarchy development tools"
+GROUP_DESCRIPTIONS[display]="Display and text scaling"
+GROUP_DESCRIPTIONS[dns]="DNS resolver configuration"
 GROUP_DESCRIPTIONS[drive]="Drive selection and encryption"
+GROUP_DESCRIPTIONS[file]="File selection helpers"
 GROUP_DESCRIPTIONS[font]="Font management"
+GROUP_DESCRIPTIONS[games]="Game launchers and helpers"
 GROUP_DESCRIPTIONS[hibernation]="Hibernation setup and removal"
 GROUP_DESCRIPTIONS[hook]="User hook runner"
 GROUP_DESCRIPTIONS[hw]="Hardware detection and controls"
 GROUP_DESCRIPTIONS[hyprland]="Hyprland window, monitor, and toggle controls"
 GROUP_DESCRIPTIONS[install]="Optional software installers"
+GROUP_DESCRIPTIONS[installed]="Installed optional service checks"
 GROUP_DESCRIPTIONS[launch]="Application launchers"
 GROUP_DESCRIPTIONS[menu]="Omarchy menu commands"
 GROUP_DESCRIPTIONS[migrate]="Migration runner"
+GROUP_DESCRIPTIONS[monitor]="Monitor status helpers"
+GROUP_DESCRIPTIONS[network]="Network status helpers"
 GROUP_DESCRIPTIONS[notification]="Notification helpers"
-GROUP_DESCRIPTIONS[npx]="NPX package wrappers"
+GROUP_DESCRIPTIONS[mise]="Mise tool wrappers"
+GROUP_DESCRIPTIONS[osd]="On-screen display status helpers"
 GROUP_DESCRIPTIONS[pkg]="Package management helpers"
+GROUP_DESCRIPTIONS[plugin]="Omarchy shell plugin and bar widget management"
 GROUP_DESCRIPTIONS[plymouth]="Plymouth boot theme management"
+GROUP_DESCRIPTIONS[power]="Power supply detection"
 GROUP_DESCRIPTIONS[powerprofiles]="Power profile management"
 GROUP_DESCRIPTIONS[refresh]="Reset config to defaults"
 GROUP_DESCRIPTIONS[reinstall]="Reinstall and reset workflows"
@@ -59,11 +73,13 @@ GROUP_DESCRIPTIONS[reminder]="Desktop notification reminders"
 GROUP_DESCRIPTIONS[remove]="Removal workflows"
 GROUP_DESCRIPTIONS[restart]="Restart Omarchy components"
 GROUP_DESCRIPTIONS[setup]="Interactive setup wizards"
+GROUP_DESCRIPTIONS[shell]="Omarchy shell IPC helpers"
 GROUP_DESCRIPTIONS[screensaver]="Screensaver branding and animation"
 GROUP_DESCRIPTIONS[snapshot]="System snapshots"
+GROUP_DESCRIPTIONS[style]="Global UI style controls"
 GROUP_DESCRIPTIONS[sudo]="Sudo configuration helpers"
-GROUP_DESCRIPTIONS[swayosd]="SwayOSD status display helpers"
-GROUP_DESCRIPTIONS[system]="Reboot, shutdown, logout, and lock"
+GROUP_DESCRIPTIONS[system]="System status, reboot, shutdown, logout, and lock"
+GROUP_DESCRIPTIONS[tailscale]="Tailscale helpers"
 GROUP_DESCRIPTIONS[theme]="Theme management"
 GROUP_DESCRIPTIONS[toggle]="Toggle Omarchy features"
 GROUP_DESCRIPTIONS[transcode]="Image and video transcoding"
@@ -129,7 +145,6 @@ register_command() {
   local name=""
   local summary=""
   local usage=""
-  local binary=""
   local args=""
   local examples=""
   local aliases=""
@@ -219,7 +234,6 @@ register_command() {
     fallback_name="${fallback_name//-/ }"
   fi
 
-  [[ -z $binary ]] && binary="$file_binary"
   [[ -z $group ]] && group="$fallback_group"
   [[ $name_seen != "true" ]] && name="$fallback_name"
   [[ -z $summary && -n $fallback_summary ]] && summary="$fallback_summary"
@@ -229,11 +243,9 @@ register_command() {
     route+=" $name"
   fi
 
-  if [[ -z $usage ]]; then
-    usage="$route"
-    if [[ -n $args ]]; then
-      usage+=" $args"
-    fi
+  usage="$route"
+  if [[ -n $args ]]; then
+    usage+=" $args"
   fi
 
   [[ $requires_sudo == "true" ]] || requires_sudo="false"
@@ -243,7 +255,7 @@ register_command() {
   COMMAND_KEYS+=("$key")
   COMMAND_ROUTE["$key"]="$route"
   COMMAND_FALLBACK_ROUTE["$key"]="$fallback_route"
-  COMMAND_BINARY["$key"]="$binary"
+  COMMAND_BINARY["$key"]="$file_binary"
   COMMAND_GROUP["$key"]="$group"
   COMMAND_NAME["$key"]="$name"
   COMMAND_SUMMARY["$key"]="$summary"
@@ -255,7 +267,7 @@ register_command() {
   COMMAND_HAS_SUMMARY["$key"]="$has_summary"
   COMMAND_METADATA_ERRORS["$key"]="$metadata_errors"
 
-  BINARY_TO_KEY["$binary"]="$key"
+  BINARY_TO_KEY["$file_binary"]="$key"
   register_route "$route" "$key"
   register_route "$fallback_route" "$key"
 
@@ -601,25 +613,31 @@ show_commands_markdown() {
   done < <(sorted_keys "$include_all")
 }
 
+emit_command_record() {
+  local key="$1"
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${COMMAND_ROUTE[$key]}" \
+    "${COMMAND_BINARY[$key]}" \
+    "${COMMAND_GROUP[$key]}" \
+    "${COMMAND_NAME[$key]}" \
+    "${COMMAND_SUMMARY[$key]}" \
+    "${COMMAND_REQUIRES_SUDO[$key]}" \
+    "${COMMAND_HIDDEN[$key]}" \
+    "${COMMAND_ARGS[$key]}" \
+    "${COMMAND_EXAMPLES[$key]}" \
+    "${COMMAND_ALIASES[$key]}" \
+    "${COMMAND_FALLBACK_ROUTE[$key]}" \
+    "${COMMAND_USAGE[$key]}"
+}
+
 emit_command_records() {
   local include_all="$1"
   local key=""
 
   while IFS= read -r key; do
     [[ -n $key ]] || continue
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "${COMMAND_ROUTE[$key]}" \
-      "${COMMAND_BINARY[$key]}" \
-      "${COMMAND_GROUP[$key]}" \
-      "${COMMAND_NAME[$key]}" \
-      "${COMMAND_SUMMARY[$key]}" \
-      "${COMMAND_REQUIRES_SUDO[$key]}" \
-      "${COMMAND_HIDDEN[$key]}" \
-      "${COMMAND_ARGS[$key]}" \
-      "${COMMAND_EXAMPLES[$key]}" \
-      "${COMMAND_ALIASES[$key]}" \
-      "${COMMAND_FALLBACK_ROUTE[$key]}" \
-      "${COMMAND_USAGE[$key]}"
+    emit_command_record "$key"
   done < <(sorted_keys "$include_all")
 }
 
@@ -688,23 +706,7 @@ show_commands_check() {
 }
 
 show_command_json() {
-  local key="$1"
-
-  printf '%s\n' "$key" | while IFS= read -r key; do
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "${COMMAND_ROUTE[$key]}" \
-      "${COMMAND_BINARY[$key]}" \
-      "${COMMAND_GROUP[$key]}" \
-      "${COMMAND_NAME[$key]}" \
-      "${COMMAND_SUMMARY[$key]}" \
-      "${COMMAND_REQUIRES_SUDO[$key]}" \
-      "${COMMAND_HIDDEN[$key]}" \
-      "${COMMAND_ARGS[$key]}" \
-      "${COMMAND_EXAMPLES[$key]}" \
-      "${COMMAND_ALIASES[$key]}" \
-      "${COMMAND_FALLBACK_ROUTE[$key]}" \
-      "${COMMAND_USAGE[$key]}"
-  done | jq -Rn "$(commands_json_filter) | {ok: true, command: .commands[0]}"
+  emit_command_record "$1" | jq -Rn "$(commands_json_filter) | {ok: true, command: .commands[0]}"
 }
 
 parse_commands_args() {

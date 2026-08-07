@@ -7,17 +7,42 @@
 
 set -e
 
-# Run the update inside a PTY so pacman/yay keep showing download progress
-# while still logging the full session for later analysis.
-if [[ -z $OMARCHY_UPDATE_LOGGED ]]; then
+if [[ -z ${OMARCHY_UPDATE_LOGGED:-} ]]; then
   script_command=$(printf '%q ' "$0" "$@")
   exec env OMARCHY_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/omarchy-update.log"
 fi
 
-trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://omarchy.org/discord\033[0m"' ERR
+if ! omarchy-update-lock held; then
+  exec omarchy-update-lock run "$0" "$@"
+fi
 
-if [[ $1 == "-y" ]] || omarchy-update-confirm; then
+trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://omarchy.org/discord\033[0m"' ERR
+trap 'omarchy-update-stay-awake stop' EXIT
+
+omarchy-update-requires-free-space
+
+if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
   omarchy-snapshot create || (($? == 127))
-  omarchy-update-git
-  omarchy-update-perform
+
+  omarchy-update-stay-awake start
+
+  omarchy-update-dev
+  omarchy-update-keyring
+  omarchy-update-system-pkgs
+  omarchy-migrate
+  omarchy-hook post-update
+  omarchy-update-aur-pkgs
+  omarchy-update-mise
+  omarchy-update-orphan-pkgs
+
+  omarchy-update-analyze-logs
+  omarchy-update-status
+
+  # Release update-owned inhibitors before offering a reboot. A confirmed
+  # reboot can terminate this process before its EXIT trap gets a chance to
+  # remove the persistent Stay Awake marker.
+  omarchy-update-stay-awake stop
+  trap - EXIT
+
+  omarchy-update-restart
 fi

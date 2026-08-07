@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# omarchy:summary=Update pacman mirrorlists for Arch ARM and Asahi
+# omarchy:summary=Refresh the pacman mirrorlist from the bundled default
 
 # Safe mirrorlist updater
 # Usage: omarchy-refresh-pacman-mirrorlist [--force] [--backup]

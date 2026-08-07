@@ -1,8 +1,10 @@
 #!/bin/bash
+# omarchy:summary=Restart after an update when the kernel changed
 
-# omarchy:summary=Prompt for reboot when the kernel package changed after update
-
-# Compare kernel version before and after updates
+# Compare kernel version before and after updates.
+# Mac fork: this fork ships the Apple-Silicon kernel, so kernel-update detection
+# compares the linux-asahi *package version* (not upstream's `uname -r` vs
+# module-dir-name match, which is fragile across kernel naming). Keep this form.
 kernel_before=$(cat /tmp/omarchy-kernel-before 2>/dev/null)
 kernel_after=$(pacman -Q linux-asahi 2>/dev/null | awk '{print $2}')
 rm -f /tmp/omarchy-kernel-before
@@ -31,3 +33,9 @@ for file in "$HOME"/.local/state/omarchy/restart-*-required; do
     omarchy-restart-"$service"
   fi
 done
+
+# Updates routinely replace the shell's QML, and a stale process can lazy-load
+# new files into old code. A restart failure (locked session, ssh, TTY) only
+# prints its reason: the next update or login gets a fresh shell anyway.
+echo "Restarting shell"
+omarchy-restart-shell || true

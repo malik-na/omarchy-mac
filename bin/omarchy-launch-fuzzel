@@ -1,5 +1,0 @@
-#!/bin/bash
-
-# omarchy:summary=Launch the fuzzel application launcher
-
-exec fuzzel "$@"

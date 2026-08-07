@@ -8,11 +8,19 @@ set -e
 # Install voxtype and configure it for use.
 
 if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
-  omarchy-pkg-add wtype voxtype-bin
+  # Mac fork: voxtype-bin ships x86_64-only prebuilt binaries; on Apple Silicon
+  # build the source package instead (voxtype, arch includes aarch64) via the AUR
+  # helper. wtype is in the repos on both.
+  if [[ "$(uname -m)" == "aarch64" ]]; then
+    omarchy-pkg-add wtype
+    omarchy-pkg-aur-add voxtype
+  else
+    omarchy-pkg-add wtype voxtype-bin
+  fi
 
   # Setup voxtype
   mkdir -p ~/.config/voxtype
-  cp $OMARCHY_PATH/default/voxtype/config.toml ~/.config/voxtype/
+  cp "$OMARCHY_PATH/default/voxtype/config.toml" ~/.config/voxtype/
 
   voxtype setup --download --no-post-install
   if omarchy-hw-vulkan; then
@@ -20,6 +28,7 @@ if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
   fi
   voxtype setup systemd
 
-  omarchy-restart-waybar
-  notify-send "    Voxtype Dictation Ready" "Hold F9 to dictate (or toggle with Super + Ctrl + X)." -t 10000
+  hyprctl reload >/dev/null
+  omarchy-restart-shell
+  omarchy-notification-send -g  "Voxtype Dictation Ready" "Hold F9 to dictate (or toggle with Super + Ctrl + X)." -t 10000
 fi

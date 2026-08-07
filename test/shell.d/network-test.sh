@@ -1,0 +1,147 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
+
+run_node_test <<'JS'
+const fs = require('fs')
+const network = requireFromRoot('shell/plugins/panels/network/Model.js')
+const panelSource = fs.readFileSync(root + '/shell/plugins/panels/network/Panel.qml', 'utf8')
+
+assert(/IpcHandler[\s\S]*?function toggleNetwork\(\) \{ root\.toggleNetwork\(\) \}/.test(panelSource), 'network exposes the Wi-Fi radio toggle over IPC')
+assert(/manageIpc: false/.test(panelSource), 'network owns its IPC handler so it can extend the target methods')
+
+assertDeepEqual(
+  network.parseNetworkStatus('wifi\tCafe WiFi\t78\t5200\n'),
+  { kind: 'wifi', label: 'Cafe WiFi', signalStrength: 78, frequency: '5200' },
+  'network parses bar status'
+)
+assertEqual(network.connectionIcon('wifi', 80), network.wifiIconFor(80), 'network maps wifi icon from signal')
+assertEqual(network.formatHeaderSpeed('1000'), '1gbit', 'network formats gigabit speed')
+assertEqual(network.formatHeaderSpeed('2500'), '2.5gbit', 'network formats fractional gigabit speed')
+assertEqual(network.formatHeaderFreq('2462'), '2.4ghz', 'network formats 2.4GHz wifi band')
+assertEqual(network.formatHeaderFreq('5200'), '5ghz', 'network formats 5GHz wifi band')
+assertEqual(network.formatHeaderFreq('6455.0'), '6ghz', 'network formats 6GHz wifi band')
+assertEqual(network.formatHeaderFreq('18300'), '18.3ghz', 'network falls back to exact GHz for unknown bands')
+assertEqual(network.headerDetail({ type: 'ethernet', speed: '100' }), '100mbit', 'network header uses ethernet speed')
+
+assertDeepEqual(
+  network.parseKeyValue('iface\twlan0\nrx_bytes\t100\ntx_bytes\t50\n'),
+  { iface: 'wlan0', rx_bytes: '100', tx_bytes: '50' },
+  'network parses detail key values'
+)
+assertEqual(network.decodeIwSsid('Cafe\\xe2\\x80\\x99'), 'Cafe’', 'network decodes UTF-8 SSID bytes')
+assertEqual(network.decodeIwSsid('Smile \\xf0\\x9f\\x98\\x80'), 'Smile 😀', 'network decodes emoji SSID bytes')
+assertEqual(network.decodeIwSsid('\\x20Cafe\\x20'), ' Cafe ', 'network preserves edge spaces in SSIDs')
+assertEqual(network.decodeIwSsid('slash\\x5cname'), 'slash\\name', 'network decodes SSID backslashes once')
+assertEqual(network.decodeIwSsid('invalid\\xff'), 'invalid\\xff', 'network preserves invalid UTF-8 escapes')
+assertEqual(network.decodeIwSsid('already 😀'), 'already 😀', 'network safely preserves unexpected non-BMP input')
+assertDeepEqual(
+  network.parseKeyValue('ssid\tline\\x0abreak\\x09tab\\x00nul\nsignal_dbm\t-40\n'),
+  { ssid: 'line\\x0abreak\\x09tab\\x00nul', signal_dbm: '-40' },
+  'network leaves control-byte escapes safe for single-line display'
+)
+assertDeepEqual(
+  network.throughputState({ prevIface: '', prevSampleTime: 0 }, { iface: 'wlan0', rx_bytes: '100', tx_bytes: '50' }, 10),
+  { prevIface: 'wlan0', prevRxBytes: 100, prevTxBytes: 50, prevSampleTime: 10, downloadRate: 0, uploadRate: 0 },
+  'network seeds throughput state on first sample'
+)
+assertDeepEqual(
+  network.throughputState({ prevIface: 'wlan0', prevRxBytes: 100, prevTxBytes: 50, prevSampleTime: 10 }, { iface: 'wlan0', rx_bytes: '300', tx_bytes: '90' }, 12),
+  { prevIface: 'wlan0', prevRxBytes: 300, prevTxBytes: 90, prevSampleTime: 12, downloadRate: 100, uploadRate: 20 },
+  'network computes throughput deltas'
+)
+
+let ping = network.pingLatencyState(
+  { pingIface: '', routerPingSamples: [], internetPingSamples: [] },
+  { iface: 'wlan0', router_ping_ms: '2.0', internet_ping_ms: '20.0' },
+  4
+)
+assertDeepEqual(
+  ping,
+  { pingIface: 'wlan0', routerPingSamples: [2], internetPingSamples: [20], routerPingLatency: 2, internetPingLatency: 20, internetPingPacketLoss: 0 },
+  'network seeds ping latency samples'
+)
+
+ping = network.pingLatencyState(ping, { iface: 'wlan0', router_ping_ms: '4.0', internet_ping_ms: '' }, 4)
+assertDeepEqual(
+  ping,
+  { pingIface: 'wlan0', routerPingSamples: [2, 4], internetPingSamples: [20, null], routerPingLatency: 3, internetPingLatency: 20, internetPingPacketLoss: 50 },
+  'network averages recent successful ping samples'
+)
+
+assertDeepEqual(
+  network.pingLatencyState(ping, { iface: 'eth0', router_ping_ms: '1.5', internet_ping_ms: '10.0' }, 4),
+  { pingIface: 'eth0', routerPingSamples: [1.5], internetPingSamples: [10], routerPingLatency: 1.5, internetPingLatency: 10, internetPingPacketLoss: 0 },
+  'network resets ping samples when interface changes'
+)
+
+assertDeepEqual(
+  network.pingLatencyState(ping, { iface: 'wlan0', internet_ping_ms: '22.0' }, 4),
+  { pingIface: 'wlan0', routerPingSamples: [], internetPingSamples: [20, null, 22], routerPingLatency: -1, internetPingLatency: 21, internetPingPacketLoss: 33 },
+  'network clears ping samples when a target is unavailable'
+)
+
+assertEqual(network.formatBytes(1536), '1.5 KB', 'network formats bytes')
+assertEqual(network.formatRate(1536), '1.5 KB/s', 'network formats rates')
+assertEqual(network.formatPingLatency('2.54'), '2.5 ms', 'network formats low ping with precision')
+assertEqual(network.formatPingLatency('25.4'), '25 ms', 'network formats ping')
+assertEqual(network.formatPingLatency(''), 'Timeout', 'network formats missing ping as timeout')
+assertEqual(network.formatPingLatency(-1, false), '--', 'network holds the ping row before the first sample')
+assertEqual(network.formatPingLatency('25.4', true), '25 ms', 'network formats ping once samples exist')
+assertEqual(network.formatPingLatency('', true), 'Timeout', 'network still reports a timeout among real samples')
+assertEqual(network.formatPacketLoss(2), '2%', 'network formats packet loss')
+assertEqual(network.formatPacketLoss(0), '0%', 'network formats zero packet loss')
+assertEqual(network.formatPacketLoss(0, false), '--', 'network holds the packet loss row before the first sample')
+assertEqual(network.formatPacketLoss(0, true), '0%', 'network reports zero loss once samples exist')
+
+const rows = network.sortWifiRows([
+  { ssid: 'Open', connected: false, known: false, signal: 95 },
+  { ssid: 'Known', connected: false, known: true, signal: 10 },
+  { ssid: 'Connected', connected: true, known: true, signal: 20 }
+])
+assertDeepEqual(rows.map(row => row.ssid), ['Connected', 'Known', 'Open'], 'network sorts wifi rows by connection and known state')
+assertEqual(network.wifiSectionTitle(rows, 0), 'KNOWN NETWORKS', 'network labels known wifi section')
+assertEqual(network.wifiSectionTitle(rows, 2), 'OTHER NETWORKS', 'network labels other wifi section')
+
+assertDeepEqual(
+  network.parseQrMatrix('010\n111\n010\n'),
+  { rows: ['010', '111', '010'], size: 3 },
+  'network parses a square QR matrix'
+)
+assertDeepEqual(network.parseQrMatrix('01\n111\n'), { rows: [], size: 0 }, 'network rejects ragged QR rows')
+assertDeepEqual(network.parseQrMatrix('010\n101\n'), { rows: [], size: 0 }, 'network rejects a non-square QR matrix')
+assertDeepEqual(network.parseQrMatrix('010\n1x1\n010\n'), { rows: [], size: 0 }, 'network rejects invalid QR modules')
+
+const reasons = { NoSecrets: 1, WifiAuthTimeout: 2, WifiNetworkLost: 3, WifiClientDisconnected: 4, WifiClientFailed: 5 }
+assertEqual(network.networkFailureReason(1, reasons), 'Passphrase required', 'network maps missing passphrase failures')
+assertEqual(network.networkFailureReason(2, reasons), 'Wrong password', 'network maps auth timeout failures')
+assertEqual(network.networkFailureReason(99, reasons), 'Failed to connect', 'network maps unknown failures')
+
+
+assertEqual(network.bandLabel('2.4'), '2.4ghz', 'network labels the 2.4GHz band')
+assertEqual(network.bandLabel('6'), '6ghz', 'network labels the 6GHz band')
+assertEqual(network.bandLabel('auto'), 'Auto', 'network labels the automatic band choice')
+
+assertEqual(network.bandSectionTitle('auto', '2.4'), 'WI-FI BAND: 2.4GHZ', 'network names the live band in the header under automatic')
+assertEqual(network.bandSectionTitle('auto', ''), 'WI-FI BAND', 'network omits an unknown band from the header')
+assertEqual(network.bandSectionTitle('5', '5'), 'WI-FI BAND', 'network drops the header band once the pills are showing')
+assertEqual(network.bandSectionTitle('5', '2.4'), 'WI-FI BAND', 'network keeps a plain header while a pin is settling')
+
+assertDeepEqual(
+  network.parseBandStatus('band\t5\navailable\t2.4 5 6\nselected\tauto\n'),
+  { band: '5', selected: 'auto', available: ['2.4', '5', '6'] },
+  'network parses band status'
+)
+assertDeepEqual(
+  network.parseBandStatus(''),
+  { band: '', selected: 'auto', available: [] },
+  'network parses empty band status without a wifi connection'
+)
+
+
+
+assertEqual(network.headerDetail({ type: 'wifi', freq: '5745' }), '', 'network keeps wifi band state out of the hero')
+assertEqual(network.headerDetail({ type: 'ethernet', speed: '100' }), '100mbit', 'network keeps ethernet speed in the hero')
+JS
