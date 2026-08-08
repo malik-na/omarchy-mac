@@ -73,7 +73,28 @@ check bottom true  "0 10 10 10"  "10 10 0 10"  top
 # so a hand-set top=0 is left exactly as the user configured it (not "restored").
 check bottom true  "0 10 10 10"  "0 10 0 10"
 
-# The vendored copy stays a first-party service under the plugin contract.
-grep -q '"id": "scottjones.flush-bar"' "$ROOT/shell/plugins/flush-bar/manifest.json" \
-  && pass "flush-bar keeps its original id so existing installs and disables carry over" \
-  || fail "flush-bar keeps its original id so existing installs and disables carry over"
+# Anything shipped in shell/plugins/ is stamped first-party from its scan
+# directory, so the manifest contract requires the omarchy. prefix here. The
+# original scottjones. id is carried over by migration 1786141908 rather than by
+# freezing it, which is how upstream renamed omarchy.model-usage to
+# omarchy.agents.
+grep -q '"id": "omarchy.flush-bar"' "$ROOT/shell/plugins/flush-bar/manifest.json" \
+  && pass "flush-bar uses the first-party namespace its directory implies" \
+  || fail "flush-bar uses the first-party namespace its directory implies"
+
+migration="$ROOT/migrations/1786141908.sh"
+migration_home=$(mktemp -d)
+trap 'rm -rf "$migration_home"' EXIT
+mkdir -p "$migration_home/.config/omarchy"
+cat >"$migration_home/.config/omarchy/shell.json" <<'JSON'
+{
+  "plugins": [{ "id": "scottjones.flush-bar" }],
+  "disabledPlugins": ["scottjones.flush-bar", "omarchy.weather"]
+}
+JSON
+HOME="$migration_home" bash -euo pipefail "$migration" >/dev/null
+
+renamed=$(jq -c '[.plugins[].id] + .disabledPlugins' "$migration_home/.config/omarchy/shell.json")
+[[ $renamed == '["omarchy.flush-bar","omarchy.flush-bar","omarchy.weather"]' ]] \
+  && pass "migration renames the plugin wherever the config mentions it" \
+  || fail "migration renames the plugin wherever the config mentions it" "$renamed"
