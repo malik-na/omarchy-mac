@@ -37,6 +37,7 @@ jq -e '
 ' "$ROOT/config/omarchy/shell.json" >/dev/null
 pass "default clock date format has no leading zero"
 
+
 ROOT="$ROOT" python3 <<'PY'
 import json
 import os
@@ -367,44 +368,48 @@ jq -e --slurpfile defaults "$ROOT/config/omarchy/shell.json" '
 ' "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
 pass "bar defaults restores the stock bar"
 
-# omarchy-bar defaults drops each optional widget into the section its manifest
-# asks for, immediately after that section's anchor -- workspaces/weather/tray
-# for left/center/right -- and at the end when the anchor isn't there. Assert
-# that rule against the shipped layout rather than fixed indices, so a curated
-# bar (this fork keeps the centre empty for the notch, which moves weather out
-# of it) still exercises the placement instead of failing on the arrangement.
-placed_after_anchor='
-  def ids: map(.id // .);
-  def anchor_for($section): { left: "omarchy.workspaces", center: "omarchy.weather", right: "omarchy.tray" }[$section];
-  def placed($section; $widget):
-    (.bar.layout[$section] | ids) as $ids
-    | ($ids | index($widget)) as $at
-    | ($ids | index(anchor_for($section))) as $anchor
-    | $at != null
-      and (if $anchor == null then $at == ($ids | length) - 1 else $at == $anchor + 1 end);
-  placed("right"; "omarchy.dropbox") and placed("center"; "omarchy.tailscale")
-'
-
 HOME="$TMPDIR/home" OMARCHY_PATH="$ROOT" PATH="$mock_path" OMARCHY_TEST_DROPBOX=1 OMARCHY_TEST_TAILSCALE=1 omarchy-bar defaults
-jq -e "$placed_after_anchor" "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
+jq -e '
+  def ids: map(.id // .);
+  (.bar.layout.right | ids) as $right |
+  ($right | index("omarchy.tray")) as $tray |
+  ($right | index("omarchy.tailscale") == $tray + 1) and
+  ($right | index("omarchy.dropbox") == $tray + 2) and
+  (.bar.layout.center | ids | index("omarchy.tailscale") == null)
+' "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
 pass "bar defaults places plugins for running optional services"
 
 HOME="$TMPDIR/home" OMARCHY_PATH="$ROOT" PATH="$mock_path" \
   OMARCHY_TEST_SHELL_DOWN=1 OMARCHY_TEST_DROPBOX=1 OMARCHY_TEST_TAILSCALE=1 \
   omarchy-bar defaults
-jq -e "$placed_after_anchor" "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
+jq -e '
+  def ids: map(.id // .);
+  (.bar.layout.right | ids) as $right |
+  ($right | index("omarchy.tray")) as $tray |
+  ($right | index("omarchy.tailscale") == $tray + 1) and
+  ($right | index("omarchy.dropbox") == $tray + 2) and
+  (.bar.layout.center | ids | index("omarchy.tailscale") == null)
+' "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
 pass "bar defaults places service widgets without a running shell"
 
 HOME="$TMPDIR/home" OMARCHY_PATH="$ROOT" PATH="$mock_path" OMARCHY_TEST_DROPBOX=0 OMARCHY_TEST_TAILSCALE=0 omarchy-refresh-shell
 jq -e '
   def ids: map(.id // .);
-  (.bar.layout.right | ids | index("omarchy.dropbox") == null) and
-  (.bar.layout.center | ids | index("omarchy.tailscale") == null)
+  ([.bar.layout.left, .bar.layout.center, .bar.layout.right] | map(ids) | add) as $all |
+  ($all | index("omarchy.dropbox") == null) and
+  ($all | index("omarchy.tailscale") == null)
 ' "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
 pass "shell refresh keeps optional service widgets absent when services are unavailable"
 
 HOME="$TMPDIR/home" OMARCHY_PATH="$ROOT" PATH="$mock_path" OMARCHY_TEST_DROPBOX=1 OMARCHY_TEST_TAILSCALE=1 omarchy-refresh-shell
-jq -e "$placed_after_anchor" "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
+jq -e '
+  def ids: map(.id // .);
+  (.bar.layout.right | ids) as $right |
+  ($right | index("omarchy.tray")) as $tray |
+  ($right | index("omarchy.tailscale") == $tray + 1) and
+  ($right | index("omarchy.dropbox") == $tray + 2) and
+  (.bar.layout.center | ids | index("omarchy.tailscale") == null)
+' "$TMPDIR/home/.config/omarchy/shell.json" >/dev/null
 [[ -f $TMPDIR/home/.local/state/omarchy/restart-shell-called ]] || fail "shell refresh restarts shell"
 pass "shell refresh places optional service widgets when services are available"
 
