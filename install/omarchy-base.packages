@@ -69,6 +69,7 @@ lazydocker
 lazygit
 less
 libsecret
+libvips
 libyaml
 libreoffice-fresh
 llvm
@@ -104,7 +105,7 @@ postgresql-libs
 power-profiles-daemon
 python-gobject
 python-poetry-core
-python-terminaltexteffects
+ttfx
 qemu-user-static-binfmt
 qrencode
 quickshell-git
