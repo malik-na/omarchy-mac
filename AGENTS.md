@@ -147,8 +147,18 @@ Run from the repo root before calling work done:
 ```bash
 ./test/all
 bin/omarchy commands --check
-for f in bin/omarchy-*; do bash -n "$f" || exit 1; done
+for f in bin/omarchy-*; do
+  if head -1 "$f" | grep -q python; then
+    python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$f" || exit 1
+  else
+    bash -n "$f" || exit 1
+  fi
+done
 ```
+
+Not every command in `bin/` is a shell script, so the syntax check picks its
+parser from the shebang. `bash -n` on the Python ones reports syntax errors for
+perfectly valid files.
 
 `./test/all` aggregates `./test/cli` and `./test/shell`; run those individually
 when iterating on one area. It deliberately skips the graphical acceptance
