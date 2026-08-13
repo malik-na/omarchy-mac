@@ -59,6 +59,11 @@ Panel {
     usage.refreshAll(true)
   }
 
+  function launchAgent() {
+    if (root.bar) root.bar.run("omarchy-agent --pick")
+    root.close()
+  }
+
   // ---------------------------------------------------------------- limits
   //
   // Both providers report the same two shapes: a short rolling session window
@@ -92,9 +97,13 @@ Panel {
     return plain === "" ? "Limit" : plain
   }
 
-  function limitWindow(label, percent, resetAt) {
+  // A collector that already knows which window a limit belongs to says so,
+  // and that beats reading it back out of the label: a model-scoped limit is
+  // titled after its model, and a name like "Opus 5 (1M context)" would parse
+  // as a one-minute window.
+  function limitWindow(label, percent, resetAt, title) {
     return {
-      title: windowTitle(label),
+      title: String(title || "") !== "" ? String(title) : windowTitle(label),
       percent: Number(percent),
       resetAt: String(resetAt || "")
     }
@@ -107,7 +116,7 @@ Panel {
     for (var i = 0; i < list.length; i++) {
       var entry = list[i] || {}
       var percent = Number(entry.percent)
-      if (percent >= 0) out.push(limitWindow(entry.label, percent, entry.resetsAt))
+      if (percent >= 0) out.push(limitWindow(entry.label, percent, entry.resetsAt, entry.title))
     }
     return out
   }
@@ -333,7 +342,7 @@ Panel {
     text: "󱚣"
     active: root.alarming
     onPressed: function(buttonCode) {
-      if (buttonCode === Qt.RightButton) root.refreshNow()
+      if (buttonCode === Qt.RightButton) root.launchAgent()
       else if (buttonCode === Qt.MiddleButton) root.selectProvider(root.providerIndex + 1)
       else root.toggle()
     }
@@ -701,11 +710,16 @@ Panel {
 
       Text {
         id: limitLabel
+        // A model-scoped window is titled after its model, and those names run
+        // long enough to reach the percentage, so the title gives way first.
         text: limitRow.window ? limitRow.window.title : ""
         color: root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
+        elide: Text.ElideRight
         anchors.left: parent.left
+        anchors.right: limitValue.left
+        anchors.rightMargin: Style.spacing.sm
         anchors.verticalCenter: parent.verticalCenter
       }
 

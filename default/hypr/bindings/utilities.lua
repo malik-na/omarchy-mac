@@ -7,9 +7,9 @@ o.bind("SUPER + CTRL + H", "Hardware menu", "omarchy-menu toggle hardware")
 o.bind("SUPER + SHIFT + code:201", "Omarchy menu", "omarchy-menu toggle root")
 o.bind("SUPER + ESCAPE", "System menu", "omarchy-menu toggle system")
 o.bind("XF86PowerOff", "Power menu", "omarchy-menu toggle system", { locked = true })
-o.bind("SUPER + K", "Show key bindings", "omarchy-menu-keybindings")
-o.bind("SUPER + ALT + K", "Show Tmux key bindings", "omarchy-menu-tmux-keybindings")
-o.bind("SUPER + CTRL + K", "Show Herdr key bindings", "omarchy-menu-herdr-keybindings")
+o.bind("SUPER + K", "Keybindings", "omarchy-menu-keybindings")
+o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")
+o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
 o.bind("SUPER + CTRL + Q", "Calculator", "omacalc")
 o.bind("XF86Calculator", "Calculator", "omacalc")
 
@@ -97,7 +97,7 @@ o.bind("SUPER + CTRL + ALT + T", "Show time", "omarchy-notification-time")
 o.bind("SUPER + CTRL + ALT + B", "Show battery remaining", "omarchy-notification-battery")
 o.bind("SUPER + CTRL + ALT + W", "Toggle weather", "omarchy-notification-weather")
 
-o.bind("SUPER + SHIFT + CTRL + A", "Agent", "omarchy-launch-agent")
+o.bind("SUPER + SHIFT + CTRL + A", "Agent", "omarchy-agent --pick")
 o.bind("SUPER + CTRL + A", "Audio", "omarchy-shell shell toggle omarchy.audio")
 o.bind("SUPER + CTRL + B", "Bluetooth", "omarchy-shell shell toggle omarchy.bluetooth")
 o.bind("SUPER + CTRL + D", "Display", "omarchy-shell shell toggle omarchy.monitor")
@@ -105,6 +105,18 @@ o.bind("SUPER + CTRL + ALT + D", "Calendar", "omarchy-shell shell toggle omarchy
 o.bind("SUPER + CTRL + W", "Network", "omarchy-shell shell toggle omarchy.network")
 o.bind("SUPER + CTRL + P", "Power", "omarchy-shell shell toggle omarchy.power")
 o.bind("SUPER + CTRL + T", "Activity", { tui = "btop" })
+
+-- The letters above name a panel; the numbers count them. 1 is the leftmost
+-- panel in the bar's right section, and a widget with no panel of its own (the
+-- tray) is not counted, so the number matches the icon a user would point at.
+-- A bar with fewer panels than this leaves the tail of the range doing nothing.
+for panel = 1, 9 do
+  o.bind(
+    "SUPER + CTRL + code:" .. tostring(panel + 9),
+    "Bar panel " .. panel,
+    "omarchy-shell -q shell togglePanelAt right " .. panel
+  )
+end
 
 o.bind("SUPER + CTRL + Z", "Zoom in", function()
   local zoom = hl.get_config("cursor.zoom_factor") or 1
