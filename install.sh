@@ -1,0 +1,131 @@
+#!/bin/bash
+
+# Fresh Omarchy 4 install for Apple Silicon.
+#
+# Upstream installs Omarchy 4 from the ISO, which has no aarch64 build and
+# cannot boot an Apple Silicon Mac anyway. Both Omarchy packages are arch=any,
+# so this builds them from this checkout and installs them as the ISO would.
+
+set -euo pipefail
+
+readonly checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly package_output="$checkout/build-output"
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+check_preconditions() {
+  (( EUID != 0 )) || fail "Run this as your regular user, not as root. It uses sudo where needed."
+  [[ $(uname -m) == "aarch64" ]] || fail "This is the Apple Silicon installer. On x86 machines install from the ISO."
+  command -v pacman >/dev/null || fail "This installer only supports Arch-based systems."
+  command -v sudo >/dev/null || fail "sudo is required."
+  grep -qi apple /proc/device-tree/compatible 2>/dev/null ||
+    warn "This does not look like Apple hardware; continuing anyway."
+}
+
+ensure_aur_helper() {
+  command -v yay >/dev/null && return 0
+
+  log "Installing yay (needed for the AUR packages in the default set)"
+  sudo pacman -S --needed --noconfirm git base-devel
+  local workspace
+  workspace="$(mktemp -d)"
+  git clone https://aur.archlinux.org/yay.git "$workspace/yay"
+  (cd "$workspace/yay" && makepkg -si --noconfirm --needed)
+  rm -rf "$workspace"
+}
+
+ensure_package_sources() {
+  # A fresh machine has no omarchy-pkgs checkout, and build-packages.sh needs
+  # the PKGBUILDs. Respect an existing one so a developer can build offline.
+  if [[ -n ${OMARCHY_PKGS_PATH:-} && -d ${OMARCHY_PKGS_PATH:-} ]]; then
+    return 0
+  fi
+
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-build"
+  local pkgs_checkout="$cache_dir/omarchy-pkgs"
+
+  if [[ -d $pkgs_checkout/.git ]]; then
+    log "Updating the PKGBUILD checkout"
+    git -C "$pkgs_checkout" pull --ff-only || warn "Could not update $pkgs_checkout; using it as is."
+  else
+    log "Cloning the PKGBUILD checkout"
+    mkdir -p "$cache_dir"
+    git clone --depth 1 https://github.com/omacom-io/omarchy-pkgs.git "$pkgs_checkout"
+  fi
+
+  export OMARCHY_PKGS_PATH="$pkgs_checkout"
+}
+
+build_omarchy_packages() {
+  log "Building the Omarchy packages from this checkout"
+  OMARCHY_PACKAGE_OUTPUT="$package_output" "$checkout/build-packages.sh"
+}
+
+install_omarchy_packages() {
+  log "Installing the Omarchy packages"
+
+  local built=("$package_output"/*.pkg.tar.*)
+  (( ${#built[@]} )) || fail "No packages were built in $package_output."
+  sudo pacman -U --needed --noconfirm "${built[@]}"
+
+  # env-bootstrap is the single source of truth for OMARCHY_PATH and PATH, and
+  # this shell started before the package existed.
+  source /usr/share/omarchy/default/bash/env-bootstrap
+}
+
+install_default_package_set() {
+  local package skipped=()
+
+  log "Installing the default package set (AUR builds take a while)"
+  while read -r package; do
+    yay -S --needed --noconfirm "$package" </dev/null || skipped+=("$package")
+  done < <(grep -vE '^\s*(#|$)' "$checkout/install/omarchy-base.packages")
+
+  # Apple GPUs cannot run gpu-screen-recorder; recording falls back to this.
+  yay -S --needed --noconfirm wf-recorder </dev/null || skipped+=("wf-recorder")
+
+  if (( ${#skipped[@]} )); then
+    warn "Skipped packages with no aarch64 build: ${skipped[*]}"
+  fi
+}
+
+seed_user_defaults() {
+  # useradd -m already ran for this user, so /etc/skel never seeded $HOME.
+  # Replaying it is exactly what omarchy-reinstall-configs does.
+  log "Seeding shipped defaults into $HOME"
+  omarchy-reinstall-configs
+}
+
+run_system_setup() {
+  log "Running Omarchy system setup"
+  sudo omarchy-apply-system --install-user "$USER" --first-install
+
+  log "Running Omarchy user setup"
+  omarchy-provision-user --first-install
+}
+
+main() {
+  check_preconditions
+  ensure_aur_helper
+  ensure_package_sources
+  build_omarchy_packages
+  install_omarchy_packages
+  install_default_package_set
+  seed_user_defaults
+  run_system_setup
+
+  log "Install complete. Reboot to start Omarchy."
+}
+
+main "$@"

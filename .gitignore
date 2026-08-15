@@ -2,3 +2,6 @@
 # Python bytecode (orchestrator)
 __pycache__/
 *.pyc
+
+# Packages built by build-packages.sh
+build-output/
