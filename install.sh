@@ -11,17 +11,41 @@ set -euo pipefail
 readonly checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly package_output="$checkout/build-output"
 
+# gum is how the rest of Omarchy talks to people, but it arrives with the
+# omarchy package well into this script, so every helper falls back to plain
+# output until ensure_gum has run.
 log() {
-  printf '\033[32m==>\033[0m %s\n' "$*"
+  if command -v gum >/dev/null 2>&1; then
+    gum style --bold --foreground 2 "==> $*"
+  else
+    printf '\033[32m==>\033[0m %s\n' "$*"
+  fi
 }
 
 warn() {
-  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+  if command -v gum >/dev/null 2>&1; then
+    gum style --bold --foreground 3 "Warning: $*" >&2
+  else
+    printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+  fi
 }
 
 fail() {
-  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  if command -v gum >/dev/null 2>&1; then
+    gum style --bold --foreground 1 "Error: $*" >&2
+  else
+    printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  fi
   exit 1
+}
+
+ensure_gum() {
+  command -v gum >/dev/null 2>&1 && return 0
+
+  # Installed up front rather than waiting for the omarchy package, so the
+  # whole install looks like Omarchy instead of only its last third.
+  sudo pacman -S --needed --noconfirm gum >/dev/null 2>&1 ||
+    warn "Could not install gum; falling back to plain output."
 }
 
 check_preconditions() {
@@ -200,6 +224,7 @@ run_system_setup() {
 
 main() {
   check_preconditions
+  ensure_gum
   ensure_aur_helper
   ensure_package_sources
   build_omarchy_packages
