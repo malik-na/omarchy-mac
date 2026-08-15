@@ -18,26 +18,30 @@ case ${OMARCHY_SETUP_CONTEXT:-runtime} in
   *) NODE_PACKAGE_DIR="" ;;
 esac
 
-if [[ -n $NODE_PACKAGE_DIR ]]; then
-  NODE_TARBALL=$(find "$NODE_PACKAGE_DIR" -name "node-v*-linux-x64.tar.gz" -type f 2>/dev/null | head -n1)
-  if [[ -z $NODE_TARBALL ]]; then
-    if [[ ${OMARCHY_SETUP_CONTEXT:-} == "provision-owner" ]]; then
-      # A factory snapshot predating the bundled tarball may not have it staged.
-      # Leave Node to the network rather than failing the whole first boot.
-      echo "Warning: no bundled Node.js tarball in $NODE_PACKAGE_DIR; trying the network" >&2
-      mise use -g node@latest || echo "Warning: Node.js install deferred (no network)" >&2
-    else
-      echo "Error: bundled Node.js tarball missing from $NODE_PACKAGE_DIR" >&2
-      exit 1
-    fi
-  else
-    NODE_VERSION=$(basename "$NODE_TARBALL" | sed 's/node-v\(.*\)-linux-x64.tar.gz/\1/')
-    NODE_INSTALL_DIR="$HOME/.local/share/mise/installs/node/$NODE_VERSION"
+# Node ships per-architecture tarballs, and Apple Silicon needs the arm64 one.
+case $(uname -m) in
+  aarch64) NODE_TARBALL_ARCH=arm64 ;;
+  *) NODE_TARBALL_ARCH=x64 ;;
+esac
 
-    mkdir -p "$NODE_INSTALL_DIR"
-    tar -xzf "$NODE_TARBALL" --strip-components=1 -C "$NODE_INSTALL_DIR"
-    mise use -g node@"$NODE_VERSION"
-  fi
+NODE_TARBALL=""
+if [[ -n $NODE_PACKAGE_DIR ]]; then
+  NODE_TARBALL=$(find "$NODE_PACKAGE_DIR" -name "node-v*-linux-${NODE_TARBALL_ARCH}.tar.gz" -type f 2>/dev/null | head -n1)
+fi
+
+if [[ -n $NODE_TARBALL ]]; then
+  NODE_VERSION=$(basename "$NODE_TARBALL" | sed "s/node-v\(.*\)-linux-${NODE_TARBALL_ARCH}.tar.gz/\1/")
+  NODE_INSTALL_DIR="$HOME/.local/share/mise/installs/node/$NODE_VERSION"
+
+  mkdir -p "$NODE_INSTALL_DIR"
+  tar -xzf "$NODE_TARBALL" --strip-components=1 -C "$NODE_INSTALL_DIR"
+  mise use -g node@"$NODE_VERSION"
 else
-  mise use -g node@latest
+  # Only the ISO stages a tarball, and --first-install reports iso-chroot even
+  # for a script install, so a missing one is normal here rather than a broken
+  # image. Never fail user setup over it.
+  if [[ -n $NODE_PACKAGE_DIR ]]; then
+    echo "Warning: no bundled Node.js tarball in $NODE_PACKAGE_DIR; installing from the network" >&2
+  fi
+  mise use -g node@latest || echo "Warning: Node.js install deferred (no network)" >&2
 fi
