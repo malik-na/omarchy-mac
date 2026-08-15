@@ -164,3 +164,36 @@ if iso_root=$(find_omarchy_iso_root); then
 else
   pass "omarchy-iso checkout absent; skipping installer coverage"
 fi
+
+# Snapper needs a snapshot-capable root and Asahi installs land on ext4, where
+# create-config fails. config/all.sh runs early, so a non-zero exit here aborts
+# system setup before services are ever enabled.
+unsupported_tmp=$(mktemp -d)
+trap 'rm -rf "$test_tmp" "$unsupported_tmp"' EXIT
+mkdir -p "$unsupported_tmp/bin"
+
+cat >"$unsupported_tmp/bin/snapper" <<'STUB'
+#!/bin/bash
+exit 1
+STUB
+chmod +x "$unsupported_tmp/bin/snapper"
+
+cat >"$unsupported_tmp/bin/systemctl" <<'STUB'
+#!/bin/bash
+exit 0
+STUB
+chmod +x "$unsupported_tmp/bin/systemctl"
+
+unsupported_output=$(
+  PATH="$unsupported_tmp/bin:$PATH" \
+  OMARCHY_PATH="$ROOT" \
+  OMARCHY_SNAPPER_CONFIG_PATH="$unsupported_tmp/etc/snapper/configs/root" \
+  OMARCHY_SNAPPER_CONF_PATH="$unsupported_tmp/etc/conf.d/snapper" \
+    bash -euo pipefail "$ROOT/install/config/snapper.sh" 2>&1
+) || fail "snapshot configure survives a root that cannot hold snapshots"
+
+grep -qF 'Skipping Snapper setup' <<<"$unsupported_output" ||
+  fail "snapshot configure says why it skipped an unsupported root"
+[[ ! -f "$unsupported_tmp/etc/snapper/configs/root" ]] ||
+  fail "snapshot configure leaves no Snapper config behind on an unsupported root"
+pass "snapshot configure skips an unsupported root instead of aborting system setup"
