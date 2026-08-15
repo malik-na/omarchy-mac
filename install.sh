@@ -84,13 +84,65 @@ install_omarchy_packages() {
   source /usr/share/omarchy/default/bash/env-bootstrap
 }
 
+# Compared in bash rather than with grep against a process substitution, which
+# ugrep answers differently from GNU grep.
+# The shipped pacman.conf only lands during post-install, after the package set
+# is already installed, so the repo has to be added now: otherwise herdr builds
+# zig0.15 from source for two hours and aarch64 rejects it anyway.
+ensure_arm_package_repo() {
+  grep -q '^\[omarchy-aarch64\]' /etc/pacman.conf && return 0
+
+  local block
+  block=$(sed -n '/^\[omarchy-aarch64\]/,/^Server[[:space:]]*=/p' \
+    "$checkout/default/pacman/pacman-stable.conf")
+  [[ -n $block ]] || fail "default/pacman/pacman-stable.conf has no [omarchy-aarch64] section."
+
+  log "Adding the Omarchy ARM package repo"
+  printf '\n%s\n' "$block" | sudo tee -a /etc/pacman.conf >/dev/null
+  sudo pacman -Sy --noconfirm >/dev/null 2>&1 ||
+    warn "Could not refresh package databases after adding the ARM repo."
+}
+
+load_unavailable_packages() {
+  local unavailable="$checkout/install/omarchy-aarch64-unavailable.packages" line
+
+  unavailable_packages=()
+  [[ -f $unavailable ]] || return 0
+
+  while read -r line; do
+    [[ -n $line ]] && unavailable_packages+=("$line")
+  done < <(grep -vE '^[[:space:]]*(#|$)' "$unavailable")
+}
+
+package_is_unavailable_here() {
+  local package="$1" candidate
+
+  for candidate in ${unavailable_packages[@]+"${unavailable_packages[@]}"}; do
+    [[ $candidate == "$package" ]] && return 0
+  done
+
+  return 1
+}
+
 install_default_package_set() {
-  local package skipped=()
+  local package skipped=() unbuildable=()
+
+  load_unavailable_packages
 
   log "Installing the default package set (AUR builds take a while)"
   while read -r package; do
+    # Some packages compile a dependency chain for hours before failing their
+    # architecture check, so never start them.
+    if package_is_unavailable_here "$package"; then
+      unbuildable+=("$package")
+      continue
+    fi
     yay -S --needed --noconfirm "$package" </dev/null || skipped+=("$package")
   done < <(grep -vE '^\s*(#|$)' "$checkout/install/omarchy-base.packages")
+
+  if (( ${#unbuildable[@]} )); then
+    warn "Not attempted, no aarch64 build possible: ${unbuildable[*]}"
+  fi
 
   # Apple GPUs cannot run gpu-screen-recorder; recording falls back to this.
   yay -S --needed --noconfirm wf-recorder </dev/null || skipped+=("wf-recorder")
@@ -121,6 +173,7 @@ main() {
   ensure_package_sources
   build_omarchy_packages
   install_omarchy_packages
+  ensure_arm_package_repo
   install_default_package_set
   seed_user_defaults
   run_system_setup

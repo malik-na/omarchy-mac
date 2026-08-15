@@ -1,0 +1,11 @@
+# Packages from omarchy-base.packages that cannot be built on aarch64, skipped
+# before yay attempts them. Listed only when the attempt is expensive: most
+# unavailable packages fail their architecture check in seconds and cost
+# nothing, but these compile a dependency chain for hours first and then fail
+# anyway. Measured on a clean Apple Silicon install.
+
+# obs-studio resolves to obs-studio-browser, whose chain builds ffmpeg-obs
+# (134 min), svt-av1-hdr10plus-git (26 min), vlc-luajit (18 min) and
+# libajantv2 before svt-av1-hdr10plus-git and libhdr10plus-rs-git fail their
+# aarch64 architecture check. Roughly 183 minutes for nothing.
+obs-studio
