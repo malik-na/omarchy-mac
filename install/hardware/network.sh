@@ -1,6 +1,16 @@
 # NetworkManager enablement is centralized in enable-services.sh.
 systemctl disable iwd.service 2>/dev/null || true
 
+# Asahi Alarm points NetworkManager at iwd in /etc/NetworkManager/conf.d, so
+# disabling iwd alone leaves NetworkManager with a backend that never starts
+# and no Wi-Fi devices at all. Hand the radio back to wpa_supplicant, which is
+# also what install/hardware/apple/fix-brcmfmac-supplicant.sh assumes.
+for network_manager_conf in /etc/NetworkManager/conf.d/*.conf; do
+  [[ -f $network_manager_conf ]] || continue
+  grep -qE '^[[:space:]]*wifi\.backend[[:space:]]*=[[:space:]]*iwd' "$network_manager_conf" || continue
+  sed -i 's/^\([[:space:]]*wifi\.backend[[:space:]]*=[[:space:]]*\)iwd/\1wpa_supplicant/' "$network_manager_conf"
+done
+
 # Fresh Omarchy uses NetworkManager. Archinstall's legacy "copy ISO network"
 # mode enabled systemd-networkd and dropped DHCP .network files that compete
 # with NetworkManager, so retire that state whenever hardware setup runs.
@@ -41,3 +51,8 @@ done
 if systemctl is-active --quiet NetworkManager.service 2>/dev/null; then
   systemctl stop systemd-networkd.service 2>/dev/null || true
 fi
+
+# enable-services.sh turns systemd-resolved on, but nothing points resolv.conf
+# at its stub, so a fresh install reboots with whatever the old resolver left
+# behind and cannot resolve a hostname. The Quattro upgrade already does this.
+ln -sfn ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf

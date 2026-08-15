@@ -33,3 +33,24 @@ grep -F 'systemctl stop systemd-networkd.service' "$migration" >/dev/null
 grep -F 'NetworkManager.service' "$migration" >/dev/null
 grep -F '20-wlan.network' "$migration" >/dev/null
 pass "migration repairs upgraded systems with networkd still active"
+
+# enable-services.sh switches DNS to systemd-resolved, but resolv.conf still
+# names whatever resolver the machine was installed with, so a fresh install
+# reboots unable to resolve a hostname. The Quattro upgrade already links it.
+grep -F 'ln -sfn ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf' "$ROOT/install/hardware/network.sh" >/dev/null ||
+  fail "hardware setup points resolv.conf at the systemd-resolved stub"
+grep -F 'systemctl enable systemd-resolved.service' "$ROOT/install/config/enable-services.sh" >/dev/null ||
+  fail "system setup enables the resolver resolv.conf now points at"
+pass "fresh installs resolve hostnames after reboot"
+
+# Asahi Alarm configures NetworkManager to drive Wi-Fi through iwd, so disabling
+# iwd without moving the backend leaves NetworkManager with no Wi-Fi devices at
+# all - the radio simply disappears on a fresh install.
+network_setup="$ROOT/install/hardware/network.sh"
+grep -F 'systemctl disable iwd.service' "$network_setup" >/dev/null ||
+  fail "hardware setup retires iwd"
+grep -F 'NetworkManager/conf.d' "$network_setup" >/dev/null ||
+  fail "hardware setup moves the NetworkManager Wi-Fi backend off iwd"
+grep -F 'wpa_supplicant' "$network_setup" >/dev/null ||
+  fail "hardware setup hands Wi-Fi to wpa_supplicant, as the brcmfmac quirk assumes"
+pass "retiring iwd moves NetworkManager onto a backend that is still running"
