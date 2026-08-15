@@ -40,6 +40,15 @@ allowed = {
   # upgrade carrying the handler is the one that would hit the conflict, and the
   # handler only helps once it is on disk. Package it the release after.
   "/usr/lib/chromium/initial_preferences",
+  # mkinitcpio's own pacman hooks. The Asahi install disables them by appending
+  # .disabled and moves them back afterwards, so Omarchy only ever renames files
+  # mkinitcpio already owns -- it never creates content here.
+  "/usr/share/libalpm/hooks",
+  # polkit action for 1Password, rendered from a template by its opt-in
+  # installer. polkit reads .policy files only from here and there is no /etc
+  # equivalent, so this configures another project's tree on the machines that
+  # chose to install it.
+  "/usr/share/polkit-1/actions",
 }
 
 # One-time 3.x upgrade. It runs before this rule existed and cannot be made to

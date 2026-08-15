@@ -35,10 +35,13 @@
           "verticalFormat": "HH\n—\nmm"
         },
         {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
           "id": "omarchy.tray"
         },
         {
-          "id": "omarchy.model-usage"
+          "id": "omarchy.agents"
         },
         {
           "id": "omarchy.bluetooth"

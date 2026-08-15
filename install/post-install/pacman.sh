@@ -3,6 +3,13 @@
 cp -f "$OMARCHY_PATH/default/pacman/pacman-${OMARCHY_MIRROR:-stable}.conf" /etc/pacman.conf
 cp -f "$OMARCHY_PATH/default/pacman/mirrorlist-${OMARCHY_MIRROR:-stable}" /etc/pacman.d/mirrorlist
 
+# Every pacman.conf variant here Includes the asahi-alarm mirrorlist, so ship it
+# with them. Without the file pacman refuses to parse its config at all, which
+# breaks every later package operation on the installed system.
+if [[ -f $OMARCHY_PATH/default/pacman/mirrorlist.asahi-alarm ]]; then
+  cp -f "$OMARCHY_PATH/default/pacman/mirrorlist.asahi-alarm" /etc/pacman.d/mirrorlist.asahi-alarm
+fi
+
 # omarchy-settings skips this override until cups-browsed is actually present
 # to avoid pacman creating cups-browsed.conf.pacnew during ISO package install.
 if [[ -f $OMARCHY_PATH/etc-overrides/cups-cups-browsed.conf && -d /etc/cups ]]; then

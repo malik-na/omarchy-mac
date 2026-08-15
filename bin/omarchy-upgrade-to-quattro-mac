@@ -215,12 +215,12 @@ replace_hyprland_config() {
 
 run_quattro_setup() {
   log "Running Quattro system setup"
-  sudo omarchy-setup-system --install-user "$USER" --upgrade
+  sudo omarchy-apply-system --install-user "$USER" --upgrade
 
   log "Running Quattro user setup and migrations"
   export OMARCHY_PATH="$checkout"
   export PATH="$checkout/bin:$PATH"
-  omarchy-finalize-user --force
+  omarchy-provision-user --force
   omarchy-migrate
 }
 

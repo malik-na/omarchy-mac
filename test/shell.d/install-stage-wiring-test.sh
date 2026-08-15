@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
+
+# A leaf that no all.sh sources never runs, and nothing else reports that. The
+# Quattro merge left several behind, so pin every stage to its driver.
+stages=(config hardware login post-install user)
+
+# Known-unwired leaves. Wiring one means deleting its line here, so the list
+# cannot quietly grow and cannot quietly rot.
+unwired_leaves=(
+  # Quattro moved the Neovim setup into the omarchy-nvim package.
+  "config/lazyvim.sh"
+  # A function library sourced by omarchy-cmd-tzupdate-*, not a setup leaf.
+  "config/timezone-detection.sh"
+  # Superseded by the on-demand omarchy-setup-zsh command.
+  "config/zsh.sh"
+  # Genuinely orphaned: nothing sources these, so non-limine machines get no
+  # plymouth hook or kernel cmdline, and no Mac install gets the optional apps.
+  "login/alt-bootloaders.sh"
+  "login/enable-mkinitcpio.sh"
+  "post-install/optional-apps.sh"
+)
+
+leaf_is_known_unwired() {
+  local candidate="$1" known
+  for known in "${unwired_leaves[@]}"; do
+    [[ $candidate == "$known" ]] && return 0
+  done
+  return 1
+}
+
+unwired_found=()
+for stage in "${stages[@]}"; do
+  all_script="$ROOT/install/$stage/all.sh"
+  [[ -f $all_script ]] || fail "install/$stage/all.sh exists"
+
+  while read -r leaf; do
+    relative="${leaf#"$ROOT/install/"}"
+
+    [[ $relative == "$stage/all.sh" ]] && continue
+    # first-run leaves are driven by omarchy-provision-first-run, not an all.sh.
+    [[ $relative == "$stage/first-run/"* ]] && continue
+    leaf_is_known_unwired "$relative" && continue
+
+    grep -qF "$relative" "$all_script" || unwired_found+=("install/$relative")
+  done < <(find "$ROOT/install/$stage" -name '*.sh' -type f | sort)
+done
+
+# Reported together: fixing them one failure at a time hides the real size of it.
+if (( ${#unwired_found[@]} )); then
+  fail "every install stage leaf is wired into its all.sh" \
+    "unwired leaves:$(printf '\n  %s' "${unwired_found[@]}")"
+fi
+pass "every install stage leaf is wired into its all.sh"
+
+for known in "${unwired_leaves[@]}"; do
+  [[ -f "$ROOT/install/$known" ]] ||
+    fail "the known-unwired list names real files" "gone: install/$known"
+  stage="${known%%/*}"
+  if grep -qF "$known" "$ROOT/install/$stage/all.sh"; then
+    fail "the known-unwired list only names leaves that are still unwired" "now wired: install/$known"
+  fi
+done
+pass "the known-unwired list is accurate"
+
+# The Apple screen-share picker builds an AUR package, which makepkg refuses to
+# do as root, so it has to run in the per-user stage rather than post-install.
+grep -qF 'user/hardware/apple/share-picker.sh' "$ROOT/install/user/all.sh" ||
+  fail "the Apple screen-share picker runs in the per-user stage"
+pass "the Apple screen-share picker runs in the per-user stage"

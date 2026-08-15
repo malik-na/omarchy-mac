@@ -17,10 +17,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -z ${WAYLAND_DISPLAY:-} ]]; then
-  pass "no Wayland compositor; skipping shell runtime smoke test"
-  exit 0
-fi
+require_compositor "shell runtime smoke test"
 
 if ! command -v quickshell >/dev/null 2>&1; then
   pass "quickshell not installed; skipping shell runtime smoke test"
@@ -103,6 +100,9 @@ chmod +x "$stub_bin/curl"
 
 OMARCHY_PATH="$test_root" \
 HOME="$test_home" \
+XDG_CONFIG_HOME="$test_home/.config" \
+XDG_CACHE_HOME="$test_home/.cache" \
+XDG_STATE_HOME="$test_home/.local/state" \
 PATH="$stub_bin:$ROOT/bin:$PATH" \
   quickshell -p "$test_root/shell" --no-color >"$log" 2>&1 &
 QS_PID=$!
@@ -259,13 +259,16 @@ jq -e --argjson expected "$default_ids" --argjson visibleExpected "$visible_defa
 }
 pass "default bar layout renders expected module slots"
 
+# Mac fork: these three sit on the right, not the centre, so assert the ordering
+# in whichever section holds them.
 jq -e '
-  map(select(.section == "center")) | map(.id) as $center |
-  ($center | index("omarchy.weather")) != null and
-  ($center | index("omarchy.system-update")) != null and
-  ($center | index("omarchy.indicators")) != null and
-  (($center | index("omarchy.weather")) < ($center | index("omarchy.system-update"))) and
-  (($center | index("omarchy.system-update")) < ($center | index("omarchy.indicators")))
+  ((map(select(.id == "omarchy.weather")) | first | .section) // "center") as $section |
+  map(select(.section == $section)) | map(.id) as $ids |
+  ($ids | index("omarchy.weather")) as $weather |
+  ($ids | index("omarchy.system-update")) as $update |
+  ($ids | index("omarchy.indicators")) as $indicators |
+  $weather != null and $update != null and $indicators != null and
+  $weather < $update and $update < $indicators
 ' <<<"$geometry" >/dev/null || {
   printf 'Geometry:\n' >&2
   jq . <<<"$geometry" >&2
@@ -325,3 +328,50 @@ jq -e 'all(.[]; .id != "omarchy.audio")' <<<"$geometry" >/dev/null || {
 }
 
 pass "bar remove reloads shell config and updates bar layout"
+
+# 'bar put' is what migrations use to place a newly shipped widget, so it has
+# to place one that is missing and leave one that is already there alone,
+# however often it runs.
+bar_put() {
+  HOME="$test_home" OMARCHY_PATH="$test_root" PATH="$ROOT/bin:$PATH" "$ROOT/bin/omarchy-bar" put "$@"
+}
+
+# Mac fork: the clock sits on the right, not the centre, so follow whichever
+# section actually holds it.
+clock_section_ids() {
+  jq -c '[.bar.layout[] | select(type == "array")
+    | select(any(.[]; (.id // .) == "omarchy.clock")) | .[] | .id // .]' \
+    <<<"$(shell_ipc shell listShellConfig)"
+}
+
+bar_put omarchy.keyboard-layout --after omarchy.clock >/dev/null
+for _ in {1..80}; do
+  [[ $(clock_section_ids) == *omarchy.keyboard-layout* ]] && break
+  kill -0 "$QS_PID" 2>/dev/null || fail_with_log "test shell exited while putting a bar widget"
+  sleep 0.1
+done
+
+jq -e '
+  [.bar.layout[] | select(type == "array")
+    | select(any(.[]; (.id // .) == "omarchy.clock")) | .[] | .id // .] as $ids
+  | ($ids | index("omarchy.clock")) as $clock
+  | ($ids | index("omarchy.keyboard-layout")) as $widget
+  | $clock != null and $widget == $clock + 1
+' <<<"$(shell_ipc shell listShellConfig)" >/dev/null ||
+  fail_with_log "bar put places a widget after the one it names ($(clock_section_ids))"
+pass "bar put places a widget after the one it names"
+
+# Upstream aims this at the right section because the widget lives in the
+# centre. Here it already lives on the right, so aim at left instead: the point
+# is that naming any other section moves nothing.
+layout_before=$(jq -c '.bar.layout' <<<"$(shell_ipc shell listShellConfig)")
+bar_put omarchy.keyboard-layout --section left >/dev/null
+sleep 0.5
+layout_after=$(jq -c '.bar.layout' <<<"$(shell_ipc shell listShellConfig)")
+[[ $layout_after == "$layout_before" ]] ||
+  fail_with_log "bar put left a widget already on the bar alone (was $layout_before, now $layout_after)"
+jq -e '[.bar.layout[] | select(type == "array") | .[] | .id // .]
+  | map(select(. == "omarchy.keyboard-layout")) | length == 1' \
+  <<<"$(shell_ipc shell listShellConfig)" >/dev/null ||
+  fail_with_log "bar put added a second copy of a widget already on the bar"
+pass "bar put leaves a widget already on the bar alone"

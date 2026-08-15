@@ -263,8 +263,12 @@ function formatPingLatency(ms, hasSamples) {
 
 function wifiRow(network) {
   if (!network) return null
+  // Primitives only: rows become list-model data, so a WifiNetwork here puts a
+  // live QObject wrapper in every delegate's var property. NetworkManager churn
+  // (scans, AP removals) can destroy the object while a delegate is still
+  // incubating, which segfaults quickshell in wrap_slowPath on the dangling
+  // wrapper. Callers that need the object resolve it via networkForSsid().
   return {
-    network: network,
     connected: !!network.connected,
     known: !!network.known,
     ssid: network.name || "",
@@ -299,20 +303,6 @@ function isProtected(security, openSecurity) {
   return security !== openSecurity
 }
 
-function parseQrMatrix(raw) {
-  var lines = String(raw || "").trim().split(/\r?\n/).filter(function(line) { return line !== "" })
-  if (lines.length === 0) return { rows: [], size: 0 }
-
-  var size = lines[0].length
-  if (size !== lines.length) return { rows: [], size: 0 }
-
-  for (var i = 0; i < lines.length; i++) {
-    if (lines[i].length !== size || !/^[01]+$/.test(lines[i])) return { rows: [], size: 0 }
-  }
-
-  return { rows: lines, size: size }
-}
-
 // The password arrives on stdin and reaches nmcli through the scriptable
 // `connection edit` editor -- argv is world-readable in /proc, so the secret
 // must never be an argument (printf is a bash builtin, so no process spawns
@@ -334,6 +324,17 @@ function networkFailureReason(reason, reasons) {
   if (reason === r.WifiClientDisconnected) return "Disconnected"
   if (reason === r.WifiClientFailed) return "Connection failed"
   return "Failed to connect"
+}
+
+// Whether a failed connect should reopen the passphrase prompt. NoSecrets
+// always means credentials are missing. An auth timeout on a protected
+// network means the saved passphrase is wrong (the same profile a first
+// failed attempt leaves behind as "known"), so the user needs a chance to
+// re-enter it -- connectWithPsk overwrites the stored PSK on submit.
+function shouldRepromptPassphrase(reason, isProtected, reasons) {
+  var r = reasons || {}
+  if (reason === r.NoSecrets) return true
+  return !!isProtected && reason === r.WifiAuthTimeout
 }
 
 if (typeof module !== "undefined") {
@@ -361,8 +362,8 @@ if (typeof module !== "undefined") {
     sortWifiRows: sortWifiRows,
     wifiSectionTitle: wifiSectionTitle,
     isProtected: isProtected,
-    parseQrMatrix: parseQrMatrix,
     enterpriseConnectScript: enterpriseConnectScript,
-    networkFailureReason: networkFailureReason
+    networkFailureReason: networkFailureReason,
+    shouldRepromptPassphrase: shouldRepromptPassphrase
   }
 }
