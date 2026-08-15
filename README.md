@@ -10,6 +10,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 ## Quick links
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
+- Installing Omarchy 4 once Arch is booted — [Install Omarchy Mac](#install-omarchy-mac)
 - Upgrading from 3.x to Quattro (Omarchy 4) — [docs/upgrade-to-quattro.md](docs/upgrade-to-quattro.md)
 - The Omarchy manual — [manual/](manual/)
 - External monitor guide — https://codeberg.org/malik-na/omarchy-mac/discussions/73
@@ -26,7 +27,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
   - [Run Asahi Alarm](#run-asahi-alarm)
   - [Initial Arch setup](#initial-arch-setup)
   - [Create a regular user](#create-a-regular-user)
-  - [Install yay and Omarchy Mac](#install-yay-and-omarchy-mac)
+  - [Install Omarchy Mac](#install-omarchy-mac)
 - [Post‑install tasks](#post-install-tasks)
 - [Troubleshooting & FAQ](#troubleshooting--faq)
 - [Removal (uninstall)](#removal-uninstall)
@@ -123,23 +124,34 @@ su - <username>
 
 Unattended installs: you may use `NOPASSWD:` for wheel, but this reduces security.
 
-### Install yay and Omarchy Mac
+### Install Omarchy Mac
 
-As the non‑root user:
+As the non‑root user (the installer refuses to run as root and uses `sudo`
+where it needs to):
 
 ```bash
-# Install yay (AUR helper)
-git clone https://aur.archlinux.org/yay.git
-cd yay
-makepkg -si
-
-# Clone and run Omarchy Mac installer
-git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
+# Omarchy 4 lives on the quattro branch; main is still 3.x
+git clone -b quattro https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
 bash install.sh
 ```
 
-- Enter your password when prompted and follow the installer's prompts.
+That is the whole install. It takes roughly 40 minutes on a good connection,
+almost all of it building the AUR packages in the default set, and it:
+
+- installs `yay` if you do not already have it
+- builds the four Omarchy packages from this checkout, since Omarchy's own
+  package repo has no Apple Silicon builds
+- adds the Apple Silicon package repo, installs the default package set,
+  seeds your home directory, and runs system and user setup
+
+Notes:
+
+- A few packages have no ARM build at all and are reported at the end rather
+  than failing the install. Where building one would take hours and still fail,
+  the installer says so and asks before trying; answer no unless you know it
+  has gained ARM support since. `OMARCHY_TRY_UNAVAILABLE=1 bash install.sh`
+  forces the attempt.
 - If mirrors fail, run `bash fix-mirrors.sh` from the repository root and retry.
 
 ---
