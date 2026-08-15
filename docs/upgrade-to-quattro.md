@@ -29,7 +29,7 @@ ARM and the AUR, and retires the old one.
 ## Run the upgrade
 
 ```bash
-curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-upgrade-to-quattro-mac | bash
+curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-upgrade-to-quattro-mac | bash
 ```
 
 The script confirms before it changes anything, asks for your sudo password
