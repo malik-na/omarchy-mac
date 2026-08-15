@@ -114,6 +114,33 @@ load_unavailable_packages() {
   done < <(grep -vE '^[[:space:]]*(#|$)' "$unavailable")
 }
 
+confirm() {
+  local question="$1"
+
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm "$question" </dev/tty
+  else
+    local answer
+    read -r -p "$question [y/N] " answer </dev/tty
+    [[ $answer == "y" || $answer == "Y" ]]
+  fi
+}
+
+# Default to skipping, because building these was measured to fail. Offer the
+# choice anyway: an AUR package can gain aarch64 support at any time, and a
+# stale entry here should cost a prompt rather than be permanently wrong.
+should_attempt_unavailable() {
+  (( ${#unavailable_packages[@]} )) || return 1
+  [[ ${OMARCHY_TRY_UNAVAILABLE:-0} == "1" ]] && return 0
+  [[ -r /dev/tty ]] || return 1
+
+  warn "No aarch64 build is known for: ${unavailable_packages[*]}"
+  echo "Building them took about 3 hours on a clean install and still failed."
+  echo "They may have gained ARM support since, so you can try."
+
+  confirm "Try building them anyway?"
+}
+
 package_is_unavailable_here() {
   local package="$1" candidate
 
@@ -125,15 +152,18 @@ package_is_unavailable_here() {
 }
 
 install_default_package_set() {
-  local package skipped=() unbuildable=()
+  local package skipped=() unbuildable=() attempt_unavailable=0
 
   load_unavailable_packages
+  if should_attempt_unavailable; then
+    attempt_unavailable=1
+  fi
 
   log "Installing the default package set (AUR builds take a while)"
   while read -r package; do
-    # Some packages compile a dependency chain for hours before failing their
-    # architecture check, so never start them.
-    if package_is_unavailable_here "$package"; then
+    # These compile a dependency chain for hours before failing an architecture
+    # check, so do not start them unless asked to.
+    if (( ! attempt_unavailable )) && package_is_unavailable_here "$package"; then
       unbuildable+=("$package")
       continue
     fi
@@ -141,7 +171,8 @@ install_default_package_set() {
   done < <(grep -vE '^\s*(#|$)' "$checkout/install/omarchy-base.packages")
 
   if (( ${#unbuildable[@]} )); then
-    warn "Not attempted, no aarch64 build possible: ${unbuildable[*]}"
+    warn "Not attempted, no known aarch64 build: ${unbuildable[*]}"
+    echo "Try one later with: yay -S <package>"
   fi
 
   # Apple GPUs cannot run gpu-screen-recorder; recording falls back to this.

@@ -22,6 +22,14 @@ grep -qF 'package_is_unavailable_here' "$ROOT/install.sh" ||
   fail "the installer filters the default set through the unavailable list"
 pass "the installer filters the default set through the unavailable list"
 
+# The list is a default, not a verdict: AUR packages gain ARM support over time,
+# so a stale entry has to cost a prompt rather than be permanently wrong.
+grep -qF 'OMARCHY_TRY_UNAVAILABLE' "$ROOT/install.sh" ||
+  fail "the unavailable list can be overridden"
+grep -qF '[[ -r /dev/tty ]] || return 1' "$ROOT/install.sh" ||
+  fail "the installer skips without a terminal instead of blocking on a prompt"
+pass "the unavailable list is a prompt-able default, and never blocks a headless install"
+
 # These have aarch64 builds in the Omarchy ARM repo, so skipping them would
 # trade a slow install for a broken one.
 for package in herdr omacalc omacut omawrite; do
