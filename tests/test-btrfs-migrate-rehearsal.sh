@@ -21,6 +21,16 @@ if (( EUID != 0 )); then
 fi
 command -v mkfs.btrfs >/dev/null || { echo "SKIP: btrfs-progs not installed"; exit 0; }
 
+UDEV_RULE=/run/udev/rules.d/90-omarchy-btrfs-rehearsal.rules
+
+# Keep udisks/udiskie away from our loop devices so the desktop does not pop
+# unlock prompts for the throwaway LUKS container.
+hide_loops_from_udisks() {
+  mkdir -p "$(dirname "$UDEV_RULE")"
+  echo 'SUBSYSTEM=="block", KERNEL=="loop*", ENV{UDISKS_IGNORE}="1"' >"$UDEV_RULE"
+  udevadm control --reload 2>/dev/null || true
+}
+
 cleanup() {
   umount -R "$MNT" 2>/dev/null || true
   # Work mounts a failed migrate run may have left behind
@@ -31,12 +41,15 @@ cleanup() {
   cryptsetup close omb-rehearse 2>/dev/null || true
   [[ -n $LOOP ]] && losetup -d "$LOOP" 2>/dev/null || true
   rm -rf "$WORK"
+  rm -f "$UDEV_RULE"
+  udevadm control --reload 2>/dev/null || true
 }
 trap cleanup EXIT
 
 # Clear leftovers from a previous failed run before starting
 cleanup 2>/dev/null || true
 mkdir -p "$WORK"
+hide_loops_from_udisks
 
 check() {
   local label="$1"
