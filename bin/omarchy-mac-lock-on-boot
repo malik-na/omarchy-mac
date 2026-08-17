@@ -8,14 +8,14 @@
 # Omarchy install is unencrypted by default, so the boot lock is the only
 # at-rest protection those users have.
 #
-# Running `hyprlock` directly from autostart races GPU/DRM init on Apple
-# Silicon: it creates the ext-session-lock surface before the first frame is
-# ready, renders a blank/frozen screen, and (if it dies) orphans the lock so no
-# password prompt can be shown. Wait for Hyprland to report a monitor with a
-# real mode, let the first frame settle, then lock.
+# Locking straight from autostart races two things on Apple Silicon: GPU/DRM
+# init, which leaves a blank lock surface, and the shell's lock plugin, which
+# refuses requests until its PAM config has loaded.
 
-# Already locked (re-entrant / manual lock beat us to it)? Do nothing.
-pidof hyprlock >/dev/null && exit 0
+lock_state() {
+  OMARCHY_SHELL_IPC_TIMEOUT=0.5s omarchy-shell lock status 2>/dev/null |
+    jq -r 'if .secure == true then "secure" elif .requested == true then "locking" else "idle" end' 2>/dev/null
+}
 
 # Wait up to ~10s for a monitor with a non-zero resolution to appear.
 for _ in $(seq 1 100); do
@@ -24,8 +24,19 @@ for _ in $(seq 1 100); do
 done
 
 # Let the GPU/DRM settle the first frame before creating the lock surface.
-# (This delay, not the monitor probe, is what the original bare `hyprlock` was
-# missing on Apple Silicon.)
 sleep 2
 
-exec hyprlock
+# Re-request until the lock takes: a fresh shell answers before its lock plugin
+# can serve, so a single request is silently dropped.
+deadline=$((SECONDS + 30))
+while ((SECONDS < deadline)); do
+  case "$(lock_state)" in
+    secure) exit 0 ;;
+    locking) ;;
+    *) omarchy-system-lock >/dev/null 2>&1 ;;
+  esac
+  sleep 0.2
+done
+
+echo "Timed out waiting for the session to lock on boot." >&2
+exit 1

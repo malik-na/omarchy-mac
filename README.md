@@ -130,8 +130,7 @@ As the non‑root user (the installer refuses to run as root and uses `sudo`
 where it needs to):
 
 ```bash
-# Omarchy 4 lives on the quattro branch; main is still 3.x
-git clone -b quattro https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
+git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
 bash install.sh
 ```

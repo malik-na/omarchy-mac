@@ -34,3 +34,13 @@ if grep -qE 'omarchy-setup-system|omarchy-finalize-user' "$upgrade_to_quattro_ma
   fail "Mac Quattro upgrade does not call the retired 3.x command names"
 fi
 pass "Mac Quattro upgrade does not call the retired 3.x command names"
+
+# The curl one-liner is written out in both the script and the guide, so a
+# branch rename can leave a 3.x user fetching an upgrade that no longer exists.
+script_url=$(grep -oE 'https://codeberg.org/[^ ]*omarchy-upgrade-to-quattro-mac' "$upgrade_to_quattro_mac" | head -1)
+doc_url=$(grep -oE 'https://codeberg.org/[^ ]*omarchy-upgrade-to-quattro-mac' "$ROOT/docs/upgrade-to-quattro.md" | head -1)
+[[ -n $script_url && -n $doc_url ]] || fail "the upgrade one-liner appears in both the script and the guide"
+[[ $script_url == "$doc_url" ]] ||
+  fail "the upgrade one-liner agrees between script and guide" "script: $script_url
+doc:    $doc_url"
+pass "the upgrade one-liner agrees between the script and the guide"

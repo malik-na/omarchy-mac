@@ -31,3 +31,13 @@ while read -r included; do
 done < <(grep -h '^Include = /etc/pacman.d/' "$ROOT"/default/pacman/pacman*.conf |
   awk '{ print $3 }' | sort -u)
 pass "every included mirrorlist ships in the repo"
+
+# The installed mirrorlist is the one Asahi Alarm set up, often with mirrors
+# close to the user. Replacing it leaves a single slow generic server, which is
+# what omarchy-refresh-pacman-mirrorlist exists to avoid.
+if grep -qE '^cp -f .*mirrorlist-\$\{OMARCHY_MIRROR' "$post_install"; then
+  fail "pacman config restore does not overwrite the installed mirrorlist"
+fi
+grep -qF 'grep -qxF "$mirror" /etc/pacman.d/mirrorlist' "$post_install" ||
+  fail "pacman config restore appends only mirrors that are missing"
+pass "pacman config restore keeps the mirrors the machine was installed with"

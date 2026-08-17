@@ -48,3 +48,15 @@ pass "the package build drops the limine stack from the Apple Silicon dependenci
 grep -F 'omarchy-cmd-missing limine' "$ROOT/bin/omarchy-refresh-limine" >/dev/null ||
   fail "refreshing limine no-ops on a machine without limine"
 pass "refreshing limine no-ops on a machine without limine"
+
+# gum arrives with the omarchy package a third of the way in, so without this
+# the install looks nothing like the rest of Omarchy until its last stretch.
+grep -qF 'ensure_gum' "$install_script" ||
+  fail "the installer installs gum up front"
+gum_call=$(grep -n '^  ensure_gum$' "$install_script" | cut -d: -f1)
+set_call=$(grep -n '^  install_default_package_set$' "$install_script" | cut -d: -f1)
+[[ -n $gum_call && -n $set_call ]] || fail "the installer installs gum and the package set"
+(( gum_call < set_call )) || fail "gum is installed before the long package phase"
+grep -qF 'gum style' "$install_script" ||
+  fail "the installer speaks through gum once it is available"
+pass "the installer styles its output with gum from the start"
