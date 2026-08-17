@@ -1,18 +1,31 @@
 # Btrfs on Omarchy Mac
 
 The x86 Omarchy Quattro ISO installs onto btrfs and gets snapshots, snapper
-retention, and `omarchy-system-factory-reset` for free. Asahi Alarm installs
-land on ext4, where none of that works. `omarchy-system-btrfs-migrate` closes
-that gap: run it on a fresh Asahi Arch Minimal install and it rebuilds the
-root partition as btrfs — optionally inside a LUKS2 container — with the same
-subvolume layout the ISO creates.
+retention, and `omarchy-system-factory-reset` for free.
+`omarchy-system-btrfs-migrate` gives an Asahi Alarm install the same root
+layout. What it has to do depends on which Asahi Alarm image you installed:
+
+- **an ext4 image** — the partition is rebuilt as btrfs with `@`, `@home` and
+  `@log`, optionally inside a LUKS2 container.
+- **a btrfs image** — Asahi Alarm's btrfs variants already create `@` and
+  `@home`, so the filesystem is left alone and only the missing pieces are
+  added. With `--encrypt` the partition is encrypted in place; without it,
+  there is nothing left to do and the tool says so.
+
+Neither path is available from the installer itself: Asahi Alarm has no
+encryption option, so a LUKS root on Apple Silicon has to be arranged
+afterwards, and this is that step.
 
 ## When to run it
 
 Immediately after the Asahi Alarm installer, on the first boot into Arch,
-**before** `bootstrap.sh`. The conversion stages the whole system through RAM,
-which is only safe while the install is small and disposable. It refuses to
-run when the used space does not comfortably fit in memory.
+**before** `bootstrap.sh`.
+
+The ext4 conversion stages the whole system through RAM, which is only safe
+while the install is small and disposable; it refuses to run when the used
+space does not comfortably fit in memory. The in-place encryption has no such
+limit — it copies nothing and resumes if interrupted — but the layout it
+produces (`@fresh` in particular) is only meaningful on a fresh install.
 
 ## Usage
 
@@ -23,8 +36,10 @@ curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-s
 bash omarchy-system-btrfs-migrate --encrypt   # omit --encrypt to stay unencrypted
 ```
 
-Confirm with `convert`, reboot, and the conversion runs early in boot, before
-the root is mounted:
+Confirm at the prompt (`convert` on ext4, `encrypt` on btrfs), reboot, and the
+work runs early in boot, before the root is mounted.
+
+On an **ext4** root:
 
 1. The system is copied into RAM (a fresh install is a few GB).
 2. With `--encrypt`, a LUKS2 container is created — you choose the disk
@@ -34,6 +49,25 @@ the root is mounted:
 4. A read-only snapshot `@fresh` of the just-converted system is taken.
 5. Boot continues straight into the converted root; a one-shot service on
    that boot regenerates the GRUB config and initramfs, then removes itself.
+
+On a **btrfs** root with `--encrypt`:
+
+1. The filesystem is shrunk by 64 MiB to free the space cryptsetup needs for a
+   LUKS2 header.
+2. You choose the disk passphrase on the console, and `cryptsetup reencrypt`
+   encrypts the partition in place. Every block is rewritten, so this is the
+   slow part — minutes, scaling with partition size rather than with how much
+   is stored on it. Nothing is copied anywhere and the filesystem UUID does
+   not change, so `fstab` and `grub.cfg` keep working as written.
+3. `@log` is created (Asahi Alarm's images stop at `@` and `@home`) and
+   `/var/log` is moved into it; the read-only `@fresh` snapshot is taken.
+4. Boot continues into the now-encrypted root, and the same one-shot finish
+   service regenerates the GRUB config and initramfs.
+
+Interrupting step 2 — a power cut, a hard reset — costs only the time spent so
+far. The half-encrypted state is recorded in the LUKS2 header, the hook finds
+the partition again by PARTUUID on the next boot, and the pass resumes after
+you enter the passphrase.
 
 Then proceed with the normal Omarchy install (`bootstrap.sh`). When
 `install.sh` finishes on a btrfs root it snapshots the installed system as
@@ -49,9 +83,19 @@ being skipped.
 - **`@fresh`** — the pre-Omarchy baseline. Rolling back to it and re-running
   the installer is the fast way to test install changes end to end (below).
 
+## The unlock prompt
+
+The conversion boot prompts on the bare console: Plymouth is not installed
+yet, and neither is a theme for it. Once Omarchy is installed the prompt is
+the branded one — `omarchy_hooks.conf` orders the `plymouth` hook ahead of
+`encrypt`, the stock `encrypt` hook hands the prompt to
+`plymouth ask-for-password`, and `install/login/alt-bootloaders.sh` puts
+`splash` on the GRUB command line for the machines that boot without limine,
+which every Mac does.
+
 ## Rolling back to the pre-Omarchy state
 
-`@fresh` is the fresh Asahi Alarm system from just after the conversion. To
+`@fresh` is the fresh Asahi Alarm system from just after the migration. To
 rewind the whole install (this discards `/`, keeps `@home` and `@log`):
 
 ```bash
@@ -72,8 +116,12 @@ you want the full fresh state.
 - `/boot` lives on the (vfat, unencrypted) ESP. Snapshots and rollbacks never
   cover the kernel, initramfs, or GRUB config. After rolling `@` back across a
   kernel update, run `mkinitcpio -P` if modules and kernel disagree.
-- The RAM staging makes this a fresh-install tool, not a general ext4→btrfs
-  migrator for a system with data on it.
+- The RAM staging makes the ext4 path a fresh-install tool, not a general
+  ext4→btrfs migrator for a system with data on it. The encryption path has no
+  such constraint, but it has never been asked to encrypt a machine anyone
+  cared about, so treat a backup as mandatory.
+- Only the busybox `encrypt` hook is wired up. An initramfs built around the
+  systemd hooks (`sd-encrypt`) is rejected rather than half-configured.
 - On encrypted installs, `omarchy-system-factory-reset`'s provisioning-window
   auto-unlock injects its kernel argument via Limine's entry tool, which does
   not exist on the Mac's GRUB boot chain. The reset still works; the first
@@ -82,5 +130,6 @@ you want the full fresh state.
 ## Testing changes to the migration
 
 `tests/test-btrfs-migrate-rehearsal.sh` (as root) exercises the conversion
-core — staging, LUKS, subvolume layout, restore fidelity, fstab generation —
-against a loop device without touching the machine's disks.
+core — staging, LUKS, subvolume layout, restore fidelity, fstab generation,
+and the in-place encryption of an existing btrfs root — against a loop device
+without touching the machine's disks.

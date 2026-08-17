@@ -1,7 +1,9 @@
 #!/bin/bash
 # Rehearses omarchy-system-btrfs-migrate's conversion core on a loop device:
 # stages a fake ext4 root, converts it (plain and LUKS-encrypted), and checks
-# the subvolume layout, restore fidelity, and generated fstab.
+# the subvolume layout, restore fidelity, and generated fstab. Then stages a
+# fake btrfs root of the shape the Asahi Alarm btrfs images leave behind and
+# encrypts it in place, checking that the filesystem survives untouched.
 #
 # Needs root (loop devices, mounts, mkfs) and btrfs-progs + cryptsetup.
 # The machine's own disks are never touched.
@@ -92,11 +94,49 @@ EOF
   umount "$root"
 }
 
+# A fake root of the shape Asahi Alarm's btrfs images produce: btrfs with @
+# and @home, no @log, no snapshots, mounted by filesystem UUID.
+make_fake_btrfs_root() {
+  local img="$WORK/root.img" top="$WORK/seed" fs_uuid
+  rm -f "$img"
+  truncate -s 2G "$img"
+  LOOP=$(losetup --find --show "$img")
+  mkfs.btrfs -q "$LOOP"
+  fs_uuid=$(blkid -o value -s UUID "$LOOP")
+
+  rm -rf "$top"
+  mkdir -p "$top"
+  mount "$LOOP" "$top"
+  btrfs subvolume create "$top/@" >/dev/null
+  btrfs subvolume create "$top/@home" >/dev/null
+
+  mkdir -p "$top/@"/{etc,home,var/log,usr/bin,boot}
+  cat >"$top/@/etc/fstab" <<EOF
+UUID=$fs_uuid / btrfs rw,noatime,subvol=@ 0 0
+UUID=$fs_uuid /home btrfs rw,noatime,subvol=@home 0 0
+UUID=ABCD-1234 /boot vfat rw,relatime 0 2
+EOF
+  echo "a log line" >"$top/@/var/log/test.log"
+  echo "#!/bin/true" >"$top/@/usr/bin/tool"
+  chmod 755 "$top/@/usr/bin/tool"
+  setfattr -n user.omarchy -v rehearsal "$top/@/usr/bin/tool"
+  ln "$top/@/usr/bin/tool" "$top/@/usr/bin/tool-hardlink"
+  ln -s tool "$top/@/usr/bin/tool-symlink"
+
+  mkdir -p "$top/@home/tester"
+  echo "hello from home" >"$top/@home/tester/file.txt"
+  chown 1000:1000 "$top/@home/tester" "$top/@home/tester/file.txt"
+
+  umount "$top"
+}
+
 verify_conversion() {
   local encrypted="$1" dev="$LOOP"
 
   if [[ $encrypted == 1 ]]; then
     check "loop device is LUKS" [ "$(blkid -o value -s TYPE "$LOOP")" = crypto_LUKS ]
+    check "no reencryption left pending" \
+      bash -c "! cryptsetup luksDump '$LOOP' | grep -q online-reencrypt"
     printf '%s' "$OMARCHY_BTRFS_PASSPHRASE" |
       cryptsetup open --key-file=- "$LOOP" omb-rehearse
     dev=/dev/mapper/omb-rehearse
@@ -130,6 +170,11 @@ verify_conversion() {
 
   local fs_uuid
   fs_uuid=$(blkid -o value -s UUID "$dev")
+  # In-place encryption must leave the filesystem — and so every UUID= line
+  # already in fstab and grub.cfg — exactly where it was.
+  if [[ -n ${EXPECT_FS_UUID:-} ]]; then
+    check "filesystem UUID survived" [ "$fs_uuid" = "$EXPECT_FS_UUID" ]
+  fi
   check "fstab mounts @ by the new UUID" \
     grep -q "UUID=$fs_uuid / btrfs .*subvol=@ " "$MNT/@/etc/fstab"
   check "fstab mounts @home" grep -q "subvol=@home" "$MNT/@/etc/fstab"
@@ -158,6 +203,20 @@ if command -v cryptsetup >/dev/null; then
   make_fake_root
   "$MIGRATE" --rehearse "$LOOP" --encrypt
   verify_conversion 1
+else
+  echo "SKIP: cryptsetup not installed"
+fi
+
+echo
+echo "=== Rehearsal 3: in-place encryption of an existing btrfs root ==="
+if command -v cryptsetup >/dev/null; then
+  export OMARCHY_BTRFS_PASSPHRASE="rehearsal-passphrase"
+  losetup -d "$LOOP" 2>/dev/null || true
+  make_fake_btrfs_root
+  EXPECT_FS_UUID=$(blkid -o value -s UUID "$LOOP")
+  "$MIGRATE" --rehearse "$LOOP" --encrypt
+  verify_conversion 1
+  unset EXPECT_FS_UUID
 else
   echo "SKIP: cryptsetup not installed"
 fi

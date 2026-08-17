@@ -76,19 +76,26 @@ Follow these steps after the installer has finished and you have booted into the
 
 - From macOS Terminal run the quick start command above.
 - In the installer choose `Asahi Arch Minimal` and allocate at least 50 GB for Linux.
+  Its btrfs variant works too — see the next section.
 
-### Optional: convert to btrfs (snapshots, encryption)
+### Optional: btrfs snapshots and disk encryption
 
-For snapper snapshots and `omarchy-system-factory-reset` support — and
-optionally full-disk encryption — convert the fresh install to btrfs now,
-before anything else lands on it. See [docs/btrfs.md](docs/btrfs.md).
+For snapper snapshots and `omarchy-system-factory-reset` support — and for
+full-disk encryption, which the Asahi Alarm installer does not offer at all —
+run this on the fresh install, before anything else lands on it. See
+[docs/btrfs.md](docs/btrfs.md).
 
 ```bash
 curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-system-btrfs-migrate
 bash omarchy-system-btrfs-migrate --encrypt   # omit --encrypt to stay unencrypted
 ```
 
-The machine reboots once to run the conversion, then you continue below.
+On an ext4 install this converts the root to btrfs. On one of Asahi Alarm's
+btrfs images the filesystem is already the right shape, so `--encrypt`
+encrypts it in place and adds the rest of the layout — and without `--encrypt`
+there is nothing left to do.
+
+The machine reboots once to do the work, then you continue below.
 
 ### Initial Arch setup
 
