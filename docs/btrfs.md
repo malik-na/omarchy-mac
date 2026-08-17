@@ -16,6 +16,31 @@ Neither path is available from the installer itself: Asahi Alarm has no
 encryption option, so a LUKS root on Apple Silicon has to be arranged
 afterwards, and this is that step.
 
+## What the machine has to look like first
+
+**`/boot` must be a separately mounted EFI partition.** GRUB is installed with
+its prefix under `/boot` — its modules, `grub.cfg`, the kernel and the
+initramfs all live there, and it reads them before anything can be unlocked.
+Some Asahi Alarm images instead keep `/boot` as a directory on the root
+filesystem and mount the ESP at `/boot/efi`, leaving only the EFI stub outside
+the root. On that layout, encrypting the root hides GRUB's own prefix from it
+and the machine boots to `grub rescue>`:
+
+```
+error: no such device: <btrfs uuid>
+error: file '/@/boot/grub/arm64-efi/normal.mod' not found.
+Entering rescue mode...
+```
+
+Converting an ext4 root breaks it the same way, for a different reason: the
+reformat changes the filesystem UUID that GRUB's embedded `search` looks for.
+
+The tool checks `/boot` and refuses on that layout rather than producing an
+unbootable machine. To use it there, mount the EFI partition at `/boot`
+instead — move the kernel, initramfs and `grub/` onto it, then rerun
+`grub-install` and `grub-mkconfig` — which is the layout encrypted Arch
+installs normally use, and the one the rest of this document assumes.
+
 ## When to run it
 
 Immediately after the Asahi Alarm installer, on the first boot into Arch,
@@ -113,9 +138,10 @@ you want the full fresh state.
 
 ## Limitations
 
-- `/boot` lives on the (vfat, unencrypted) ESP. Snapshots and rollbacks never
-  cover the kernel, initramfs, or GRUB config. After rolling `@` back across a
-  kernel update, run `mkinitcpio -P` if modules and kernel disagree.
+- `/boot` is the (vfat, unencrypted) ESP — required, see above. Snapshots and
+  rollbacks never cover the kernel, initramfs, or GRUB config. After rolling
+  `@` back across a kernel update, run `mkinitcpio -P` if modules and kernel
+  disagree.
 - The RAM staging makes the ext4 path a fresh-install tool, not a general
   ext4→btrfs migrator for a system with data on it. The encryption path has no
   such constraint, but it has never been asked to encrypt a machine anyone

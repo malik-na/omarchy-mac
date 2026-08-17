@@ -233,7 +233,8 @@ encrypt_in_place() {
     log "An earlier encryption pass was interrupted; resuming it"
     read_passphrase unlock
     printf '%s' "$passphrase" |
-      cryptsetup reencrypt --resume-only --batch-mode --key-file=- "$dev"
+      cryptsetup reencrypt --resume-only --batch-mode --key-file=- \
+        --progress-frequency 5 "$dev"
   else
     log "Shrinking the filesystem by ${FS_SHRINK_MIB} MiB to make room for the LUKS2 header"
     mkdir -p "$src"
@@ -244,13 +245,22 @@ encrypt_in_place() {
     fi
     umount "$src"
 
+    # blockdev is a busybox applet in the initramfs, but do not bet the message
+    # on it being there.
+    local size_gib=$(($(blockdev --getsize64 "$dev" 2>/dev/null || echo 0) / 1024 / 1024 / 1024))
     log "Encrypting the partition (you will choose the disk passphrase now)"
-    log "Every block is rewritten, so this takes a while. It is safe to interrupt:"
-    log "the next boot resumes where it stopped."
+    if (( size_gib > 0 )); then
+      log "All ${size_gib} GiB are rewritten, whether or not anything is stored there,"
+      log "so this takes a while — and the screen may sit silent for all of it."
+    else
+      log "Every block is rewritten, so this takes a while, and the screen may sit"
+      log "silent for all of it."
+    fi
+    log "It is safe to interrupt: the next boot resumes where it stopped."
     read_passphrase choose
     printf '%s' "$passphrase" |
       cryptsetup reencrypt --encrypt --type luks2 --batch-mode --key-file=- \
-        --reduce-device-size "${LUKS_HEADER_MIB}M" "$dev"
+        --progress-frequency 5 --reduce-device-size "${LUKS_HEADER_MIB}M" "$dev"
   fi
 
   printf '%s' "$passphrase" | cryptsetup open --key-file=- "$dev" "$MAPPER_NAME"
@@ -679,9 +689,33 @@ run_stage() {
   esac
 }
 
+# GRUB is installed with its prefix — modules, grub.cfg, kernel, initramfs —
+# under /boot. When /boot is a directory on the root filesystem instead of a
+# separately mounted EFI partition, anything that changes that filesystem takes
+# the bootloader's own files with it: a reformat changes the UUID its embedded
+# search looks for, and a LUKS header hides the filesystem outright. Either
+# lands the machine in `grub rescue>` with no way back in. Some Asahi Alarm
+# images are laid out exactly this way, so check before touching anything.
+require_separate_boot() {
+  local rootdev="$1" bootdev
+  bootdev=${OMARCHY_BOOT_SOURCE-$(findmnt -no SOURCE /boot 2>/dev/null | sed 's/\[.*\]//')}
+
+  [[ -n $bootdev && $bootdev != "$rootdev" ]] && return 0
+
+  echo >&2
+  warn "/boot is on the root filesystem, not on a separately mounted EFI partition."
+  warn "GRUB reads its modules and kernel from there before anything can be"
+  warn "unlocked, so this would leave the machine at a grub rescue prompt."
+  warn "Mount the EFI partition at /boot — move the kernel, initramfs and grub/"
+  warn "onto it, then rerun grub-install and grub-mkconfig — and try again."
+  fail "refusing to make this machine unbootable"
+}
+
 # ext4 root: the full conversion, staged through RAM.
 stage_convert() {
   local encrypt="$1"
+
+  require_separate_boot "$(findmnt -no SOURCE / | sed 's/\[.*\]//')"
 
   local used_kb avail_kb
   used_kb=$(df -Pk / | awk 'NR==2 {print $3}')
@@ -729,6 +763,8 @@ stage_encrypt() {
 
   findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' ||
     fail "root is btrfs but not mounted from the @ subvolume; unsupported layout"
+
+  require_separate_boot "$rootdev"
 
   grep -q '^HOOKS=.*\bsystemd\b' /etc/mkinitcpio.conf &&
     fail "this initramfs uses the systemd hooks; only the busybox 'encrypt' hook is wired up here"
@@ -800,4 +836,8 @@ main() {
   esac
 }
 
-main "$@"
+# Sourcing the script exposes its functions to the guard tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
