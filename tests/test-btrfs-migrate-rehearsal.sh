@@ -23,11 +23,20 @@ command -v mkfs.btrfs >/dev/null || { echo "SKIP: btrfs-progs not installed"; ex
 
 cleanup() {
   umount -R "$MNT" 2>/dev/null || true
+  # Work mounts a failed migrate run may have left behind
+  local m
+  for m in /run/omb-src /run/omb-new /run/omb-ram /run/omb-esp /run/omb-final; do
+    umount "$m" 2>/dev/null || true
+  done
   cryptsetup close omb-rehearse 2>/dev/null || true
   [[ -n $LOOP ]] && losetup -d "$LOOP" 2>/dev/null || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+# Clear leftovers from a previous failed run before starting
+cleanup 2>/dev/null || true
+mkdir -p "$WORK"
 
 check() {
   local label="$1"

@@ -137,7 +137,12 @@ rebuild_as_btrfs() {
   fi
 
   log "Creating btrfs filesystem"
-  mkfs.btrfs -q -f -L "$BTRFS_LABEL" "$target_dev"
+  # Sectorsize is pinned to 4K even though Asahi kernels run 16K pages:
+  # 4K-on-16K subpage mounts are what Fedora Asahi ships in production, and a
+  # 4K filesystem stays readable on 4K-page kernels (x86 recovery included),
+  # which a 16K one would not. mkfs warns about the page-size mismatch; that
+  # warning is expected and harmless here.
+  mkfs.btrfs -q -f --sectorsize 4096 -L "$BTRFS_LABEL" "$target_dev"
 
   mkdir -p "$new"
   mount -t btrfs -o "$MOUNT_OPTS" "$target_dev" "$new"
@@ -177,7 +182,9 @@ rebuild_as_btrfs() {
   {
     echo "converted: pre-boot initramfs migration"
     echo "btrfs_uuid: $fs_uuid"
-    [[ -n $luks_uuid ]] && echo "luks_uuid: $luks_uuid"
+    if [[ -n $luks_uuid ]]; then
+      echo "luks_uuid: $luks_uuid"
+    fi
   } >"$new/@/var/lib/omarchy/btrfs-migrate-summary"
 }
 
