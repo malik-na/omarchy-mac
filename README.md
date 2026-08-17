@@ -11,6 +11,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
 - Installing Omarchy 4 once Arch is booted — [Install Omarchy Mac](#install-omarchy-mac)
+- Btrfs snapshots and optional disk encryption — [docs/btrfs.md](docs/btrfs.md)
 - Upgrading from 3.x to Quattro (Omarchy 4) — [docs/upgrade-to-quattro.md](docs/upgrade-to-quattro.md)
 - The Omarchy manual — [manual/](manual/)
 - External monitor guide — https://codeberg.org/malik-na/omarchy-mac/discussions/73
@@ -75,6 +76,19 @@ Follow these steps after the installer has finished and you have booted into the
 
 - From macOS Terminal run the quick start command above.
 - In the installer choose `Asahi Arch Minimal` and allocate at least 50 GB for Linux.
+
+### Optional: convert to btrfs (snapshots, encryption)
+
+For snapper snapshots and `omarchy-system-factory-reset` support — and
+optionally full-disk encryption — convert the fresh install to btrfs now,
+before anything else lands on it. See [docs/btrfs.md](docs/btrfs.md).
+
+```bash
+curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-system-btrfs-migrate
+bash omarchy-system-btrfs-migrate --encrypt   # omit --encrypt to stay unencrypted
+```
+
+The machine reboots once to run the conversion, then you continue below.
 
 ### Initial Arch setup
 

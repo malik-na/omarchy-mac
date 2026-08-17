@@ -27,7 +27,12 @@ if (( snapper_configured )); then
   chmod 0644 "$SNAPPER_CONF_PATH"
 
   systemctl disable --now snapper-timeline.timer >/dev/null 2>&1 || true
-  systemctl enable --now snapper-cleanup.timer limine-snapper-sync.service >/dev/null 2>&1 || true
+  systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1 || true
+
+  # limine-snapper-sync exists only on x86 Limine installs; Macs boot via GRUB.
+  if systemctl cat limine-snapper-sync.service >/dev/null 2>&1; then
+    systemctl enable --now limine-snapper-sync.service >/dev/null 2>&1 || true
+  fi
 else
   echo "Skipping Snapper setup: / is not a snapshot-capable filesystem."
 fi
