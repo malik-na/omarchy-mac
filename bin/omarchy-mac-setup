@@ -103,10 +103,24 @@ root_is_encrypted() {
 }
 
 
+# vconsole.conf first: it is the file the initramfs reads, so it is the keymap
+# the passphrase prompt will actually use. localectl is the fallback, and it
+# reports a machine that has never set one as "(unset)" or "n/a" -- neither of
+# which is a keymap, though both look like one to anything that just takes the
+# text after the colon.
 current_keymap() {
-  local keymap
-  keymap=$(localectl status 2>/dev/null | sed -n 's/.*VC Keymap: *//p' | head -1)
-  [[ -n $keymap && $keymap != "n/a" ]] || keymap=us
+  local keymap="" vconsole=${OMARCHY_VCONSOLE_CONF:-/etc/vconsole.conf}
+
+  if [[ -f $vconsole ]]; then
+    keymap=$(sed -n 's/^KEYMAP=//p' "$vconsole" | tr -d '"' | head -1)
+  fi
+  if [[ -z $keymap ]]; then
+    keymap=$(localectl status 2>/dev/null | sed -n 's/.*VC Keymap: *//p' | head -1)
+  fi
+
+  case $keymap in
+    "" | "n/a" | "(unset)") keymap=us ;;
+  esac
   printf '%s' "$keymap"
 }
 

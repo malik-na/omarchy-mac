@@ -293,7 +293,7 @@ check "case is ignored, as localectl does" known_keymap US
 check "an unknown keymap is refused" not known_keymap nonsense
 check "an empty keymap is refused" not known_keymap ""
 check "the current keymap is read from localectl" \
-  [ "$(PATH="$km_stub:$PATH" current_keymap)" = "de" ]
+  [ "$(PATH="$km_stub:$PATH" OMARCHY_VCONSOLE_CONF=$work/none current_keymap)" = "de" ]
 
 # A machine whose localectl cannot list keymaps is not a machine with a bad
 # keymap: refusing there would block an install over a missing lookup table.
@@ -315,6 +315,30 @@ unlistable_keymap() {
 check "anything passes when keymaps cannot be listed" unlistable_keymap us
 check "even an odd one, rather than blocking the install" unlistable_keymap whatever
 check "empty is still refused" not unlistable_keymap ""
+
+# systemd reports a machine that has never set a keymap as "(unset)" or "n/a".
+# Both look like keymap names to anything that just takes the text after the
+# colon, and both were then rejected as unknown -- stopping the install over a
+# machine's own unset default.
+unset_stub=$work/km-unset
+mkdir -p "$unset_stub"
+cat >"$unset_stub/localectl" <<'STUB'
+#!/bin/bash
+case "$*" in
+  *list-keymaps*) printf 'us\nuk\nde\n' ;;
+  *) echo "     VC Keymap: (unset)" ;;
+esac
+STUB
+chmod +x "$unset_stub/localectl"
+
+check "an unset keymap falls back to us" \
+  [ "$(PATH="$unset_stub:$PATH" OMARCHY_VCONSOLE_CONF=$work/none current_keymap)" = "us" ]
+
+printf 'KEYMAP=dvorak\n' >"$work/vconsole.conf"
+check "vconsole.conf wins, since the initramfs reads that" \
+  [ "$(PATH="$km_stub:$PATH" OMARCHY_VCONSOLE_CONF=$work/vconsole.conf current_keymap)" = "dvorak" ]
+check "and that fallback validates" \
+  bash -c 'PATH="'"$unset_stub"':$PATH"; '"$(declare -f valid_keymap keymaps_listable)"'; valid_keymap us'
 
 echo
 echo "=== $pass checks passed, $failures failed ==="
