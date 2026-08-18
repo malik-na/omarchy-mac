@@ -323,6 +323,53 @@ require_network() {
   log "Network is up."
 }
 
+# A Retina panel renders the kernel's 8x16 console font at about a millimetre
+# tall, and GRUB's built-in font is no better — which is a problem, because the
+# console is where the disk passphrase is typed and the GRUB editor is where
+# you end up when a boot has gone wrong. Both are set to something legible
+# before the first reboot.
+setup_console_font() {
+  command -v setfont >/dev/null || return 0
+
+  if ! pacman -Sy --noconfirm --needed terminus-font >/dev/null 2>&1; then
+    warn "Could not install terminus-font; leaving the console font alone."
+    return 0
+  fi
+
+  touch /etc/vconsole.conf
+  if grep -q '^FONT=' /etc/vconsole.conf; then
+    sed -i 's|^FONT=.*|FONT=ter-132b|' /etc/vconsole.conf
+  else
+    printf 'FONT=ter-132b\n' >>/etc/vconsole.conf
+  fi
+
+  # Immediately, so the rest of this run is readable too. The initramfs picks
+  # it up from vconsole.conf at the next mkinitcpio, which the encryption step
+  # runs anyway — so the passphrase prompt gets it as well.
+  setfont ter-132b 2>/dev/null || true
+}
+
+setup_grub_font() {
+  local ttf out=/boot/grub/fonts/unicode32.pf2
+  command -v grub-mkfont >/dev/null || return 0
+
+  ttf=/usr/share/fonts/TTF/DejaVuSansMono.ttf
+  if [[ ! -f $ttf ]]; then
+    ttf=$(find /usr/share/fonts -name 'DejaVuSansMono.ttf' -print -quit 2>/dev/null || true)
+  fi
+  [[ -f $ttf ]] || return 0
+
+  mkdir -p "$(dirname "$out")"
+  grub-mkfont -s 32 -o "$out" "$ttf" >/dev/null 2>&1 || return 0
+
+  if grep -q '^GRUB_FONT=' /etc/default/grub 2>/dev/null; then
+    sed -i "s|^GRUB_FONT=.*|GRUB_FONT=$out|" /etc/default/grub
+  else
+    printf 'GRUB_FONT=%s\n' "$out" >>/etc/default/grub
+  fi
+  log "GRUB and console fonts set for a HiDPI panel"
+}
+
 ensure_source_checkout() {
   [[ -d $SRC/.git ]] && return 0
 
@@ -427,6 +474,33 @@ revoke_passwordless_sudo() {
   rm -f "$SUDOERS"
 }
 
+# The Omarchy install regenerates the initramfs, and its HOOKS come from a
+# drop-in written for x86. An image built without the asahi hook does not boot
+# this hardware — it wedges in the initramfs, keyboard included, which is only
+# discoverable by rebooting into it. Check before that reboot, while there is
+# still a shell to fix it from.
+verify_initramfs() {
+  local img=/boot/initramfs-linux-asahi.img
+
+  [[ -f $img ]] || return 0
+  command -v lsinitcpio >/dev/null || return 0
+  [[ -e /usr/lib/initcpio/install/asahi ]] || return 0
+
+  if lsinitcpio -a "$img" 2>/dev/null | grep -q '\basahi\b'; then
+    log "Initramfs carries the asahi hook"
+    return 0
+  fi
+
+  warn "The initramfs was built without the asahi hook, which stages this"
+  warn "machine's firmware. Rebooting into it would hang before login."
+  log "Rebuilding it"
+  if ! mkinitcpio -P; then
+    fail "could not rebuild the initramfs; do not reboot until it carries the asahi hook"
+  fi
+  lsinitcpio -a "$img" 2>/dev/null | grep -q '\basahi\b' ||
+    fail "the rebuilt initramfs still has no asahi hook -- check /etc/mkinitcpio.conf.d/"
+}
+
 step_omarchy() {
   banner "Step 3 of 3 -- installing Omarchy"
   require_network
@@ -453,6 +527,7 @@ step_omarchy() {
   revoke_passwordless_sudo
   (( status == 0 )) || fail "install.sh exited $status -- fix it and run '$SELF --resume'"
 
+  verify_initramfs
   reboot_now "Omarchy installed."
 }
 
