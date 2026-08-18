@@ -354,17 +354,38 @@ setup_console_font() {
 }
 
 setup_grub_font() {
-  local ttf out=/boot/grub/fonts/unicode32.pf2
-  command -v grub-mkfont >/dev/null || return 0
+  local ttf out=/boot/grub/fonts/unicode32.pf2 candidate
+  command -v grub-mkfont >/dev/null || {
+    warn "grub-mkfont is missing; leaving the GRUB font alone"
+    return 0
+  }
 
-  ttf=/usr/share/fonts/TTF/DejaVuSansMono.ttf
-  if [[ ! -f $ttf ]]; then
+  # A minimal Arch has no DejaVu, and silently giving up here is how the menu
+  # stayed unreadable on a machine that had run this. Try what Omarchy
+  # installs, then anything, then install DejaVu rather than skip.
+  for candidate in \
+    /usr/share/fonts/TTF/DejaVuSansMono.ttf \
+    /usr/share/fonts/ttf-jetbrains-mono-nerd/JetBrainsMonoNerdFont-Regular.ttf; do
+    [[ -f $candidate ]] && ttf=$candidate && break
+  done
+
+  if [[ -z ${ttf:-} ]]; then
+    ttf=$(find /usr/share/fonts -name '*Mono*.ttf' -print -quit 2>/dev/null || true)
+  fi
+  if [[ -z $ttf ]]; then
+    pacman -Sy --noconfirm --needed ttf-dejavu >/dev/null 2>&1 || true
     ttf=$(find /usr/share/fonts -name 'DejaVuSansMono.ttf' -print -quit 2>/dev/null || true)
   fi
-  [[ -f $ttf ]] || return 0
+  if [[ -z $ttf ]]; then
+    warn "No TrueType font to build a GRUB font from; the menu keeps its size"
+    return 0
+  fi
 
   mkdir -p "$(dirname "$out")"
-  grub-mkfont -s 32 -o "$out" "$ttf" >/dev/null 2>&1 || return 0
+  if ! grub-mkfont -s 32 -o "$out" "$ttf"; then
+    warn "grub-mkfont failed on $ttf; the menu keeps its size"
+    return 0
+  fi
 
   if grep -q '^GRUB_FONT=' /etc/default/grub 2>/dev/null; then
     sed -i "s|^GRUB_FONT=.*|GRUB_FONT=$out|" /etc/default/grub
@@ -372,14 +393,13 @@ setup_grub_font() {
     printf 'GRUB_FONT=%s\n' "$out" >>/etc/default/grub
   fi
 
-  # GRUB_FONT is only a setting until grub.cfg is regenerated — that is where
-  # the loadfont line lives. The later steps regenerate it anyway, but an
-  # unencrypted install runs none of them, and the menu would stay unreadable.
+  # GRUB_FONT is only a setting until grub.cfg is regenerated -- that is where
+  # the loadfont line lives.
   if [[ -f /boot/grub/grub.cfg ]]; then
     grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 ||
       warn "could not regenerate grub.cfg; the GRUB menu keeps its old font"
   fi
-  log "GRUB and console fonts set for a HiDPI panel"
+  log "GRUB font built from $ttf at 32px"
 }
 
 ensure_source_checkout() {
@@ -512,6 +532,30 @@ hooks_include_asahi() {
   [[ " $(effective_hooks) " == *" asahi "* ]]
 }
 
+
+# Omarchy enables SDDM but leaves autologin to the x86 ISO's provisioning step,
+# which never runs on a Mac: install/login/sddm.sh says outright that "the ISO
+# owns autologin/session state because it knows whether the target is
+# encrypted". Without it you land on a greeter that was never configured with a
+# username field, which looks exactly like a login refusing your password.
+#
+# The ISO's rule for an encrypted machine is autologin, permanently: the disk
+# passphrase at boot is the authentication, and asking for a second password
+# afterwards protects nothing that the first one did not.
+configure_autologin() {
+  local user="$1"
+
+  command -v sddm >/dev/null || return 0
+  [[ -f /usr/share/wayland-sessions/omarchy.desktop ]] ||
+    warn "omarchy.desktop session is missing; autologin may land nowhere"
+
+  mkdir -p /etc/sddm.conf.d /var/lib/sddm
+  printf '[Autologin]\nUser=%s\nSession=omarchy.desktop\n' "$user" \
+    >/etc/sddm.conf.d/autologin.conf
+  printf '[Last]\nSession=omarchy.desktop\nUser=%s\n' "$user" \
+    >/var/lib/sddm/state.conf
+  log "SDDM will log $user straight in; the disk passphrase is the authentication"
+}
 verify_initramfs() {
   # Asking the config rather than the built image: the config is what the build
   # reads, and reading an image back means parsing whatever lsinitcpio prints
@@ -591,6 +635,7 @@ step_omarchy() {
   revoke_passwordless_sudo
   (( status == 0 )) || fail "install.sh exited $status -- fix it and run '$SELF --resume'"
 
+  configure_autologin "$username"
   verify_initramfs
   reboot_now "Omarchy installed."
 }
