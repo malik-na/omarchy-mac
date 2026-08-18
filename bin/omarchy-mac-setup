@@ -22,8 +22,8 @@
 #
 # The only thing you type after starting it is the disk passphrase.
 #
-# Each step is done by the tool that owns it — omarchy-system-boot-to-esp and
-# omarchy-system-btrfs-migrate — from a checkout this script makes. Where the
+# Each step is done by the tool that owns it -- omarchy-system-boot-to-esp and
+# omarchy-system-btrfs-migrate -- from a checkout this script makes. Where the
 # machine has got to is read from the machine itself (is /boot separate, is the
 # root a dm-crypt device, does @factory exist), so an interrupted run picks up
 # where it left off rather than repeating work.
@@ -62,7 +62,7 @@ fail() {
 }
 
 banner() {
-  printf '\n\033[36m─── %s ───\033[0m\n\n' "$*"
+  printf '\n\033[36m=== %s ===\033[0m\n\n' "$*"
 }
 
 # ---------------------------------------------------------------------------
@@ -264,7 +264,7 @@ cleanup_all() {
 }
 
 # The unit conflicts with getty@tty1 so the two do not fight over the console,
-# which means a step that dies leaves tty1 with no login — on the machine whose
+# which means a step that dies leaves tty1 with no login -- on the machine whose
 # setup just failed. Every exit puts the getty back; during a reboot it is
 # harmless, and outside one it is the difference between a visible prompt and a
 # console that looks dead.
@@ -296,7 +296,7 @@ have_network() {
 require_network() {
   have_network && return 0
 
-  warn "No default route — the install needs the network."
+  warn "No default route -- the install needs the network."
   warn "Connect with 'nmtui' on another console (Ctrl+Alt+F2), then come back."
   local waited=0
   while ! have_network; do
@@ -324,18 +324,18 @@ ensure_source_checkout() {
 }
 
 # A branch can be a perfectly good Omarchy 4 branch and still not carry these
-# tools — malik-na/quattro does not, today. Catching that here, before anything
+# tools -- malik-na/quattro does not, today. Catching that here, before anything
 # is installed on the machine, turns a unit that fails on every boot into one
 # clear message.
 require_tools_present() {
   local dir="$1" tool
   for tool in "${REQUIRED_TOOLS[@]}"; do
     [[ -f $dir/bin/$tool ]] ||
-      fail "$repo ($ref) has no bin/$tool — wrong branch? Pass --repo/--ref."
+      fail "$repo ($ref) has no bin/$tool -- wrong branch? Pass --repo/--ref."
   done
 }
 
-# Until quattro is merged into main, main is still the Omarchy 3.x line — and
+# Until quattro is merged into main, main is still the Omarchy 3.x line -- and
 # its install.sh installs Omarchy 3 without ever announcing which generation it
 # is. Say the version out loud, and stop rather than silently deliver 3.x to
 # someone who came here for 4.
@@ -345,12 +345,12 @@ check_omarchy_generation() {
   log "This is Omarchy $version ($repo, branch $ref)"
 
   if [[ $version == "unknown" || -z $version ]]; then
-    warn "$repo ($ref) has no version file — cannot tell which Omarchy this is."
+    warn "$repo ($ref) has no version file -- cannot tell which Omarchy this is."
   fi
 
   if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
     warn "Branch '$ref' of $repo is the Omarchy 3.x line."
-    warn "For Omarchy 4 use a quattro-line branch — the default $DEFAULT_REPO"
+    warn "For Omarchy 4 use a quattro-line branch -- the default $DEFAULT_REPO"
     warn "($DEFAULT_REF), or --ref main once quattro is merged into it."
     fail "refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it"
   fi
@@ -361,7 +361,7 @@ check_omarchy_generation() {
 # ---------------------------------------------------------------------------
 
 step_boot_layout() {
-  banner "Step 1 of 3 — boot layout"
+  banner "Step 1 of 3 -- boot layout"
   log "/boot is on the root filesystem, where GRUB cannot reach it once the"
   log "root is encrypted. Moving it onto the EFI partition."
   bash "$SRC/bin/omarchy-system-boot-to-esp" --yes
@@ -369,16 +369,16 @@ step_boot_layout() {
 }
 
 step_encrypt() {
-  banner "Step 2 of 3 — disk encryption"
+  banner "Step 2 of 3 -- disk encryption"
   log "Staging the in-place encryption of the root filesystem."
   log "On the next boot you will CHOOSE THE DISK PASSPHRASE at this console,"
-  log "and the whole partition is rewritten — that part takes a while and"
+  log "and the whole partition is rewritten -- that part takes a while and"
   log "prints nothing. Do not power the machine off during it."
   bash "$SRC/bin/omarchy-system-btrfs-migrate" --encrypt --yes
   reboot_now "Encryption staged."
 }
 
-# Ordinary, permanent sudo for the wheel group — the arrangement the user needs
+# Ordinary, permanent sudo for the wheel group -- the arrangement the user needs
 # for the rest of the machine's life, and what the manual instructions set up
 # by hand. Kept separate from the temporary NOPASSWD rule below so neither one
 # hides inside the other.
@@ -401,7 +401,7 @@ ensure_user() {
 
 # install.sh runs as the user and calls sudo throughout, with nobody at the
 # keyboard to answer. This rule makes that possible and is removed the moment
-# the install returns — including when it fails, which is why every exit from
+# the install returns -- including when it fails, which is why every exit from
 # step_omarchy goes through revoke_passwordless_sudo.
 grant_passwordless_sudo() {
   printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$username" >"$SUDOERS"
@@ -413,7 +413,7 @@ revoke_passwordless_sudo() {
 }
 
 step_omarchy() {
-  banner "Step 3 of 3 — installing Omarchy"
+  banner "Step 3 of 3 -- installing Omarchy"
   require_network
   ensure_user
 
@@ -429,14 +429,14 @@ step_omarchy() {
 
   grant_passwordless_sudo
 
-  log "Running install.sh as $username — this takes a while (AUR builds)."
+  log "Running install.sh as $username -- this takes a while (AUR builds)."
   # Run from a login shell so the install sees a normal user environment. The
   # status is captured rather than left to set -e: a failed install must still
   # give the NOPASSWD rule back before anything else happens.
   local status=0
   sudo -u "$username" -i bash -lc 'cd ~/.local/share/omarchy && bash install.sh' || status=$?
   revoke_passwordless_sudo
-  (( status == 0 )) || fail "install.sh exited $status — fix it and run '$SELF --resume'"
+  (( status == 0 )) || fail "install.sh exited $status -- fix it and run '$SELF --resume'"
 
   reboot_now "Omarchy installed."
 }
@@ -510,15 +510,21 @@ ask_questions() {
 
   echo
   log "Plan:"
-  log "  · name this machine $hostname"
-  log "  · create $username (in wheel, with sudo) and set its password"
-  ((want_encrypt)) && log "  · move /boot onto the EFI partition (if needed), then reboot"
-  ((want_encrypt)) && log "  · encrypt the root — you choose the passphrase at the console"
-  log "  · install Omarchy from $repo ($ref) as $username"
-  log "  · reboot into the desktop"
+  log "  - name this machine $hostname"
+  log "  - create $username (in wheel, with sudo) and set its password"
+  ((want_encrypt)) && log "  - move /boot onto the EFI partition (if needed), then reboot"
+  ((want_encrypt)) && log "  - encrypt the root -- you choose the passphrase at the console"
+  log "  - install Omarchy from $repo ($ref) as $username"
+  log "  - reboot into the desktop"
   echo
   read -rp "Start? [Y/n] " answer
-  [[ ${answer,,} == n* ]] && fail "not started"
+  # A full conditional, not `[[ ... ]] && fail`: as the last statement of the
+  # function that returns 1 on the yes path, and set -e turns that into a
+  # silent exit at the call site.
+  if [[ ${answer,,} == n* ]]; then
+    fail "not started"
+  fi
+  return 0
 }
 
 main() {
@@ -569,7 +575,7 @@ main() {
   if (( ! resume )); then
     ask_questions
     # The checkout comes first so a branch that is missing this script's tools
-    # fails here, with nothing installed on the machine — rather than after the
+    # fails here, with nothing installed on the machine -- rather than after the
     # unit is enabled, where it would refuse the same way on every boot.
     require_network
     ensure_source_checkout

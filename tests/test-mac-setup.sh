@@ -121,6 +121,37 @@ check "a checkout with both tools passes" \
   accepts_checkout "$work"
 
 echo
+echo "=== the confirmation must not end the run ==="
+
+# `[[ ... ]] && fail` as a function's last statement returns 1 on the path where
+# the condition is false — the yes path — and set -e turns that into a silent
+# exit at the call site. Answering "Y" used to quit the installer.
+answers() {
+  local input="$1"
+  (
+    set -e
+    encrypt_flag=1 want_encrypt=1 username=scott hostname=pancake
+    repo=example/repo ref=some-branch
+    printf '%s' "$input" | ask_questions >/dev/null 2>&1
+  )
+}
+
+refuses_to_start() {
+  ! answers "$1"
+}
+
+check "answering Y starts the run" answers 'Y
+'
+check "answering y starts the run" answers 'y
+'
+check "pressing enter starts the run" answers '
+'
+check "answering n stops the run" refuses_to_start 'n
+'
+check "answering no stops the run" refuses_to_start 'no
+'
+
+echo
 echo "=== hostnames ==="
 
 valid() {

@@ -252,7 +252,7 @@ encrypt_in_place() {
     log "Encrypting the partition (you will choose the disk passphrase now)"
     if (( size_gib > 0 )); then
       log "All ${size_gib} GiB are rewritten, whether or not anything is stored there,"
-      log "so this takes a while — and the screen may sit silent for all of it."
+      log "so this takes a while -- and the screen may sit silent for all of it."
     else
       log "Every block is rewritten, so this takes a while, and the screen may sit"
       log "silent for all of it."
@@ -570,7 +570,7 @@ OMARCHY_BTRFS_MODE=convert
 [[ -f $CONF ]] && . "$CONF"
 
 if [[ $(findmnt -no FSTYPE /) != btrfs ]]; then
-  echo "root is not btrfs yet; the conversion has not run — leaving everything staged"
+  echo "root is not btrfs yet; the conversion has not run -- leaving everything staged"
   exit 0
 fi
 
@@ -584,7 +584,7 @@ findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' || {
 if [[ $OMARCHY_BTRFS_MODE == "encrypt" ]]; then
   root_source=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
   if [[ $(lsblk -no TYPE "$root_source" 2>/dev/null) != "crypt" ]]; then
-    echo "root is not on a dm-crypt device; the encryption has not run — leaving everything staged"
+    echo "root is not on a dm-crypt device; the encryption has not run -- leaving everything staged"
     exit 0
   fi
 fi

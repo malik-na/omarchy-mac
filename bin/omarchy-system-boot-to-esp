@@ -98,7 +98,7 @@ main() {
   [[ $(uname -m) == "aarch64" ]] || fail "this tool is for Apple Silicon (aarch64) installs"
 
   if findmnt -no SOURCE /boot >/dev/null 2>&1; then
-    log "/boot is already its own mount — nothing to do."
+    log "/boot is already its own mount -- nothing to do."
     exit 0
   fi
 
@@ -124,8 +124,14 @@ main() {
   log "The old directory is kept as /boot.old."
   warn "Reboot and confirm the machine still boots before encrypting anything."
   echo
-  read -rp "Type 'move' to continue: " typed
-  [[ $typed == "move" ]] || fail "not confirmed"
+  if (( assume_yes )); then
+    log "Proceeding without confirmation (--yes)."
+  else
+    read -rp "Type 'move' to continue: " typed
+    if [[ $typed != "move" ]]; then
+      fail "not confirmed"
+    fi
+  fi
 
   trap recovery_note ERR
 
