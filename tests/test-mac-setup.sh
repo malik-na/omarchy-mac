@@ -341,5 +341,45 @@ check "and that fallback validates" \
   bash -c 'PATH="'"$unset_stub"':$PATH"; '"$(declare -f valid_keymap keymaps_listable)"'; valid_keymap us'
 
 echo
+echo "=== a staged checkout has to be the one that was asked for ==="
+
+# The version guard rejects a branch only after cloning it, so a refused run
+# leaves a tree behind. Reusing it silently is how a corrected run got as far
+# as "moving /boot onto the EFI partition" before finding no such file.
+make_checkout() {
+  local dir="$1" url="$2" branch="$3" with_tools="$4"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  git -C "$dir" init -q
+  git -C "$dir" remote add origin "$url"
+  git -C "$dir" checkout -q -b "$branch"
+  if [[ $with_tools == "tools" ]]; then
+    mkdir -p "$dir/bin"
+    touch "$dir/bin/omarchy-system-boot-to-esp" "$dir/bin/omarchy-system-btrfs-migrate"
+  fi
+  git -C "$dir" add -A >/dev/null 2>&1
+  git -C "$dir" -c user.email=t@t -c user.name=t commit -qm x --allow-empty
+}
+
+co=$work/checkout
+
+make_checkout "$co" https://codeberg.org/scottjones/omarchy-mac.git feat/btrfs-encrypt-only tools
+check "the right repo, branch and tools is reused" \
+  checkout_matches "$co" scottjones/omarchy-mac feat/btrfs-encrypt-only
+
+check "a different branch is replaced" \
+  not checkout_matches "$co" scottjones/omarchy-mac quattro
+check "a different repo is replaced" \
+  not checkout_matches "$co" malik-na/omarchy-mac feat/btrfs-encrypt-only
+
+# The case that actually happened: a 3.x tree from the refused run.
+make_checkout "$co" https://codeberg.org/malik-na/omarchy-mac.git main bare
+check "the right branch without the tools is replaced" \
+  not checkout_matches "$co" malik-na/omarchy-mac main
+
+check "a directory that is not a checkout at all is replaced" \
+  not checkout_matches "$work/nothing-here" malik-na/omarchy-mac main
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

@@ -467,8 +467,31 @@ setup_grub_font() {
   log "GRUB font built from $ttf at 32px"
 }
 
+# True when the staged checkout is the one being asked for and carries the
+# tools. A checkout left behind by an earlier, refused run is not: the version
+# guard rejects a branch only after cloning it, so a 3.x tree can be sitting
+# there when the corrected run starts -- and reusing it silently was how a run
+# reached "moving /boot onto the EFI partition" and then found no such file.
+checkout_matches() {
+  local dir="$1" want_repo="$2" want_ref="$3" url branch
+
+  [[ -d $dir/.git ]] || return 1
+  url=$(git -C "$dir" remote get-url origin 2>/dev/null) || return 1
+  branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 1
+
+  [[ $url == *"$want_repo"* ]] || return 1
+  [[ $branch == "$want_ref" ]] || return 1
+  tools_present "$dir"
+}
+
 ensure_source_checkout() {
-  [[ -d $SRC/.git ]] && return 0
+  if [[ -d $SRC/.git ]]; then
+    if checkout_matches "$SRC" "$repo" "$ref"; then
+      return 0
+    fi
+    log "The staged checkout is not $repo ($ref), or is missing the tools; replacing it"
+    rm -rf "$SRC"
+  fi
 
   command -v git >/dev/null || pacman -Sy --noconfirm --needed git
   mkdir -p "$(dirname "$SRC")"
@@ -478,27 +501,40 @@ ensure_source_checkout() {
   # Omarchy install that `omarchy update` pulls into.
   git clone --branch "$ref" --depth 1 "https://codeberg.org/$repo.git" "$SRC" ||
     fail "could not clone $repo at $ref"
-  check_omarchy_generation
-  require_tools_present "$SRC"
+
+  # Anything that rejects this checkout takes it with it. Leaving a rejected
+  # tree behind is what made a corrected retry reuse the branch it had just
+  # refused.
+  if ! omarchy_generation_ok || ! tools_present "$SRC"; then
+    rm -rf "$SRC"
+    fail "$repo ($ref) is not usable; see the warnings above"
+  fi
 }
 
 # A branch can be a perfectly good Omarchy 4 branch and still not carry these
 # tools -- malik-na/quattro does not, today. Catching that here, before anything
 # is installed on the machine, turns a unit that fails on every boot into one
 # clear message.
-require_tools_present() {
+tools_present() {
   local dir="$1" tool
   for tool in "${REQUIRED_TOOLS[@]}"; do
-    [[ -f $dir/bin/$tool ]] ||
-      fail "$repo ($ref) has no bin/$tool -- wrong branch? Pass --repo/--ref."
+    if [[ ! -f $dir/bin/$tool ]]; then
+      warn "$dir has no bin/$tool -- wrong branch? Pass --repo/--ref."
+      return 1
+    fi
   done
+  return 0
+}
+
+require_tools_present() {
+  tools_present "$1" || fail "$repo ($ref) does not carry the tools this drives"
 }
 
 # Until quattro is merged into main, main is still the Omarchy 3.x line -- and
 # its install.sh installs Omarchy 3 without ever announcing which generation it
 # is. Say the version out loud, and stop rather than silently deliver 3.x to
 # someone who came here for 4.
-check_omarchy_generation() {
+omarchy_generation_ok() {
   local version
   version=$(head -1 "$SRC/version" 2>/dev/null || echo unknown)
   log "This is Omarchy $version ($repo, branch $ref)"
@@ -511,7 +547,8 @@ check_omarchy_generation() {
     warn "Branch '$ref' of $repo is the Omarchy 3.x line."
     warn "For Omarchy 4 pass a quattro-line branch: --ref quattro, until that"
     warn "is merged into $DEFAULT_REF."
-    fail "refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it"
+    warn "Refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it."
+    return 1
   fi
 }
 
