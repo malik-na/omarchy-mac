@@ -83,9 +83,14 @@ Follow these steps after the installer has finished and you have booted into the
 On the first boot into Arch, as root:
 
 ```bash
-curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup
+curl -LO https://codeberg.org/scottjones/omarchy-mac/raw/branch/feat/btrfs-encrypt-only/bin/omarchy-mac-setup
 bash omarchy-mac-setup --encrypt
 ```
+
+(That branch is where this and the tools it drives live until they land
+upstream; `malik-na/quattro` does not carry them yet. The defaults inside the
+script point at the same place, so `--repo`/`--ref` are only needed to install
+from somewhere else.)
 
 It asks for a username and password up front, then carries the machine the
 rest of the way on its own — fixing the boot layout, encrypting the root,

@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--abort]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--resume] [--abort] [--allow-omarchy3]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -37,8 +37,16 @@ SUDOERS=/etc/sudoers.d/01-omarchy-mac-setup
 SRC=/var/lib/omarchy-mac-setup/src
 LOG=/var/log/omarchy-mac-setup.log
 
-DEFAULT_REPO=malik-na/omarchy-mac
-DEFAULT_REF=quattro
+# The default has to be a branch that actually carries this script and the two
+# tools it drives, which today is only this one: on malik-na/quattro all three
+# are 404. Point these at malik-na/omarchy-mac + quattro once the branch lands
+# there, and at main once quattro is merged into it.
+DEFAULT_REPO=scottjones/omarchy-mac
+DEFAULT_REF=feat/btrfs-encrypt-only
+
+# Everything this script shells out to, and therefore everything the chosen
+# branch has to contain.
+REQUIRED_TOOLS=(omarchy-system-boot-to-esp omarchy-system-btrfs-migrate)
 
 log() {
   printf '\033[32m==>\033[0m %s\n' "$*"
@@ -73,8 +81,20 @@ boot_is_separate() {
   [[ -n $boot && $boot != "$(root_source)" ]]
 }
 
+# A dm-crypt root is not the same as a finished one: an interrupted pass leaves
+# a mapped device whose LUKS2 header still records the reencryption. Treating
+# that as done would move on to the install while the encryption is unfinished.
 root_is_encrypted() {
-  [[ $(lsblk -no TYPE "$(root_source)" 2>/dev/null) == "crypt" ]]
+  local source backing
+  source=$(root_source)
+  [[ $(lsblk -no TYPE "$source" 2>/dev/null) == "crypt" ]] || return 1
+
+  backing=$(lsblk -nsplo NAME,TYPE "$source" 2>/dev/null |
+    awk '$2 == "part" {print $1; exit}')
+  if [[ -n $backing ]] && cryptsetup luksDump "$backing" 2>/dev/null | grep -q 'online-reencrypt'; then
+    return 1
+  fi
+  return 0
 }
 
 # install.sh snapshots the finished system as @factory on its way out, so the
@@ -171,6 +191,10 @@ StandardError=tty
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
+# The Omarchy step compiles AUR packages for the better part of an hour, and a
+# timeout that killed it mid-build would leave a half-installed machine. The
+# bounds that matter live in the script: the network wait gives up after 15
+# minutes, and each step either finishes or fails.
 TimeoutStartSec=infinity
 
 [Install]
@@ -188,6 +212,20 @@ cleanup_all() {
     systemctl daemon-reload
   fi
   systemctl start getty@tty1.service >/dev/null 2>&1 || true
+}
+
+# The unit conflicts with getty@tty1 so the two do not fight over the console,
+# which means a step that dies leaves tty1 with no login — on the machine whose
+# setup just failed. Every exit puts the getty back; during a reboot it is
+# harmless, and outside one it is the difference between a visible prompt and a
+# console that looks dead.
+restore_console() {
+  systemctl start getty@tty1.service >/dev/null 2>&1 || true
+}
+
+on_exit() {
+  revoke_passwordless_sudo
+  restore_console
 }
 
 reboot_now() {
@@ -216,7 +254,7 @@ require_network() {
     sleep 10
     (( waited += 10 ))
     (( waited % 60 == 0 )) && log "Still waiting for the network ($((waited / 60))m)"
-    (( waited > 1800 )) && fail "no network after 30 minutes; run '$SELF --resume' when it is up"
+    (( waited > 900 )) && fail "no network after 15 minutes; run '$SELF --resume' when it is up"
   done
   log "Network is up."
 }
@@ -227,9 +265,25 @@ ensure_source_checkout() {
   command -v git >/dev/null || pacman -Sy --noconfirm --needed git
   mkdir -p "$(dirname "$SRC")"
   log "Fetching $repo ($ref)"
+  # Shallow: this checkout only supplies the two tools and is thrown away. The
+  # user's own checkout below is cloned in full, because it stays as the live
+  # Omarchy install that `omarchy update` pulls into.
   git clone --branch "$ref" --depth 1 "https://codeberg.org/$repo.git" "$SRC" ||
     fail "could not clone $repo at $ref"
   check_omarchy_generation
+  require_tools_present "$SRC"
+}
+
+# A branch can be a perfectly good Omarchy 4 branch and still not carry these
+# tools — malik-na/quattro does not, today. Catching that here, before anything
+# is installed on the machine, turns a unit that fails on every boot into one
+# clear message.
+require_tools_present() {
+  local dir="$1" tool
+  for tool in "${REQUIRED_TOOLS[@]}"; do
+    [[ -f $dir/bin/$tool ]] ||
+      fail "$repo ($ref) has no bin/$tool — wrong branch? Pass --repo/--ref."
+  done
 }
 
 # Until quattro is merged into main, main is still the Omarchy 3.x line — and
@@ -241,9 +295,14 @@ check_omarchy_generation() {
   version=$(head -1 "$SRC/version" 2>/dev/null || echo unknown)
   log "This is Omarchy $version ($repo, branch $ref)"
 
+  if [[ $version == "unknown" || -z $version ]]; then
+    warn "$repo ($ref) has no version file — cannot tell which Omarchy this is."
+  fi
+
   if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
     warn "Branch '$ref' of $repo is the Omarchy 3.x line."
-    warn "For Omarchy 4 use --ref quattro (or --ref main once quattro is merged)."
+    warn "For Omarchy 4 use a quattro-line branch — the default $DEFAULT_REPO"
+    warn "($DEFAULT_REF), or --ref main once quattro is merged into it."
     fail "refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it"
   fi
 }
@@ -270,7 +329,17 @@ step_encrypt() {
   reboot_now "Encryption staged."
 }
 
+# Ordinary, permanent sudo for the wheel group — the arrangement the user needs
+# for the rest of the machine's life, and what the manual instructions set up
+# by hand. Kept separate from the temporary NOPASSWD rule below so neither one
+# hides inside the other.
+ensure_wheel_sudo() {
+  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/00-wheel
+  chmod 440 /etc/sudoers.d/00-wheel
+}
+
 ensure_user() {
+  ensure_wheel_sudo
   id -u "$username" >/dev/null 2>&1 && return 0
 
   log "Creating user $username"
@@ -281,14 +350,17 @@ ensure_user() {
   done
 }
 
-# install.sh runs as the user and calls sudo throughout. A temporary NOPASSWD
-# rule keeps the install from stopping for a password on every step; it is
-# removed as soon as the install returns, and again on the next boot.
+# install.sh runs as the user and calls sudo throughout, with nobody at the
+# keyboard to answer. This rule makes that possible and is removed the moment
+# the install returns — including when it fails, which is why every exit from
+# step_omarchy goes through revoke_passwordless_sudo.
 grant_passwordless_sudo() {
-  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/00-wheel
-  chmod 440 /etc/sudoers.d/00-wheel
   printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$username" >"$SUDOERS"
   chmod 440 "$SUDOERS"
+}
+
+revoke_passwordless_sudo() {
+  rm -f "$SUDOERS"
 }
 
 step_omarchy() {
@@ -309,10 +381,14 @@ step_omarchy() {
   grant_passwordless_sudo
 
   log "Running install.sh as $username — this takes a while (AUR builds)."
-  # Run from a login shell so the install sees a normal user environment.
-  sudo -u "$username" -i bash -lc 'cd ~/.local/share/omarchy && bash install.sh'
+  # Run from a login shell so the install sees a normal user environment. The
+  # status is captured rather than left to set -e: a failed install must still
+  # give the NOPASSWD rule back before anything else happens.
+  local status=0
+  sudo -u "$username" -i bash -lc 'cd ~/.local/share/omarchy && bash install.sh' || status=$?
+  revoke_passwordless_sudo
+  (( status == 0 )) || fail "install.sh exited $status — fix it and run '$SELF --resume'"
 
-  rm -f "$SUDOERS"
   reboot_now "Omarchy installed."
 }
 
@@ -373,10 +449,9 @@ ask_questions() {
     }
   done
 
-  ensure_user
-
   echo
   log "Plan:"
+  log "  · create $username (in wheel, with sudo) and set its password"
   ((want_encrypt)) && log "  · move /boot onto the EFI partition (if needed), then reboot"
   ((want_encrypt)) && log "  · encrypt the root — you choose the passphrase at the console"
   log "  · install Omarchy from $repo ($ref) as $username"
@@ -418,6 +493,8 @@ main() {
 
   (( EUID == 0 )) || fail "run as root (sudo $0)"
 
+  trap on_exit EXIT
+
   if (( abort )); then
     cleanup_all
     log "Guided setup stopped. Nothing already done was undone."
@@ -430,11 +507,15 @@ main() {
 
   if (( ! resume )); then
     ask_questions
+    # The checkout comes first so a branch that is missing this script's tools
+    # fails here, with nothing installed on the machine — rather than after the
+    # unit is enabled, where it would refuse the same way on every boot.
+    require_network
+    ensure_source_checkout
+    ensure_user
     save_conf
     install_self
     install_unit
-    require_network
-    ensure_source_checkout
   else
     # A resumed run has a checkout already, unless the first run was
     # interrupted before it finished cloning.

@@ -75,5 +75,51 @@ for want in 0 1; do
 done
 
 echo
+echo "=== the branch must carry the tools this script drives ==="
+
+# malik-na/quattro is a real Omarchy 4 branch that does not carry
+# omarchy-system-boot-to-esp or omarchy-system-btrfs-migrate. Cloning it and
+# only finding out at `bash $SRC/bin/...` would strand the machine with an
+# enabled unit that fails on every boot.
+repo=example/repo
+ref=some-branch
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+check() {
+  local label="$1"
+  shift
+  if "$@"; then
+    echo "✓ $label"
+    ((++pass))
+  else
+    echo "✗ $label"
+    ((++failures))
+  fi
+}
+
+# require_tools_present exits rather than returns on refusal, so each case runs
+# in a subshell.
+refuses_checkout() {
+  ! (require_tools_present "$1" >/dev/null 2>&1)
+}
+
+accepts_checkout() {
+  (require_tools_present "$1" >/dev/null 2>&1)
+}
+
+mkdir -p "$work/bin"
+check "an empty checkout is refused" \
+  refuses_checkout "$work"
+
+touch "$work/bin/omarchy-system-boot-to-esp"
+check "half the tools is still refused" \
+  refuses_checkout "$work"
+
+touch "$work/bin/omarchy-system-btrfs-migrate"
+check "a checkout with both tools passes" \
+  accepts_checkout "$work"
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
