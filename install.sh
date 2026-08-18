@@ -142,7 +142,10 @@ confirm() {
   local question="$1"
 
   if command -v gum >/dev/null 2>&1; then
-    gum confirm "$question" </dev/tty
+    # --default=false to match the [y/N] fallback below: gum selects Yes
+    # otherwise, so Enter accepts -- and what this asks about is whether to
+    # spend three hours building packages that were measured to fail.
+    gum confirm --default=false "$question" </dev/tty
   else
     local answer
     read -r -p "$question [y/N] " answer </dev/tty
