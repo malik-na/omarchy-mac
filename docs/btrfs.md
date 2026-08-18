@@ -36,10 +36,32 @@ Converting an ext4 root breaks it the same way, for a different reason: the
 reformat changes the filesystem UUID that GRUB's embedded `search` looks for.
 
 The tool checks `/boot` and refuses on that layout rather than producing an
-unbootable machine. To use it there, mount the EFI partition at `/boot`
-instead — move the kernel, initramfs and `grub/` onto it, then rerun
-`grub-install` and `grub-mkconfig` — which is the layout encrypted Arch
-installs normally use, and the one the rest of this document assumes.
+unbootable machine. `omarchy-system-boot-to-esp` converts it: it copies `/boot`
+onto the EFI partition, mounts the partition there instead of at `/boot/efi`,
+reinstalls GRUB with its prefix on that partition, and rebuilds the initramfs.
+
+```bash
+curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-system-boot-to-esp
+sudo bash omarchy-system-boot-to-esp
+# reboot, confirm the machine still comes up, then encrypt
+```
+
+That is the layout encrypted Arch installs normally use, and the Asahi docs
+list it as supported — the OS ESP is "mounted at `/boot/efi` or `/boot`".
+Firmware updates keep working: `update-m1n1` locates the system ESP itself
+rather than reading `/boot/efi`. The originals stay in `/boot.old` until you
+delete them, and because GRUB's prefix now sits on unencrypted vfat, a bad
+boot is recoverable from the rescue prompt:
+
+```
+set prefix=(hd0,gptN)/grub
+insmod normal
+normal
+```
+
+**Reboot and confirm the machine boots before encrypting.** That separates a
+layout problem from an encryption problem, while the layout problem is still
+cheap to fix.
 
 ## When to run it
 

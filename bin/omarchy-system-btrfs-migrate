@@ -706,8 +706,8 @@ require_separate_boot() {
   warn "/boot is on the root filesystem, not on a separately mounted EFI partition."
   warn "GRUB reads its modules and kernel from there before anything can be"
   warn "unlocked, so this would leave the machine at a grub rescue prompt."
-  warn "Mount the EFI partition at /boot — move the kernel, initramfs and grub/"
-  warn "onto it, then rerun grub-install and grub-mkconfig — and try again."
+  warn "Run 'sudo omarchy-system-boot-to-esp' to move /boot onto the EFI"
+  warn "partition, reboot to confirm the machine still comes up, then try again."
   fail "refusing to make this machine unbootable"
 }
 
