@@ -520,9 +520,12 @@ verify_initramfs() {
 # upstream is genuinely unreachable, and say so rather than quietly building
 # from somewhere the PKGBUILD did not name.
 ensure_quickshell_source() {
+  # -H and -C /: sudo otherwise keeps root's HOME, and git run as another user
+  # from /root dies discovering a repository in a directory it cannot read
+  # ("fatal: error reading '/root/.git'") before it reaches --global at all.
   local user="$1"
 
-  if sudo -u "$user" git config --global --get-regexp 'url\..*\.insteadof' 2>/dev/null |
+  if sudo -u "$user" -H git -C / config --global --get-regexp 'url\..*\.insteadof' 2>/dev/null |
     grep -q quickshell; then
     return 0
   fi
@@ -537,7 +540,7 @@ ensure_quickshell_source() {
   log "  $QUICKSHELL_MIRROR"
   log "Undo later with:"
   log "  git config --global --unset url.${QUICKSHELL_MIRROR}.insteadof"
-  sudo -u "$user" git config --global \
+  sudo -u "$user" -H git -C / config --global \
     "url.${QUICKSHELL_MIRROR}.insteadOf" "$QUICKSHELL_UPSTREAM"
 }
 
@@ -552,7 +555,7 @@ step_omarchy() {
   if [[ ! -d $home/.local/share/omarchy/.git ]]; then
     log "Cloning $repo ($ref) into $home/.local/share/omarchy"
     sudo -u "$username" mkdir -p "$home/.local/share"
-    sudo -u "$username" git clone --branch "$ref" \
+    sudo -u "$username" -H git -C / clone --branch "$ref" \
       "https://codeberg.org/$repo.git" "$home/.local/share/omarchy"
   fi
 
