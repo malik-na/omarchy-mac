@@ -371,6 +371,14 @@ setup_grub_font() {
   else
     printf 'GRUB_FONT=%s\n' "$out" >>/etc/default/grub
   fi
+
+  # GRUB_FONT is only a setting until grub.cfg is regenerated — that is where
+  # the loadfont line lives. The later steps regenerate it anyway, but an
+  # unencrypted install runs none of them, and the menu would stay unreadable.
+  if [[ -f /boot/grub/grub.cfg ]]; then
+    grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 ||
+      warn "could not regenerate grub.cfg; the GRUB menu keeps its old font"
+  fi
   log "GRUB and console fonts set for a HiDPI panel"
 }
 
@@ -704,6 +712,8 @@ main() {
     require_network
     ensure_source_checkout
     ensure_user
+    setup_console_font
+    setup_grub_font
     apply_hostname "$hostname"
     save_conf
     install_self
