@@ -12,6 +12,22 @@
 # init, which leaves a blank lock surface, and the shell's lock plugin, which
 # refuses requests until its PAM config has loaded.
 
+# An encrypted machine has already authenticated its owner: the disk passphrase
+# was typed at boot, minutes ago, and the screen lock asks for the same person's
+# password again to protect a machine they are sitting in front of. This is the
+# reasoning the ISO already applies to autologin on encrypted installs -- the
+# boot lock exists for unencrypted ones, which have no at-rest protection at
+# all. OMARCHY_LOCK_ON_BOOT=1 forces it back on.
+root_is_encrypted() {
+  local source
+  source=$(findmnt -no SOURCE / 2>/dev/null | sed 's/\[.*\]//')
+  [[ $(lsblk -no TYPE "$source" 2>/dev/null) == "crypt" ]]
+}
+
+if [[ ${OMARCHY_LOCK_ON_BOOT:-0} != "1" ]] && root_is_encrypted; then
+  exit 0
+fi
+
 lock_state() {
   OMARCHY_SHELL_IPC_TIMEOUT=0.5s omarchy-shell lock status 2>/dev/null |
     jq -r 'if .secure == true then "secure" elif .requested == true then "locking" else "idle" end' 2>/dev/null

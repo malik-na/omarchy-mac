@@ -92,15 +92,34 @@ upstream; `malik-na/quattro` does not carry them yet. The defaults inside the
 script point at the same place, so `--repo`/`--ref` are only needed to install
 from somewhere else.)
 
-It asks for a hostname, username and password up front, then carries the machine the
-rest of the way on its own — fixing the boot layout, encrypting the root,
-installing Omarchy — rebooting between steps and resuming itself each time on
-tty1. The only thing you type after that is the disk passphrase, once, when it
-asks you to choose one.
+It asks for a hostname, username and password up front, then carries the machine
+the rest of the way on its own — moving `/boot` onto the EFI partition,
+encrypting the root, installing Omarchy — rebooting between steps and resuming
+itself each time on tty1. The only thing you type after that is the disk
+passphrase, once, when it asks you to choose one.
 
-Leave off `--encrypt` (or answer `n`) to skip encryption; `--status` reports
-where a machine has got to, and `--abort` stops the guided run without undoing
-anything already done.
+Expect roughly an hour, three reboots, and two questions along the way:
+
+- **A gum dialog offering to build packages with no known aarch64 build.** Say
+  no. `obs-studio` alone compiles for about three hours and then fails an
+  architecture check. It defaults to no.
+- **The disk passphrase**, chosen at the console on the boot that does the
+  encryption. That boot then rewrites the whole partition and prints nothing
+  while it does — ten to thirty minutes on a 200 GB root, and it is not stuck.
+
+Encrypted machines log straight into the desktop afterwards: the passphrase at
+boot is the authentication, and a second password immediately after it protects
+nothing the first one did not.
+
+Other flags:
+
+- `--no-encrypt` (or answering `n`) skips the encryption and the boot-layout
+  move it needs.
+- `--status` reports where a machine has got to.
+- `--step <name>` re-runs one step: `boot-layout`, `encrypt`, `omarchy`,
+  `fonts`, `autologin`, `done`. Useful when one of them half-worked, or on a
+  machine installed before a step existed.
+- `--abort` stops the guided run without undoing anything already done.
 
 The steps it drives are documented individually below and in
 [docs/btrfs.md](docs/btrfs.md); run them by hand if you would rather see each
@@ -114,7 +133,15 @@ run this on the fresh install, before anything else lands on it. See
 [docs/btrfs.md](docs/btrfs.md).
 
 ```bash
-curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-system-btrfs-migrate
+base=https://codeberg.org/scottjones/omarchy-mac/raw/branch/feat/btrfs-encrypt-only/bin
+curl -LO $base/omarchy-system-boot-to-esp
+curl -LO $base/omarchy-system-btrfs-migrate
+
+# Asahi Alarm's btrfs images keep /boot on the root filesystem, where GRUB
+# cannot read it once the root is encrypted. Move it first, and reboot to
+# confirm the machine still boots before encrypting anything.
+bash omarchy-system-boot-to-esp
+
 bash omarchy-system-btrfs-migrate --encrypt   # omit --encrypt to stay unencrypted
 ```
 
@@ -122,6 +149,11 @@ On an ext4 install this converts the root to btrfs. On one of Asahi Alarm's
 btrfs images the filesystem is already the right shape, so `--encrypt`
 encrypts it in place and adds the rest of the layout — and without `--encrypt`
 there is nothing left to do.
+
+`omarchy-system-btrfs-migrate` refuses to encrypt a root that still carries
+`/boot`, and says so, rather than producing a machine that boots to a `grub
+rescue>` prompt. That is what `omarchy-system-boot-to-esp` is for, and the
+guided setup above does both in the right order.
 
 The machine reboots once to do the work, then you continue below.
 
@@ -179,10 +211,17 @@ As the non‑root user (the installer refuses to run as root and uses `sudo`
 where it needs to):
 
 ```bash
-git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
+git clone -b quattro https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
+cat version    # 4.x — if this says 3.x you are on the wrong branch
 bash install.sh
 ```
+
+**Mind the branch.** `main` is still the Omarchy 3.x line until Quattro is
+merged into it, and its `install.sh` installs Omarchy 3 without saying which
+generation it is putting on the machine — an easy hour to lose. `-b quattro` is
+what makes it 4.x, and `cat version` is how you check before committing to it.
+(The guided setup above reads that file and refuses to install 3.x unasked.)
 
 That is the whole install. It takes roughly 40 minutes on a good connection,
 almost all of it building the AUR packages in the default set, and it:
