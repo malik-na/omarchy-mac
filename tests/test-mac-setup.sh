@@ -130,7 +130,7 @@ answers() {
   local input="$1"
   (
     set -e
-    encrypt_flag=1 want_encrypt=1 username=scott hostname=pancake
+    encrypt_flag=1 want_encrypt=1 username=scott hostname=pancake keymap=us
     repo=example/repo ref=some-branch
     printf '%s' "$input" | ask_questions >/dev/null 2>&1
   )
@@ -255,6 +255,34 @@ done
 check "fonts is reachable by name" is_known_step fonts
 check "autologin is reachable by name" is_known_step autologin
 check "a typo is not a step" not is_known_step boot-later
+
+echo
+echo "=== keymaps ==="
+
+# The console keymap is the keymap the LUKS prompt uses: omarchy_hooks.conf
+# bundles vconsole.conf into the initramfs. A wrong one means the machine
+# rejects a passphrase its owner is typing correctly.
+km_stub=$work/km
+mkdir -p "$km_stub"
+cat >"$km_stub/localectl" <<'STUB'
+#!/bin/bash
+case "$*" in
+  *list-keymaps*) printf 'us\nuk\nde\ndvorak\n' ;;
+  *) echo "     VC Keymap: de" ;;
+esac
+STUB
+chmod +x "$km_stub/localectl"
+
+known_keymap() {
+  PATH="$km_stub:$PATH" valid_keymap "$1"
+}
+
+check "a known keymap is accepted" known_keymap us
+check "case is ignored, as localectl does" known_keymap US
+check "an unknown keymap is refused" not known_keymap nonsense
+check "an empty keymap is refused" not known_keymap ""
+check "the current keymap is read from localectl" \
+  [ "$(PATH="$km_stub:$PATH" current_keymap)" = "de" ]
 
 echo
 echo "=== $pass checks passed, $failures failed ==="

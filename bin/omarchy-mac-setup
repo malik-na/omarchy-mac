@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -102,6 +102,44 @@ root_is_encrypted() {
   return 0
 }
 
+
+current_keymap() {
+  local keymap
+  keymap=$(localectl status 2>/dev/null | sed -n 's/.*VC Keymap: *//p' | head -1)
+  [[ -n $keymap && $keymap != "n/a" ]] || keymap=us
+  printf '%s' "$keymap"
+}
+
+valid_keymap() {
+  local keymap="$1"
+  [[ -n $keymap ]] || return 1
+  localectl --no-pager list-keymaps 2>/dev/null | grep -qix "$keymap"
+}
+
+# The keymap the console uses is the keymap the LUKS passphrase prompt uses:
+# omarchy_hooks.conf bundles /etc/vconsole.conf into the initramfs so the
+# prompt types the same letters the passphrase was chosen with. Get it wrong
+# and the machine rejects a passphrase its owner is typing correctly. The x86
+# ISO asks for this; nothing on the Mac path did.
+apply_keymap() {
+  local keymap="$1"
+  [[ -n $keymap ]] || return 0
+
+  log "Setting the console keymap to $keymap"
+  loadkeys "$keymap" 2>/dev/null || true
+  systemd-firstboot --keymap="$keymap" --force >/dev/null 2>&1 ||
+    localectl set-keymap "$keymap" >/dev/null 2>&1 ||
+    warn "could not persist the keymap; the unlock prompt keeps the current one"
+
+  # localectl writes vconsole.conf itself, but not on every path, and the
+  # initramfs reads that file rather than asking localectl.
+  touch /etc/vconsole.conf
+  if grep -q '^KEYMAP=' /etc/vconsole.conf; then
+    sed -i "s|^KEYMAP=.*|KEYMAP=$keymap|" /etc/vconsole.conf
+  else
+    printf 'KEYMAP=%s\n' "$keymap" >>/etc/vconsole.conf
+  fi
+}
 current_hostname() {
   local name
   name=$(hostnamectl --static 2>/dev/null) || name=""
@@ -190,6 +228,7 @@ load_conf() {
   want_encrypt=1
   username=""
   hostname=""
+  keymap=""
   repo=$DEFAULT_REPO
   ref=$DEFAULT_REF
 
@@ -199,6 +238,7 @@ load_conf() {
     want_encrypt=${WANT_ENCRYPT:-$want_encrypt}
     username=${SETUP_USER:-$username}
     hostname=${SETUP_HOSTNAME:-$hostname}
+    keymap=${SETUP_KEYMAP:-$keymap}
     repo=${SETUP_REPO:-$repo}
     ref=${SETUP_REF:-$ref}
   fi
@@ -210,6 +250,7 @@ save_conf() {
 WANT_ENCRYPT=$want_encrypt
 SETUP_USER=$username
 SETUP_HOSTNAME=$hostname
+SETUP_KEYMAP=$keymap
 SETUP_REPO=$repo
 SETUP_REF=$ref
 EOF
@@ -655,7 +696,7 @@ step_done() {
 # looks like: for re-running something that half-worked, or for a machine that
 # finished installing before a step existed. The state machine decides the
 # order on its own; this is the manual override.
-STEPS=(boot-layout encrypt omarchy fonts autologin done)
+STEPS=(boot-layout encrypt omarchy fonts autologin keymap done)
 
 run_named_step() {
   local step="$1"
@@ -671,6 +712,12 @@ run_named_step() {
       setup_console_font
       setup_grub_font
       log "Reboot to see the GRUB menu at the new size."
+      ;;
+    keymap)
+      [[ -n $keymap ]] || fail "no keymap recorded; pass --keymap <name>"
+      valid_keymap "$keymap" || fail "unknown keymap: $keymap"
+      apply_keymap "$keymap"
+      log "Rebuild the initramfs to give the unlock prompt the new layout: mkinitcpio -P"
       ;;
     autologin)
       [[ -n $username ]] || fail "no user recorded; pass --user <name>"
@@ -744,8 +791,18 @@ ask_questions() {
     }
   done
 
+  while [[ -z $keymap ]]; do
+    read -rp "Keyboard layout [$(current_keymap)]: " keymap
+    [[ -n $keymap ]] || keymap=$(current_keymap)
+    valid_keymap "$keymap" || {
+      warn "Unknown keymap. 'localectl list-keymaps' lists them."
+      keymap=""
+    }
+  done
+
   echo
   log "Plan:"
+  log "  - set the keyboard layout to $keymap"
   log "  - name this machine $hostname"
   log "  - create $username (in wheel, with sudo) and set its password"
   ((want_encrypt)) && log "  - move /boot onto the EFI partition (if needed), then reboot"
@@ -764,7 +821,7 @@ ask_questions() {
 }
 
 main() {
-  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname repo ref
+  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname keymap repo ref
 
   load_conf
 
@@ -774,6 +831,7 @@ main() {
       --no-encrypt) encrypt_flag=0; want_encrypt=0 ;;
       --user) username=${2:?--user needs a name}; shift ;;
       --hostname) hostname=${2:?--hostname needs a name}; shift ;;
+      --keymap) keymap=${2:?--keymap needs a name}; shift ;;
       --repo) repo=${2:?--repo needs owner/repo}; shift ;;
       --ref) ref=${2:?--ref needs a branch}; shift ;;
       --allow-omarchy3) allow_omarchy3=1 ;;
@@ -828,6 +886,7 @@ main() {
     ensure_user
     setup_console_font
     setup_grub_font
+    apply_keymap "$keymap"
     apply_hostname "$hostname"
     save_conf
     install_self
