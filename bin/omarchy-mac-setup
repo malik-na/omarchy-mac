@@ -491,26 +491,46 @@ revoke_passwordless_sudo() {
 # this hardware — it wedges in the initramfs, keyboard included, which is only
 # discoverable by rebooting into it. Check before that reboot, while there is
 # still a shell to fix it from.
-verify_initramfs() {
-  local img=/boot/initramfs-linux-asahi.img
+# The HOOKS the next mkinitcpio run will use: its config, then the drop-ins in
+# the order mkinitcpio sources them -- which is where a later file assigning
+# HOOKS outright overrides everything before it.
+effective_hooks() {
+  local conf=${OMARCHY_MKINITCPIO_CONF:-/etc/mkinitcpio.conf}
+  local confd=${OMARCHY_MKINITCPIO_CONFD:-/etc/mkinitcpio.conf.d}
 
-  [[ -f $img ]] || return 0
-  command -v lsinitcpio >/dev/null || return 0
+  bash -c '
+    HOOKS=(); MODULES=(); FILES=(); BINARIES=()
+    [[ -f $1 ]] && source "$1"
+    for _conf in "$2"/*.conf; do
+      [[ -f $_conf ]] && source "$_conf"
+    done
+    printf "%s\n" "${HOOKS[*]}"
+  ' -- "$conf" "$confd" 2>/dev/null
+}
+
+hooks_include_asahi() {
+  [[ " $(effective_hooks) " == *" asahi "* ]]
+}
+
+verify_initramfs() {
+  # Asking the config rather than the built image: the config is what the build
+  # reads, and reading an image back means parsing whatever lsinitcpio prints
+  # today -- which failed a perfectly good initramfs once already.
   [[ -e /usr/lib/initcpio/install/asahi ]] || return 0
 
-  if lsinitcpio -a "$img" 2>/dev/null | grep -q '\basahi\b'; then
-    log "Initramfs carries the asahi hook"
+  if hooks_include_asahi; then
+    log "Initramfs hooks include asahi"
     return 0
   fi
 
-  warn "The initramfs was built without the asahi hook, which stages this"
-  warn "machine's firmware. Rebooting into it would hang before login."
+  warn "The initramfs hooks do not include asahi, which stages this machine's"
+  warn "firmware. An image built without it hangs before login."
   log "Rebuilding it"
   if ! mkinitcpio -P; then
-    fail "could not rebuild the initramfs; do not reboot until it carries the asahi hook"
+    fail "could not rebuild the initramfs; do not reboot until asahi is in HOOKS"
   fi
-  lsinitcpio -a "$img" 2>/dev/null | grep -q '\basahi\b' ||
-    fail "the rebuilt initramfs still has no asahi hook -- check /etc/mkinitcpio.conf.d/"
+  hooks_include_asahi ||
+    fail "asahi is still missing from HOOKS -- check /etc/mkinitcpio.conf.d/"
 }
 
 # quickshell-git is the only AUR package for the Quattro shell, and its source

@@ -136,6 +136,10 @@ answers() {
   )
 }
 
+not() {
+  ! "$@"
+}
+
 refuses_to_start() {
   ! answers "$1"
 }
@@ -192,6 +196,42 @@ check "a qualified name carries its short form" \
   [ "$(hosts_entry_for mac.home.arpa)" = "mac.home.arpa mac" ]
 check "a short name is not repeated" \
   [ "$(hosts_entry_for mac)" = "mac" ]
+
+
+echo
+echo "=== the initramfs check reads the config, not a built image ==="
+
+# The first version of this check parsed lsinitcpio output and failed a
+# perfectly good initramfs -- the rebuild had run [asahi] on screen while the
+# check said it had not. Ask the config the build reads instead.
+conf_dir=$work/mkinitcpio.conf.d
+mkdir -p "$conf_dir"
+printf 'HOOKS=(base udev autodetect block filesystems fsck)\n' >"$work/mkinitcpio.conf"
+
+hooks_seen() {
+  OMARCHY_MKINITCPIO_CONF="$work/mkinitcpio.conf" \
+    OMARCHY_MKINITCPIO_CONFD="$conf_dir" effective_hooks
+}
+
+asahi_seen() {
+  OMARCHY_MKINITCPIO_CONF="$work/mkinitcpio.conf" \
+    OMARCHY_MKINITCPIO_CONFD="$conf_dir" hooks_include_asahi
+}
+
+check "the base config's hooks are read" \
+  grep -q 'base udev autodetect' <<<"$(hooks_seen)"
+
+check "no asahi when nothing provides it" not asahi_seen
+
+# A drop-in that assigns HOOKS wholesale, the way omarchy_hooks.conf does.
+printf 'HOOKS=(base udev plymouth block encrypt filesystems fsck)\n' \
+  >"$conf_dir/50-omarchy.conf"
+check "a drop-in assigning HOOKS wins over the base config" \
+  grep -q 'plymouth' <<<"$(hooks_seen)"
+check "and takes asahi with it when it does not list it" not asahi_seen
+
+printf 'HOOKS=(base asahi udev block filesystems)\n' >"$conf_dir/60-asahi.conf"
+check "a later drop-in putting asahi back is seen" asahi_seen
 
 echo
 echo "=== $pass checks passed, $failures failed ==="
