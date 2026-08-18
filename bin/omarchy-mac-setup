@@ -37,12 +37,13 @@ SUDOERS=/etc/sudoers.d/01-omarchy-mac-setup
 SRC=/var/lib/omarchy-mac-setup/src
 LOG=/var/log/omarchy-mac-setup.log
 
-# The default has to be a branch that actually carries this script and the two
-# tools it drives, which today is only this one: on malik-na/quattro all three
-# are 404. Point these at malik-na/omarchy-mac + quattro once the branch lands
-# there, and at main once quattro is merged into it.
-DEFAULT_REPO=scottjones/omarchy-mac
-DEFAULT_REF=feat/btrfs-encrypt-only
+# Upstream, on the branch this is published from. The defaults have to name a
+# branch that actually carries this script and the two tools it drives, and the
+# check below refuses to install Omarchy 3 unasked -- so if this runs before
+# the merge that puts Quattro on main, it stops with a message naming the
+# branch to pass instead rather than installing the wrong generation.
+DEFAULT_REPO=malik-na/omarchy-mac
+DEFAULT_REF=main
 
 # Everything this script shells out to, and therefore everything the chosen
 # branch has to contain.
@@ -444,8 +445,8 @@ check_omarchy_generation() {
 
   if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
     warn "Branch '$ref' of $repo is the Omarchy 3.x line."
-    warn "For Omarchy 4 use a quattro-line branch -- the default $DEFAULT_REPO"
-    warn "($DEFAULT_REF), or --ref main once quattro is merged into it."
+    warn "For Omarchy 4 pass a quattro-line branch: --ref quattro, until that"
+    warn "is merged into $DEFAULT_REF."
     fail "refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it"
   fi
 }

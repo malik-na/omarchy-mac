@@ -83,14 +83,14 @@ Follow these steps after the installer has finished and you have booted into the
 On the first boot into Arch, as root:
 
 ```bash
-curl -LO https://codeberg.org/scottjones/omarchy-mac/raw/branch/feat/btrfs-encrypt-only/bin/omarchy-mac-setup
+curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-mac-setup
 bash omarchy-mac-setup --encrypt
 ```
 
-(That branch is where this and the tools it drives live until they land
-upstream; `malik-na/quattro` does not carry them yet. The defaults inside the
-script point at the same place, so `--repo`/`--ref` are only needed to install
-from somewhere else.)
+(The script installs from the same place by default, so `--repo`/`--ref` are
+only needed to install from a fork or a branch. If Quattro has not landed on
+`main` yet, add `--ref quattro` — the script checks the version it is about to
+install and refuses to give you Omarchy 3 by accident.)
 
 It asks for a hostname, username and password up front, then carries the machine
 the rest of the way on its own — moving `/boot` onto the EFI partition,
@@ -133,7 +133,7 @@ run this on the fresh install, before anything else lands on it. See
 [docs/btrfs.md](docs/btrfs.md).
 
 ```bash
-base=https://codeberg.org/scottjones/omarchy-mac/raw/branch/feat/btrfs-encrypt-only/bin
+base=https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin
 curl -LO $base/omarchy-system-boot-to-esp
 curl -LO $base/omarchy-system-btrfs-migrate
 
