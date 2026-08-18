@@ -644,19 +644,60 @@ hooks_include_asahi() {
 # The ISO's rule for an encrypted machine is autologin, permanently: the disk
 # passphrase at boot is the authentication, and asking for a second password
 # afterwards protects nothing that the first one did not.
+# The repo ships default/wayland-sessions/omarchy.desktop -- the uwsm-managed
+# Hyprland session the SDDM theme looks for -- and nothing on this path
+# installs it. Autologin pointing at a session file that exists only in git is
+# a black screen instead of a desktop.
+install_session_file() {
+  local sessions=${OMARCHY_SESSIONS_DIR:-/usr/share/wayland-sessions} candidate
+
+  [[ -f $sessions/omarchy.desktop ]] && return 0
+  for candidate in \
+    "${OMARCHY_PATH:-}/default/wayland-sessions/omarchy.desktop" \
+    "$SRC/default/wayland-sessions/omarchy.desktop" \
+    "/home/${username:-}/.local/share/omarchy/default/wayland-sessions/omarchy.desktop"; do
+    if [[ -n $candidate && -f $candidate ]]; then
+      install -Dm644 "$candidate" "$sessions/omarchy.desktop"
+      log "Installed the Omarchy session file"
+      return 0
+    fi
+  done
+  return 0
+}
+
+# Whichever session is actually on disk, preferring Omarchy's own and then the
+# uwsm-managed one -- the SDDM theme picks any session whose name contains
+# "uwsm", so autologin should agree with it.
+desktop_session() {
+  local sessions=${OMARCHY_SESSIONS_DIR:-/usr/share/wayland-sessions} candidate
+
+  for candidate in omarchy.desktop hyprland-uwsm.desktop hyprland.desktop; do
+    if [[ -f $sessions/$candidate ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 configure_autologin() {
-  local user="$1"
+  local user="$1" session
 
   command -v sddm >/dev/null || return 0
-  [[ -f /usr/share/wayland-sessions/omarchy.desktop ]] ||
-    warn "omarchy.desktop session is missing; autologin may land nowhere"
+  install_session_file
+
+  if ! session=$(desktop_session); then
+    warn "No wayland session found; leaving the greeter alone rather than"
+    warn "autologging into nothing."
+    return 0
+  fi
 
   mkdir -p /etc/sddm.conf.d /var/lib/sddm
-  printf '[Autologin]\nUser=%s\nSession=omarchy.desktop\n' "$user" \
+  printf '[Autologin]\nUser=%s\nSession=%s\n' "$user" "$session" \
     >/etc/sddm.conf.d/autologin.conf
-  printf '[Last]\nSession=omarchy.desktop\nUser=%s\n' "$user" \
+  printf '[Last]\nSession=%s\nUser=%s\n' "$session" "$user" \
     >/var/lib/sddm/state.conf
-  log "SDDM will log $user straight in; the disk passphrase is the authentication"
+  log "SDDM will log $user straight into $session; the disk passphrase is the authentication"
 }
 verify_initramfs() {
   # Asking the config rather than the built image: the config is what the build

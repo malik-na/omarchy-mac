@@ -381,5 +381,34 @@ check "a directory that is not a checkout at all is replaced" \
   not checkout_matches "$work/nothing-here" malik-na/omarchy-mac main
 
 echo
+echo "=== autologin has to name a session that exists ==="
+
+# Session=omarchy.desktop was copied from the ISO, where that file is
+# installed. On a Mac the sessions are Hyprland's, so autologin pointed at a
+# file that exists only in git -- SDDM logged in to nothing and the screen
+# stayed black.
+sessions=$work/sessions
+mkdir -p "$sessions"
+
+session_chosen() {
+  OMARCHY_SESSIONS_DIR="$sessions" desktop_session
+}
+
+check "no sessions at all is refused rather than guessed" \
+  bash -c 'OMARCHY_SESSIONS_DIR="'"$sessions"'"; '"$(declare -f desktop_session)"'; ! desktop_session'
+
+touch "$sessions/hyprland.desktop"
+check "plain hyprland is used when it is all there is" \
+  [ "$(session_chosen)" = "hyprland.desktop" ]
+
+touch "$sessions/hyprland-uwsm.desktop"
+check "the uwsm session wins over plain hyprland" \
+  [ "$(session_chosen)" = "hyprland-uwsm.desktop" ]
+
+touch "$sessions/omarchy.desktop"
+check "Omarchy's own session wins over both" \
+  [ "$(session_chosen)" = "omarchy.desktop" ]
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
