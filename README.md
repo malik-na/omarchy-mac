@@ -78,6 +78,29 @@ Follow these steps after the installer has finished and you have booted into the
 - In the installer choose `Asahi Arch Minimal` and allocate at least 50 GB for Linux.
   Its btrfs variant works too — see the next section.
 
+### The short version: one command
+
+On the first boot into Arch, as root:
+
+```bash
+curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup
+bash omarchy-mac-setup --encrypt
+```
+
+It asks for a username and password up front, then carries the machine the
+rest of the way on its own — fixing the boot layout, encrypting the root,
+installing Omarchy — rebooting between steps and resuming itself each time on
+tty1. The only thing you type after that is the disk passphrase, once, when it
+asks you to choose one.
+
+Leave off `--encrypt` (or answer `n`) to skip encryption; `--status` reports
+where a machine has got to, and `--abort` stops the guided run without undoing
+anything already done.
+
+The steps it drives are documented individually below and in
+[docs/btrfs.md](docs/btrfs.md); run them by hand if you would rather see each
+one.
+
 ### Optional: btrfs snapshots and disk encryption
 
 For snapper snapshots and `omarchy-system-factory-reset` support — and for

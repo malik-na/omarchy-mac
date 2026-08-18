@@ -1,0 +1,451 @@
+#!/bin/bash
+
+# omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
+# omarchy:group=setup
+# omarchy:requires-sudo=true
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--abort]
+# omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
+
+# One command, run once as root on a fresh Asahi Alarm install, that carries the
+# machine all the way to a booted Omarchy desktop. It asks its questions up
+# front, then drives the steps across the reboots each one needs, resuming
+# itself on every boot until the machine is done:
+#
+#   1. BOOT LAYOUT  Asahi Alarm's btrfs images keep /boot on the root
+#      filesystem, where GRUB cannot read it once the root is encrypted. The
+#      EFI partition is mounted at /boot instead.       (reboot)
+#   2. ENCRYPTION   The root is encrypted in place. You choose the disk
+#      passphrase at the console on the boot that does the work, and enter it
+#      on every boot after.                              (reboot)
+#   3. OMARCHY      The repo is cloned and install.sh runs as your user.
+#                                                        (reboot into Omarchy)
+#
+# The only thing you type after starting it is the disk passphrase.
+#
+# Each step is done by the tool that owns it — omarchy-system-boot-to-esp and
+# omarchy-system-btrfs-migrate — from a checkout this script makes. Where the
+# machine has got to is read from the machine itself (is /boot separate, is the
+# root a dm-crypt device, does @factory exist), so an interrupted run picks up
+# where it left off rather than repeating work.
+
+set -euo pipefail
+
+CONF=/etc/omarchy-mac-setup.conf
+SELF=/usr/local/bin/omarchy-mac-setup
+UNIT=/etc/systemd/system/omarchy-mac-setup.service
+SUDOERS=/etc/sudoers.d/01-omarchy-mac-setup
+SRC=/var/lib/omarchy-mac-setup/src
+LOG=/var/log/omarchy-mac-setup.log
+
+DEFAULT_REPO=malik-na/omarchy-mac
+DEFAULT_REF=quattro
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+banner() {
+  printf '\n\033[36m─── %s ───\033[0m\n\n' "$*"
+}
+
+# ---------------------------------------------------------------------------
+# State, read from the machine rather than remembered
+# ---------------------------------------------------------------------------
+
+root_source() {
+  findmnt -no SOURCE / | sed 's/\[.*\]//'
+}
+
+# /boot has to be its own (unencrypted) partition before the root can be
+# encrypted, or GRUB loses its modules and kernel behind the LUKS header.
+boot_is_separate() {
+  local boot
+  boot=$(findmnt -no SOURCE /boot 2>/dev/null | sed 's/\[.*\]//') || return 1
+  [[ -n $boot && $boot != "$(root_source)" ]]
+}
+
+root_is_encrypted() {
+  [[ $(lsblk -no TYPE "$(root_source)" 2>/dev/null) == "crypt" ]]
+}
+
+# install.sh snapshots the finished system as @factory on its way out, so the
+# subvolume is proof the install ran to completion.
+omarchy_is_installed() {
+  btrfs subvolume list / 2>/dev/null | awk '{print $NF}' | grep -qx '@factory'
+}
+
+# Pure: given the machine's state and what the user asked for, name the next
+# step. Kept side-effect free so the tests can walk the whole matrix.
+next_step() {
+  local boot_separate="$1" encrypted="$2" want_encrypt="$3" installed="$4"
+
+  if [[ $installed == 1 ]]; then
+    echo done
+  elif [[ $want_encrypt == 1 && $encrypted != 1 ]]; then
+    if [[ $boot_separate == 1 ]]; then
+      echo encrypt
+    else
+      echo boot-layout
+    fi
+  else
+    echo omarchy
+  fi
+}
+
+current_step() {
+  local boot_separate=0 encrypted=0 installed=0
+  boot_is_separate && boot_separate=1
+  root_is_encrypted && encrypted=1
+  omarchy_is_installed && installed=1
+  next_step "$boot_separate" "$encrypted" "$want_encrypt" "$installed"
+}
+
+# ---------------------------------------------------------------------------
+# Persistence: the answers, this script, and the unit that resumes it
+# ---------------------------------------------------------------------------
+
+load_conf() {
+  # Plain defaults, not environment fallbacks: USERNAME and friends are already
+  # set in a login shell and would quietly pick the wrong answers.
+  want_encrypt=1
+  username=""
+  repo=$DEFAULT_REPO
+  ref=$DEFAULT_REF
+
+  if [[ -f $CONF ]]; then
+    # shellcheck source=/dev/null
+    . "$CONF"
+    want_encrypt=${WANT_ENCRYPT:-$want_encrypt}
+    username=${SETUP_USER:-$username}
+    repo=${SETUP_REPO:-$repo}
+    ref=${SETUP_REF:-$ref}
+  fi
+}
+
+save_conf() {
+  cat >"$CONF" <<EOF
+# Written by omarchy-mac-setup; delete it to stop the guided install.
+WANT_ENCRYPT=$want_encrypt
+SETUP_USER=$username
+SETUP_REPO=$repo
+SETUP_REF=$ref
+EOF
+  chmod 600 "$CONF"
+}
+
+install_self() {
+  if [[ ${BASH_SOURCE[0]} -ef $SELF ]]; then
+    return 0
+  fi
+  install -Dm755 "${BASH_SOURCE[0]}" "$SELF"
+}
+
+# The unit takes over tty1 so the next step runs, and can be watched, without
+# anyone logging in. Conflicting with the getty keeps the two off each other's
+# console.
+install_unit() {
+  cat >"$UNIT" <<EOF
+[Unit]
+Description=Omarchy Mac guided setup
+ConditionPathExists=$CONF
+After=network-online.target systemd-user-sessions.service
+After=omarchy-btrfs-migrate-finish.service
+Wants=network-online.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=$SELF --resume
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable omarchy-mac-setup.service >/dev/null 2>&1
+}
+
+cleanup_all() {
+  rm -f "$CONF" "$SUDOERS"
+  if [[ -f $UNIT ]]; then
+    systemctl disable omarchy-mac-setup.service >/dev/null 2>&1 || true
+    rm -f "$UNIT"
+    systemctl daemon-reload
+  fi
+  systemctl start getty@tty1.service >/dev/null 2>&1 || true
+}
+
+reboot_now() {
+  local reason="$1"
+  log "$reason"
+  log "Rebooting in 5 seconds; the setup continues automatically on tty1."
+  sleep 5
+  systemctl reboot
+}
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+
+have_network() {
+  ip route 2>/dev/null | grep -q '^default '
+}
+
+require_network() {
+  have_network && return 0
+
+  warn "No default route — the install needs the network."
+  warn "Connect with 'nmtui' on another console (Ctrl+Alt+F2), then come back."
+  local waited=0
+  while ! have_network; do
+    sleep 10
+    (( waited += 10 ))
+    (( waited % 60 == 0 )) && log "Still waiting for the network ($((waited / 60))m)"
+    (( waited > 1800 )) && fail "no network after 30 minutes; run '$SELF --resume' when it is up"
+  done
+  log "Network is up."
+}
+
+ensure_source_checkout() {
+  [[ -d $SRC/.git ]] && return 0
+
+  command -v git >/dev/null || pacman -Sy --noconfirm --needed git
+  mkdir -p "$(dirname "$SRC")"
+  log "Fetching $repo ($ref)"
+  git clone --branch "$ref" --depth 1 "https://codeberg.org/$repo.git" "$SRC" ||
+    fail "could not clone $repo at $ref"
+  check_omarchy_generation
+}
+
+# Until quattro is merged into main, main is still the Omarchy 3.x line — and
+# its install.sh installs Omarchy 3 without ever announcing which generation it
+# is. Say the version out loud, and stop rather than silently deliver 3.x to
+# someone who came here for 4.
+check_omarchy_generation() {
+  local version
+  version=$(head -1 "$SRC/version" 2>/dev/null || echo unknown)
+  log "This is Omarchy $version ($repo, branch $ref)"
+
+  if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
+    warn "Branch '$ref' of $repo is the Omarchy 3.x line."
+    warn "For Omarchy 4 use --ref quattro (or --ref main once quattro is merged)."
+    fail "refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# The steps
+# ---------------------------------------------------------------------------
+
+step_boot_layout() {
+  banner "Step 1 of 3 — boot layout"
+  log "/boot is on the root filesystem, where GRUB cannot reach it once the"
+  log "root is encrypted. Moving it onto the EFI partition."
+  bash "$SRC/bin/omarchy-system-boot-to-esp" --yes
+  reboot_now "Boot layout done."
+}
+
+step_encrypt() {
+  banner "Step 2 of 3 — disk encryption"
+  log "Staging the in-place encryption of the root filesystem."
+  log "On the next boot you will CHOOSE THE DISK PASSPHRASE at this console,"
+  log "and the whole partition is rewritten — that part takes a while and"
+  log "prints nothing. Do not power the machine off during it."
+  bash "$SRC/bin/omarchy-system-btrfs-migrate" --encrypt --yes
+  reboot_now "Encryption staged."
+}
+
+ensure_user() {
+  id -u "$username" >/dev/null 2>&1 && return 0
+
+  log "Creating user $username"
+  useradd -m -G wheel -s /bin/bash "$username"
+  log "Set a password for $username:"
+  until passwd "$username"; do
+    warn "Try again."
+  done
+}
+
+# install.sh runs as the user and calls sudo throughout. A temporary NOPASSWD
+# rule keeps the install from stopping for a password on every step; it is
+# removed as soon as the install returns, and again on the next boot.
+grant_passwordless_sudo() {
+  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/00-wheel
+  chmod 440 /etc/sudoers.d/00-wheel
+  printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$username" >"$SUDOERS"
+  chmod 440 "$SUDOERS"
+}
+
+step_omarchy() {
+  banner "Step 3 of 3 — installing Omarchy"
+  require_network
+  ensure_user
+
+  local home
+  home=$(getent passwd "$username" | cut -d: -f6)
+
+  if [[ ! -d $home/.local/share/omarchy/.git ]]; then
+    log "Cloning $repo ($ref) into $home/.local/share/omarchy"
+    sudo -u "$username" mkdir -p "$home/.local/share"
+    sudo -u "$username" git clone --branch "$ref" \
+      "https://codeberg.org/$repo.git" "$home/.local/share/omarchy"
+  fi
+
+  grant_passwordless_sudo
+
+  log "Running install.sh as $username — this takes a while (AUR builds)."
+  # Run from a login shell so the install sees a normal user environment.
+  sudo -u "$username" -i bash -lc 'cd ~/.local/share/omarchy && bash install.sh'
+
+  rm -f "$SUDOERS"
+  reboot_now "Omarchy installed."
+}
+
+step_done() {
+  banner "Setup complete"
+  cleanup_all
+  log "Encryption: $(root_is_encrypted && echo "on ($(root_source))" || echo off)"
+  log "/boot: $(findmnt -no SOURCE /boot 2>/dev/null || echo '(not separate)')"
+  log "Log in as $username and enjoy Omarchy."
+  log "You can delete /boot.old and $SRC when you are happy with the machine."
+}
+
+run_step() {
+  local step="$1"
+  case $step in
+    boot-layout) step_boot_layout ;;
+    encrypt) step_encrypt ;;
+    omarchy) step_omarchy ;;
+    done) step_done ;;
+    *) fail "unknown step: $step" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+
+print_status() {
+  local step
+  step=$(current_step)
+  banner "Omarchy Mac setup status"
+  printf '  root            %s (%s)\n' "$(root_source)" \
+    "$(root_is_encrypted && echo encrypted || echo "not encrypted")"
+  printf '  /boot           %s\n' \
+    "$(boot_is_separate && findmnt -no SOURCE /boot || echo "on the root filesystem")"
+  printf '  omarchy         %s\n' \
+    "$(omarchy_is_installed && echo installed || echo "not installed")"
+  printf '  encryption      %s\n' "$( ((want_encrypt)) && echo requested || echo "not requested")"
+  printf '  next step       %s\n\n' "$step"
+}
+
+ask_questions() {
+  local answer
+
+  banner "Omarchy Mac setup"
+  echo "This installs Omarchy on this machine, rebooting a few times on the way."
+  echo "It asks everything now, then runs on its own."
+  echo
+
+  if [[ -z $encrypt_flag ]]; then
+    read -rp "Encrypt the disk? [Y/n] " answer
+    [[ ${answer,,} == n* ]] && want_encrypt=0 || want_encrypt=1
+  fi
+
+  while [[ -z $username ]]; do
+    read -rp "Username to create (your everyday login): " username
+    [[ $username =~ ^[a-z_][a-z0-9_-]*$ ]] || {
+      warn "That is not a valid Linux username."
+      username=""
+    }
+  done
+
+  ensure_user
+
+  echo
+  log "Plan:"
+  ((want_encrypt)) && log "  · move /boot onto the EFI partition (if needed), then reboot"
+  ((want_encrypt)) && log "  · encrypt the root — you choose the passphrase at the console"
+  log "  · install Omarchy from $repo ($ref) as $username"
+  log "  · reboot into the desktop"
+  echo
+  read -rp "Start? [Y/n] " answer
+  [[ ${answer,,} == n* ]] && fail "not started"
+}
+
+main() {
+  local resume=0 status=0 abort=0 allow_omarchy3=0 encrypt_flag="" want_encrypt username repo ref
+
+  load_conf
+
+  while (( $# )); do
+    case $1 in
+      --encrypt) encrypt_flag=1; want_encrypt=1 ;;
+      --no-encrypt) encrypt_flag=0; want_encrypt=0 ;;
+      --user) username=${2:?--user needs a name}; shift ;;
+      --repo) repo=${2:?--repo needs owner/repo}; shift ;;
+      --ref) ref=${2:?--ref needs a branch}; shift ;;
+      --allow-omarchy3) allow_omarchy3=1 ;;
+      --resume) resume=1 ;;
+      --status) status=1 ;;
+      --abort) abort=1 ;;
+      -h | --help)
+        sed -n '/^# One command/,/^# where it left off/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,3\}//'
+        exit 0
+        ;;
+      *) fail "unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  if (( status )); then
+    print_status
+    exit 0
+  fi
+
+  (( EUID == 0 )) || fail "run as root (sudo $0)"
+
+  if (( abort )); then
+    cleanup_all
+    log "Guided setup stopped. Nothing already done was undone."
+    exit 0
+  fi
+
+  [[ $(uname -m) == "aarch64" ]] || fail "this tool is for Apple Silicon (aarch64) installs"
+
+  mkdir -p "$(dirname "$LOG")"
+
+  if (( ! resume )); then
+    ask_questions
+    save_conf
+    install_self
+    install_unit
+    require_network
+    ensure_source_checkout
+  else
+    # A resumed run has a checkout already, unless the first run was
+    # interrupted before it finished cloning.
+    [[ -d $SRC/.git ]] || { require_network; ensure_source_checkout; }
+  fi
+
+  run_step "$(current_step)"
+}
+
+# Sourcing the script exposes its functions to the tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

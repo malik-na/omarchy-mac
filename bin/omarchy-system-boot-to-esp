@@ -84,7 +84,15 @@ recovery_note() {
 }
 
 main() {
-  local esp esp_fstype boot_kb avail_kb typed
+  local esp esp_fstype boot_kb avail_kb typed assume_yes=0
+
+  while (( $# )); do
+    case $1 in
+      -y | --yes) assume_yes=1 ;;
+      *) fail "unknown argument: $1" ;;
+    esac
+    shift
+  done
 
   (( EUID == 0 )) || fail "run as root"
   [[ $(uname -m) == "aarch64" ]] || fail "this tool is for Apple Silicon (aarch64) installs"

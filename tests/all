@@ -1,0 +1,26 @@
+#!/bin/bash
+# Runs the tests under tests/. The ones needing root and loop devices skip
+# themselves when run without, so this is safe to run either way — but run it
+# as root to actually exercise the btrfs and LUKS conversions.
+
+set -uo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
+failures=0
+for suite in test-*.sh; do
+  printf '\n\033[36m─── %s ───\033[0m\n' "$suite"
+  if bash "$suite"; then
+    :
+  else
+    printf '\033[31mFAILED: %s\033[0m\n' "$suite"
+    ((++failures))
+  fi
+done
+
+printf '\n'
+if (( failures )); then
+  printf '\033[31m%d suite(s) failed\033[0m\n' "$failures"
+  exit 1
+fi
+printf '\033[32mAll suites passed\033[0m\n'

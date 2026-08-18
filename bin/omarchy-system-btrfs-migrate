@@ -59,6 +59,7 @@ RAM_HEADROOM_KB=$((1024 * 1024)) # 1 GiB kept free beyond the staged copy
 LUKS_HEADER_MIB=32               # device shrink cryptsetup needs for a LUKS2 header
 FS_SHRINK_MIB=64                 # filesystem shrink, with slack over the header
 MIN_FREE_MIB=512                 # refuse to shrink a filesystem tighter than this
+ASSUME_YES=0                     # --yes: skip typed confirmations and self-reboot
 
 log() {
   printf '\033[32m==>\033[0m %s\n' "$*"
@@ -665,11 +666,27 @@ stage_worker() {
 
 confirm_reboot() {
   local typed
+  if (( ASSUME_YES )); then
+    log "Not rebooting (--yes); the caller decides when."
+    return 0
+  fi
   echo
   read -rp "Reboot now? [y/N] " typed
   if [[ ${typed,,} == y* ]]; then
     reboot
   fi
+}
+
+# Under --yes the typed confirmation is skipped: the caller (omarchy-mac-setup)
+# has already asked. $1 is the word a human would have typed.
+confirm_or_yes() {
+  local word="$1" typed
+  if (( ASSUME_YES )); then
+    log "Proceeding without confirmation (--yes)."
+    return 0
+  fi
+  read -rp "Type '$word' to continue: " typed
+  [[ $typed == "$word" ]] || fail "not confirmed"
 }
 
 run_stage() {
@@ -730,9 +747,7 @@ stage_convert() {
   warn "The system is staged through RAM: a power loss during conversion loses the root filesystem."
   warn "Only run this on a fresh install with nothing to lose."
   echo
-  local typed
-  read -rp "Type 'convert' to stage the migration: " typed
-  [[ $typed == "convert" ]] || fail "not confirmed"
+  confirm_or_yes convert
 
   ensure_packages "$encrypt"
   stage_worker convert "$encrypt"
@@ -781,8 +796,7 @@ stage_encrypt() {
   warn "Lose the passphrase and the data is gone; there is no recovery key."
   warn "Back up anything that matters before starting."
   echo
-  read -rp "Type 'encrypt' to stage the encryption: " typed
-  [[ $typed == "encrypt" ]] || fail "not confirmed"
+  confirm_or_yes encrypt
 
   ensure_packages 1
   stage_worker encrypt 1
@@ -818,6 +832,7 @@ main() {
   while (( $# )); do
     case $1 in
       --encrypt) encrypt=1 ;;
+      -y|--yes) ASSUME_YES=1 ;;
       --worker) mode=worker; device=${2:?--worker needs a device}; shift ;;
       --rehearse) mode=rehearse; device=${2:?--rehearse needs a device}; shift ;;
       -h|--help)
