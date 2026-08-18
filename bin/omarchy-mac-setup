@@ -791,18 +791,17 @@ ask_questions() {
     }
   done
 
-  while [[ -z $keymap ]]; do
-    read -rp "Keyboard layout [$(current_keymap)]: " keymap
-    [[ -n $keymap ]] || keymap=$(current_keymap)
-    valid_keymap "$keymap" || {
-      warn "Unknown keymap. 'localectl list-keymaps' lists them."
-      keymap=""
-    }
-  done
+  # Not asked: an Apple keyboard on a fresh Asahi install is already on the
+  # layout it shipped with, and asking everyone to retype "us" is a question
+  # that earns nothing. It is still applied explicitly, and still printed --
+  # because it is the layout the disk passphrase gets typed under, and someone
+  # on a non-US keyboard needs to see that before choosing one.
+  [[ -n $keymap ]] || keymap=$(current_keymap)
+  valid_keymap "$keymap" || fail "unknown keymap: $keymap"
 
   echo
   log "Plan:"
-  log "  - set the keyboard layout to $keymap"
+  log "  - keyboard layout: $keymap (--keymap to change; the passphrase is typed with it)"
   log "  - name this machine $hostname"
   log "  - create $username (in wheel, with sudo) and set its password"
   ((want_encrypt)) && log "  - move /boot onto the EFI partition (if needed), then reboot"

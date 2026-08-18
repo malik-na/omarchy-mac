@@ -120,6 +120,21 @@ touch "$work/bin/omarchy-system-btrfs-migrate"
 check "a checkout with both tools passes" \
   accepts_checkout "$work"
 
+
+# localectl is not present in a test environment, and the keymap path calls it.
+# Stub it once, here, so every check below makes a decision rather than tripping
+# over a missing command.
+km_stub=$work/km
+mkdir -p "$km_stub"
+cat >"$km_stub/localectl" <<'STUB'
+#!/bin/bash
+case "$*" in
+  *list-keymaps*) printf 'us\nuk\nde\ndvorak\n' ;;
+  *) echo "     VC Keymap: de" ;;
+esac
+STUB
+chmod +x "$km_stub/localectl"
+
 echo
 echo "=== the confirmation must not end the run ==="
 
@@ -130,8 +145,9 @@ answers() {
   local input="$1"
   (
     set -e
-    encrypt_flag=1 want_encrypt=1 username=scott hostname=pancake keymap=us
+    encrypt_flag=1 want_encrypt=1 username=scott hostname=pancake keymap=""
     repo=example/repo ref=some-branch
+    PATH="$km_stub:$PATH"
     printf '%s' "$input" | ask_questions >/dev/null 2>&1
   )
 }
@@ -149,6 +165,12 @@ check "answering Y starts the run" answers 'Y
 check "answering y starts the run" answers 'y
 '
 check "pressing enter starts the run" answers '
+'
+
+# With no keymap set and a stub that would answer one, the run still starts:
+# if a keymap question were asked, it would swallow the "Y" and the run would
+# never reach the confirmation.
+check "no keymap question swallows the answer" answers 'Y
 '
 check "answering n stops the run" refuses_to_start 'n
 '
@@ -262,17 +284,6 @@ echo "=== keymaps ==="
 # The console keymap is the keymap the LUKS prompt uses: omarchy_hooks.conf
 # bundles vconsole.conf into the initramfs. A wrong one means the machine
 # rejects a passphrase its owner is typing correctly.
-km_stub=$work/km
-mkdir -p "$km_stub"
-cat >"$km_stub/localectl" <<'STUB'
-#!/bin/bash
-case "$*" in
-  *list-keymaps*) printf 'us\nuk\nde\ndvorak\n' ;;
-  *) echo "     VC Keymap: de" ;;
-esac
-STUB
-chmod +x "$km_stub/localectl"
-
 known_keymap() {
   PATH="$km_stub:$PATH" valid_keymap "$1"
 }
