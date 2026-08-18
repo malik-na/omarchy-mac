@@ -48,6 +48,10 @@ DEFAULT_REF=feat/btrfs-encrypt-only
 # branch has to contain.
 REQUIRED_TOOLS=(omarchy-system-boot-to-esp omarchy-system-btrfs-migrate)
 
+# quickshell's AUR source, and the mirror the project publishes itself.
+QUICKSHELL_UPSTREAM=https://git.outfoxxed.me/quickshell/
+QUICKSHELL_MIRROR=https://github.com/quickshell-mirror/
+
 log() {
   printf '\033[32m==>\033[0m %s\n' "$*"
 }
@@ -501,6 +505,34 @@ verify_initramfs() {
     fail "the rebuilt initramfs still has no asahi hook -- check /etc/mkinitcpio.conf.d/"
 }
 
+# quickshell-git is the only AUR package for the Quattro shell, and its source
+# is one self-hosted git server. When that server is down the build fails and
+# takes the whole desktop with it -- there is no Quattro without quickshell.
+# The project publishes an official GitHub mirror; use it, but only when
+# upstream is genuinely unreachable, and say so rather than quietly building
+# from somewhere the PKGBUILD did not name.
+ensure_quickshell_source() {
+  local user="$1"
+
+  if sudo -u "$user" git config --global --get-regexp 'url\..*\.insteadof' 2>/dev/null |
+    grep -q quickshell; then
+    return 0
+  fi
+
+  if timeout 30 git ls-remote --exit-code "${QUICKSHELL_UPSTREAM}quickshell.git" \
+    >/dev/null 2>&1; then
+    return 0
+  fi
+
+  warn "quickshell's upstream git ($QUICKSHELL_UPSTREAM) is unreachable."
+  log "Building from the project's own GitHub mirror instead:"
+  log "  $QUICKSHELL_MIRROR"
+  log "Undo later with:"
+  log "  git config --global --unset url.${QUICKSHELL_MIRROR}.insteadof"
+  sudo -u "$user" git config --global \
+    "url.${QUICKSHELL_MIRROR}.insteadOf" "$QUICKSHELL_UPSTREAM"
+}
+
 step_omarchy() {
   banner "Step 3 of 3 -- installing Omarchy"
   require_network
@@ -516,6 +548,7 @@ step_omarchy() {
       "https://codeberg.org/$repo.git" "$home/.local/share/omarchy"
   fi
 
+  ensure_quickshell_source "$username"
   grant_passwordless_sudo
 
   log "Running install.sh as $username -- this takes a while (AUR builds)."
