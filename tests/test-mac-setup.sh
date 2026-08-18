@@ -295,6 +295,27 @@ check "an empty keymap is refused" not known_keymap ""
 check "the current keymap is read from localectl" \
   [ "$(PATH="$km_stub:$PATH" current_keymap)" = "de" ]
 
+# A machine whose localectl cannot list keymaps is not a machine with a bad
+# keymap: refusing there would block an install over a missing lookup table.
+empty_stub=$work/km-empty
+mkdir -p "$empty_stub"
+cat >"$empty_stub/localectl" <<'STUB'
+#!/bin/bash
+case "$*" in
+  *list-keymaps*) : ;;
+  *) echo "     VC Keymap: us" ;;
+esac
+STUB
+chmod +x "$empty_stub/localectl"
+
+unlistable_keymap() {
+  PATH="$empty_stub:$PATH" valid_keymap "$1"
+}
+
+check "anything passes when keymaps cannot be listed" unlistable_keymap us
+check "even an odd one, rather than blocking the install" unlistable_keymap whatever
+check "empty is still refused" not unlistable_keymap ""
+
 echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

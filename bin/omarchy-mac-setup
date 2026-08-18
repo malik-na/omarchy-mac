@@ -110,9 +110,18 @@ current_keymap() {
   printf '%s' "$keymap"
 }
 
+# localectl can only list keymaps when the kbd data is installed, which a
+# minimal Asahi image may not have. An unlistable machine is not a machine with
+# a bad keymap, so an empty list means "cannot check" rather than "wrong" --
+# refusing to proceed there would block an install over a lookup table.
+keymaps_listable() {
+  localectl --no-pager list-keymaps 2>/dev/null | grep -q .
+}
+
 valid_keymap() {
   local keymap="$1"
   [[ -n $keymap ]] || return 1
+  keymaps_listable || return 0
   localectl --no-pager list-keymaps 2>/dev/null | grep -qix "$keymap"
 }
 
@@ -797,7 +806,7 @@ ask_questions() {
   # because it is the layout the disk passphrase gets typed under, and someone
   # on a non-US keyboard needs to see that before choosing one.
   [[ -n $keymap ]] || keymap=$(current_keymap)
-  valid_keymap "$keymap" || fail "unknown keymap: $keymap"
+  valid_keymap "$keymap" || warn "keymap '$keymap' is not in localectl's list; using it anyway"
 
   echo
   log "Plan:"
@@ -830,7 +839,11 @@ main() {
       --no-encrypt) encrypt_flag=0; want_encrypt=0 ;;
       --user) username=${2:?--user needs a name}; shift ;;
       --hostname) hostname=${2:?--hostname needs a name}; shift ;;
-      --keymap) keymap=${2:?--keymap needs a name}; shift ;;
+      --keymap)
+        keymap=${2:?--keymap needs a name}
+        valid_keymap "$keymap" || fail "unknown keymap: $keymap (see localectl list-keymaps)"
+        shift
+        ;;
       --repo) repo=${2:?--repo needs owner/repo}; shift ;;
       --ref) ref=${2:?--ref needs a branch}; shift ;;
       --allow-omarchy3) allow_omarchy3=1 ;;
