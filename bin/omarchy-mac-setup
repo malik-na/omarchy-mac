@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -649,6 +649,42 @@ step_done() {
   log "You can delete /boot.old and $SRC when you are happy with the machine."
 }
 
+
+# --step runs one step by name, out of order and regardless of what the machine
+# looks like: for re-running something that half-worked, or for a machine that
+# finished installing before a step existed. The state machine decides the
+# order on its own; this is the manual override.
+STEPS=(boot-layout encrypt omarchy fonts autologin done)
+
+run_named_step() {
+  local step="$1"
+
+  case $step in
+    boot-layout | encrypt | omarchy)
+      # These drive the tools from the checkout, which a machine that never ran
+      # the guided setup will not have.
+      [[ -d $SRC/.git ]] || { require_network; ensure_source_checkout; }
+      run_step "$step"
+      ;;
+    fonts)
+      setup_console_font
+      setup_grub_font
+      log "Reboot to see the GRUB menu at the new size."
+      ;;
+    autologin)
+      [[ -n $username ]] || fail "no user recorded; pass --user <name>"
+      id -u "$username" >/dev/null 2>&1 || fail "$username does not exist"
+      configure_autologin "$username"
+      log "Restart the greeter to see it: systemctl restart sddm"
+      ;;
+    done)
+      step_done
+      ;;
+    *)
+      fail "unknown step: $step (one of: ${STEPS[*]})"
+      ;;
+  esac
+}
 run_step() {
   local step="$1"
   case $step in
@@ -727,7 +763,7 @@ ask_questions() {
 }
 
 main() {
-  local resume=0 status=0 abort=0 fonts_only=0 autologin_only=0 allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname repo ref
+  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname repo ref
 
   load_conf
 
@@ -742,8 +778,9 @@ main() {
       --allow-omarchy3) allow_omarchy3=1 ;;
       --resume) resume=1 ;;
       --status) status=1 ;;
-      --fonts) fonts_only=1 ;;
-      --autologin) autologin_only=1 ;;
+      --step) step_only=${2:?--step needs a name}; shift ;;
+      --fonts) step_only=fonts ;;
+      --autologin) step_only=autologin ;;
       --abort) abort=1 ;;
       -h | --help)
         sed -n '/^# One command/,/^# where it left off/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,3\}//'
@@ -764,23 +801,9 @@ main() {
   trap on_exit EXIT
   quiet_console
 
-  # --fonts on its own, for a machine already set up: the fonts are otherwise
-  # only touched on the first pass, and a Retina panel is unreadable long
-  # before anyone thinks to reinstall over it.
-  if (( fonts_only )); then
-    setup_console_font
-    setup_grub_font
-    log "Reboot to see the GRUB menu at the new size."
-    exit 0
-  fi
-
-  # --autologin on its own, for a machine installed before the setup wrote it.
-  # The user comes from the saved config, or from --user.
-  if (( autologin_only )); then
-    [[ -n $username ]] || fail "no user recorded; pass --user <name>"
-    id -u "$username" >/dev/null 2>&1 || fail "$username does not exist"
-    configure_autologin "$username"
-    log "Restart the greeter to see it: systemctl restart sddm"
+  # One step by name, for re-running something rather than starting over.
+  if [[ -n $step_only ]]; then
+    run_named_step "$step_only"
     exit 0
   fi
 

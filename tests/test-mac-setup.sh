@@ -234,5 +234,28 @@ printf 'HOOKS=(base asahi udev block filesystems)\n' >"$conf_dir/60-asahi.conf"
 check "a later drop-in putting asahi back is seen" asahi_seen
 
 echo
+echo "=== every step can be re-run by name ==="
+
+# The state machine picks the order; --step is the manual override for a step
+# that half-worked, or one that did not exist when the machine was installed.
+is_known_step() {
+  local candidate="$1" step
+  for step in "${STEPS[@]}"; do
+    [[ $step == "$candidate" ]] && return 0
+  done
+  return 1
+}
+
+# Every step next_step can produce has to be dispatchable by name, or the
+# override cannot re-run the thing that just failed.
+for produced in boot-layout encrypt omarchy done; do
+  check "next_step's '$produced' can be run by name" is_known_step "$produced"
+done
+
+check "fonts is reachable by name" is_known_step fonts
+check "autologin is reachable by name" is_known_step autologin
+check "a typo is not a step" not is_known_step boot-later
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
