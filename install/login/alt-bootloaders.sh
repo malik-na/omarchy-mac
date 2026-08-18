@@ -46,6 +46,17 @@ if ! command -v limine &>/dev/null; then
     backup_timestamp=$(date +"%Y%m%d%H%M%S")
     sudo cp /etc/default/grub "/etc/default/grub.bak.${backup_timestamp}"
 
+    # The menu entry title comes from GRUB_DISTRIBUTOR, which defaults to the
+    # os-release name -- so an Omarchy machine offers to boot "Arch Linux".
+    # Machines that boot through limine never see this; the ones that land here
+    # are the ones with a GRUB menu, every Apple Silicon install included.
+    if grep -q "^GRUB_DISTRIBUTOR=" /etc/default/grub; then
+      sudo sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="Omarchy"/' /etc/default/grub
+    else
+      echo 'GRUB_DISTRIBUTOR="Omarchy"' | sudo tee -a /etc/default/grub >/dev/null
+    fi
+    grub_regenerate=1
+
     # Check if splash is already in GRUB_CMDLINE_LINUX_DEFAULT
     if ! grep -q "GRUB_CMDLINE_LINUX_DEFAULT.*splash" /etc/default/grub; then
       # Get current GRUB_CMDLINE_LINUX_DEFAULT value
@@ -67,8 +78,15 @@ if ! command -v limine &>/dev/null; then
 
       # Regenerate grub config
       sudo grub-mkconfig -o /boot/grub/grub.cfg
+      grub_regenerate=0
     else
       echo "GRUB already configured with splash kernel parameters"
+    fi
+
+    # A machine that already had splash still needs regenerating when the
+    # distributor changed, or the menu keeps saying Arch Linux.
+    if [ "$grub_regenerate" = 1 ]; then
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
     fi
   elif [ -d "/etc/cmdline.d" ]; then # UKI
     echo "Detected a UKI setup"
