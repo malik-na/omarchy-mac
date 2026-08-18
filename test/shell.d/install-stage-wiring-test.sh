@@ -17,11 +17,10 @@ unwired_leaves=(
   "config/timezone-detection.sh"
   # Superseded by the on-demand omarchy-setup-zsh command.
   "config/zsh.sh"
-  # Genuinely orphaned: nothing sources these, so non-limine machines get no
-  # plymouth hook or kernel cmdline, and no Mac install gets the optional apps.
-  "login/alt-bootloaders.sh"
+  # Restores mkinitcpio pacman hooks that the x86 ISO disables to speed its
+  # install. Nothing on the Mac path disables them, so wiring it would only add
+  # a redundant mkinitcpio -P.
   "login/enable-mkinitcpio.sh"
-  "post-install/optional-apps.sh"
 )
 
 leaf_is_known_unwired() {
