@@ -24,7 +24,25 @@
 set -euo pipefail
 
 readonly checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly pacman_conf="$checkout/default/pacman/pacman-stable.conf"
+
+# The repo's shipped config when run from a checkout; an installed machine's
+# own /etc/pacman.conf otherwise, which carries the same [omarchy-aarch64]
+# section. Curling this one file somewhere and running it should work.
+find_pacman_conf() {
+  local candidate
+  for candidate in \
+    "$checkout/default/pacman/pacman-stable.conf" \
+    "${OMARCHY_PATH:-}/default/pacman/pacman-stable.conf" \
+    "$HOME/.local/share/omarchy/default/pacman/pacman-stable.conf" \
+    /usr/share/omarchy/default/pacman/pacman-stable.conf \
+    /etc/pacman.conf; do
+    [[ -n $candidate && -f $candidate ]] || continue
+    grep -q '^\[omarchy-aarch64\]' "$candidate" || continue
+    printf '%s\n' "$candidate"
+    return 0
+  done
+  return 1
+}
 readonly work_root="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-publish"
 
 log() {
@@ -106,7 +124,11 @@ main() {
   done
 
   (( EUID != 0 )) || fail "run as your regular user, not as root"
-  [[ -f $pacman_conf ]] || fail "$pacman_conf is missing"
+
+  local pacman_conf
+  pacman_conf=$(find_pacman_conf) ||
+    fail "no pacman config with an [omarchy-aarch64] section found"
+  log "Reading the repo target from $pacman_conf"
 
   local repo_name server owner_repo tag
   repo_name=$(repo_name_from_conf "$pacman_conf")
