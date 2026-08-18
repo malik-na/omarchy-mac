@@ -14,3 +14,9 @@
 # libajantv2 before svt-av1-hdr10plus-git and libhdr10plus-rs-git fail their
 # aarch64 architecture check. Roughly 183 minutes for nothing.
 obs-studio
+
+# dotnet-runtime ships in Arch's x86_64 extra repo, but Arch Linux ARM has no
+# package under that name and neither does the AUR (only the -bin variants), so
+# yay fails it immediately. Listed so the install skips it cleanly rather than
+# emitting a misleading "skipped" warning for a package that cannot install here.
+dotnet-runtime
