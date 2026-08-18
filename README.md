@@ -92,7 +92,7 @@ upstream; `malik-na/quattro` does not carry them yet. The defaults inside the
 script point at the same place, so `--repo`/`--ref` are only needed to install
 from somewhere else.)
 
-It asks for a username and password up front, then carries the machine the
+It asks for a hostname, username and password up front, then carries the machine the
 rest of the way on its own — fixing the boot layout, encrypting the root,
 installing Omarchy — rebooting between steps and resuming itself each time on
 tty1. The only thing you type after that is the disk passphrase, once, when it

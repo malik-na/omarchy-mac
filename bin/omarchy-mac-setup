@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--resume] [--abort] [--allow-omarchy3]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--resume] [--abort] [--allow-omarchy3]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -97,6 +97,52 @@ root_is_encrypted() {
   return 0
 }
 
+current_hostname() {
+  local name
+  name=$(hostnamectl --static 2>/dev/null) || name=""
+  [[ -n $name ]] || name=$(cat /etc/hostname 2>/dev/null || true)
+  [[ -n $name ]] || name=$(uname -n)
+  printf '%s' "$name"
+}
+
+# RFC 1123: each dot-separated label is 1–63 characters of letters, digits and
+# hyphens, and cannot start or end with a hyphen. Dots are allowed so a fully
+# qualified name can be given.
+valid_hostname() {
+  local name="$1"
+  [[ -n $name ]] || return 1
+  (( ${#name} <= 253 )) || return 1
+  [[ $name =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]
+}
+
+# Keep the name resolving locally as well: sudo warns about an unresolvable
+# host, and plenty of desktop software looks itself up. 127.0.1.1 is where a
+# machine's own name goes when it is not a real network address.
+ensure_hosts_entry() {
+  local name="$1" short=${1%%.*} entry
+  if [[ $name == "$short" ]]; then
+    entry=$name
+  else
+    entry="$name $short"
+  fi
+
+  if grep -qE '^127\.0\.1\.1[[:space:]]' /etc/hosts; then
+    sed -i "s|^127\.0\.1\.1[[:space:]].*|127.0.1.1\t$entry|" /etc/hosts
+  else
+    printf '127.0.1.1\t%s\n' "$entry" >>/etc/hosts
+  fi
+}
+
+apply_hostname() {
+  local name="$1"
+  [[ -n $name ]] || return 0
+  [[ $name != "$(current_hostname)" ]] || return 0
+
+  log "Setting hostname to $name"
+  hostnamectl set-hostname "$name" 2>/dev/null || printf '%s\n' "$name" >/etc/hostname
+  ensure_hosts_entry "$name"
+}
+
 # install.sh snapshots the finished system as @factory on its way out, so the
 # subvolume is proof the install ran to completion.
 omarchy_is_installed() {
@@ -138,6 +184,7 @@ load_conf() {
   # set in a login shell and would quietly pick the wrong answers.
   want_encrypt=1
   username=""
+  hostname=""
   repo=$DEFAULT_REPO
   ref=$DEFAULT_REF
 
@@ -146,6 +193,7 @@ load_conf() {
     . "$CONF"
     want_encrypt=${WANT_ENCRYPT:-$want_encrypt}
     username=${SETUP_USER:-$username}
+    hostname=${SETUP_HOSTNAME:-$hostname}
     repo=${SETUP_REPO:-$repo}
     ref=${SETUP_REF:-$ref}
   fi
@@ -156,6 +204,7 @@ save_conf() {
 # Written by omarchy-mac-setup; delete it to stop the guided install.
 WANT_ENCRYPT=$want_encrypt
 SETUP_USER=$username
+SETUP_HOSTNAME=$hostname
 SETUP_REPO=$repo
 SETUP_REF=$ref
 EOF
@@ -425,6 +474,7 @@ print_status() {
   printf '  omarchy         %s\n' \
     "$(omarchy_is_installed && echo installed || echo "not installed")"
   printf '  encryption      %s\n' "$( ((want_encrypt)) && echo requested || echo "not requested")"
+  printf '  hostname        %s\n' "$(current_hostname)"
   printf '  next step       %s\n\n' "$step"
 }
 
@@ -449,8 +499,18 @@ ask_questions() {
     }
   done
 
+  while [[ -z $hostname ]]; do
+    read -rp "Hostname for this machine [$(current_hostname)]: " hostname
+    [[ -n $hostname ]] || hostname=$(current_hostname)
+    valid_hostname "$hostname" || {
+      warn "That is not a valid hostname (letters, digits and hyphens)."
+      hostname=""
+    }
+  done
+
   echo
   log "Plan:"
+  log "  · name this machine $hostname"
   log "  · create $username (in wheel, with sudo) and set its password"
   ((want_encrypt)) && log "  · move /boot onto the EFI partition (if needed), then reboot"
   ((want_encrypt)) && log "  · encrypt the root — you choose the passphrase at the console"
@@ -462,7 +522,7 @@ ask_questions() {
 }
 
 main() {
-  local resume=0 status=0 abort=0 allow_omarchy3=0 encrypt_flag="" want_encrypt username repo ref
+  local resume=0 status=0 abort=0 allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname repo ref
 
   load_conf
 
@@ -471,6 +531,7 @@ main() {
       --encrypt) encrypt_flag=1; want_encrypt=1 ;;
       --no-encrypt) encrypt_flag=0; want_encrypt=0 ;;
       --user) username=${2:?--user needs a name}; shift ;;
+      --hostname) hostname=${2:?--hostname needs a name}; shift ;;
       --repo) repo=${2:?--repo needs owner/repo}; shift ;;
       --ref) ref=${2:?--ref needs a branch}; shift ;;
       --allow-omarchy3) allow_omarchy3=1 ;;
@@ -513,6 +574,7 @@ main() {
     require_network
     ensure_source_checkout
     ensure_user
+    apply_hostname "$hostname"
     save_conf
     install_self
     install_unit

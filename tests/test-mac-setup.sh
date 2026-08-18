@@ -121,5 +121,47 @@ check "a checkout with both tools passes" \
   accepts_checkout "$work"
 
 echo
+echo "=== hostnames ==="
+
+valid() {
+  valid_hostname "$1"
+}
+
+invalid() {
+  ! valid_hostname "$1"
+}
+
+check "a plain name is accepted" valid scotts-mac
+check "digits are accepted" valid mac2
+check "a fully qualified name is accepted" valid mac.home.arpa
+check "the Asahi default is accepted" valid alarm
+check "63 characters is accepted" valid "$(printf 'a%.0s' {1..63})"
+
+check "empty is refused" invalid ""
+check "a leading hyphen is refused" invalid -mac
+check "a trailing hyphen is refused" invalid mac-
+check "spaces are refused" invalid "my mac"
+check "underscores are refused" invalid my_mac
+check "a lone dot is refused" invalid .
+check "an empty label is refused" invalid mac..home
+check "64 characters in a label is refused" invalid "$(printf 'a%.0s' {1..64})"
+
+# /etc/hosts wants the short name alongside a qualified one, and exactly once
+# when the name has no domain.
+hosts_entry_for() {
+  local name="$1" short=${1%%.*}
+  if [[ $name == "$short" ]]; then
+    echo "$name"
+  else
+    echo "$name $short"
+  fi
+}
+
+check "a qualified name carries its short form" \
+  [ "$(hosts_entry_for mac.home.arpa)" = "mac.home.arpa mac" ]
+check "a short name is not repeated" \
+  [ "$(hosts_entry_for mac)" = "mac" ]
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
