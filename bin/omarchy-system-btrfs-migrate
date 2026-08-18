@@ -358,9 +358,28 @@ patch_boot_config() {
 # nothing is mounted. On success, writes the new root parameters for init to
 # /run/omarchy-btrfs-migrate.env and lets the boot continue.
 # ---------------------------------------------------------------------------
+# Wi-Fi retries, Bluetooth probes and DCP deferrals print to the console right
+# through this work — over the passphrase prompt, and through an encryption
+# pass that prints nothing of its own, so the only thing on screen ends up
+# being errors about something else. Drop the console level while we own the
+# screen; the messages still reach the kernel log.
+quiet_console() {
+  [[ -w /proc/sys/kernel/printk ]] || return 0
+  read -r SAVED_PRINTK _ </proc/sys/kernel/printk || SAVED_PRINTK=""
+  echo 3 >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+restore_printk() {
+  [[ -n ${SAVED_PRINTK:-} ]] || return 0
+  echo "$SAVED_PRINTK" >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
 run_worker() {
   local dev="$1"
   [[ -f $CONF ]] && . "$CONF"
+
+  quiet_console
+  trap restore_printk EXIT
 
   # The partition is addressed by PARTUUID, which survives both the conversion
   # and the encryption. The root= the boot passed us does not: it names a

@@ -228,7 +228,6 @@ Description=Omarchy Mac guided setup
 ConditionPathExists=$CONF
 After=network-online.target systemd-user-sessions.service
 After=omarchy-btrfs-migrate-finish.service
-Wants=network-online.target
 Conflicts=getty@tty1.service
 
 [Service]
@@ -272,8 +271,24 @@ restore_console() {
   systemctl start getty@tty1.service >/dev/null 2>&1 || true
 }
 
+# Wi-Fi and Bluetooth drivers retry loudly on these machines, and their
+# messages land on the same console the setup is printing to. Quiet it while
+# the setup owns tty1; the messages still reach the kernel log, and the level
+# goes back on the way out.
+quiet_console() {
+  [[ -w /proc/sys/kernel/printk ]] || return 0
+  read -r SAVED_PRINTK _ </proc/sys/kernel/printk || SAVED_PRINTK=""
+  echo 3 >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+restore_printk() {
+  [[ -n ${SAVED_PRINTK:-} ]] || return 0
+  echo "$SAVED_PRINTK" >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
 on_exit() {
   revoke_passwordless_sudo
+  restore_printk
   restore_console
 }
 
@@ -561,6 +576,7 @@ main() {
   (( EUID == 0 )) || fail "run as root (sudo $0)"
 
   trap on_exit EXIT
+  quiet_console
 
   if (( abort )); then
     cleanup_all
