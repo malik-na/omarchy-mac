@@ -152,6 +152,20 @@ main() {
   mv "$TOP/@" "$TOP/@old-$stamp"
   mv "$TOP/@new" "$TOP/@"
 
+  # /boot is the ESP and outside every snapshot, so the restored root is now
+  # paired with whatever kernel is on it. If the install updated linux-asahi
+  # after this snapshot, that kernel has no modules in here.
+  local running restored_kernels
+  running=$(uname -r)
+  restored_kernels=$(cd "$TOP/@/usr/lib/modules" 2>/dev/null && echo * || echo "")
+  if [[ -n $restored_kernels && " $restored_kernels " != *" $running "* ]]; then
+    echo
+    warn "The restored system has modules for: $restored_kernels"
+    warn "The kernel currently on /boot is $running, which is not among them."
+    warn "Reinstall the kernel from the restored system, or expect missing"
+    warn "drivers -- Wi-Fi and the display among them."
+  fi
+
   echo
   log "Restored. Reboot to run from it."
   log "If it is not what you wanted, from a shell on the restored system:"
