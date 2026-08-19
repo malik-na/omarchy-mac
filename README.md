@@ -270,36 +270,6 @@ sudo journalctl -u NetworkManager -b
 
 Replace `wlan0` with your wireless device name. Inspect `sudo journalctl -u NetworkManager -b` and `/var/log/pacman.log` for clues.
 
-### No sound, or dead volume keys, on an older install
-
-Installs from before the audio stack was added are missing it entirely. New
-installs get it; older ones need it once:
-
-```bash
-sudo pacman -S --needed pipewire-pulse pipewire-alsa asahi-audio speakersafetyd
-sudo systemctl enable --now speakersafetyd
-systemctl --user enable --now pipewire-pulse.socket
-systemctl --user restart wireplumber
-```
-
-Silence and dead volume keys are one problem, not two: every Omarchy audio
-command talks to PulseAudio, so a missing `pipewire-pulse` breaks both. Working
-brightness keys are the giveaway, since they do not.
-
-Do not unmute at the ALSA level instead. `speakersafetyd` is what allows the
-speakers to run at all, and the mute it enforces is protecting them.
-
-### The battery panel shows only the power profile
-
-Also an older-install symptom: charge cycles, time remaining, rate and battery
-size are all there, hidden because the battery was matched by the x86 name
-`BAT` and Apple Silicon calls it `macsmc-battery`. `omarchy-battery-status
---shell` printing nothing confirms it; updating fixes it.
-
-Two power profiles (`power-saver`, `balanced`) is not a symptom of anything.
-Asahi exposes no `performance` profile, and the panel shows what the platform
-offers.
-
 ### The machine boots to `grub rescue>`
 
 GRUB kept its modules and kernel on the root filesystem, and the root was
