@@ -18,7 +18,13 @@ case "${1:-}" in
     ;;
 esac
 
-battery=$(upower -e 2>/dev/null | grep BAT | head -n 1)
+# Match the device, not one naming convention for it: an x86 laptop reports
+# battery_BAT0, and Apple Silicon reports battery_macsmc_battery. Grepping for
+# an uppercase BAT found nothing on a Mac, so this exited 0 with no output and
+# the whole battery section of the power panel -- cycles, time left, rate,
+# charge limit, all of it already written -- stayed hidden behind its
+# "percentage is defined" guard. Only the profile picker showed.
+battery=$(upower -e 2>/dev/null | grep -iE '/devices/battery' | head -n 1)
 [[ -z $battery ]] && exit 0
 
 battery_info=$(upower -i "$battery")
@@ -65,6 +71,10 @@ state=$(awk '/state/ { print $2; exit }' <<<"$battery_info")
 threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
 threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
 
+# The device's own sysfs directory first -- native-path names it, whatever it
+# is called -- and only then the BAT* guess, which never matches macsmc-battery.
+[[ -z $threshold_end ]] && threshold_end=$(cat "$battery_path"/charge_control_end_threshold 2>/dev/null | head -1)
+[[ -z $threshold_start ]] && threshold_start=$(cat "$battery_path"/charge_control_start_threshold 2>/dev/null | head -1)
 [[ -z $threshold_end ]] && threshold_end=$(cat "$power_supply_path"/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
 [[ -z $threshold_start ]] && threshold_start=$(cat "$power_supply_path"/BAT*/charge_control_start_threshold 2>/dev/null | head -1)
 
