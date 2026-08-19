@@ -214,7 +214,23 @@ if command -v cryptsetup >/dev/null; then
   losetup -d "$LOOP" 2>/dev/null || true
   make_fake_btrfs_root
   EXPECT_FS_UUID=$(blkid -o value -s UUID "$LOOP")
-  "$MIGRATE" --rehearse "$LOOP" --encrypt
+
+  # Captured, because the encryption printing nothing is a bug that looks
+  # exactly like a hung machine: --batch-mode suppressed cryptsetup's output
+  # entirely, and an installer sat silent for ten to thirty minutes after
+  # someone typed a new passphrase. A 2 GiB loop device finishes inside one
+  # progress interval, so the summary line is what proves cryptsetup is being
+  # heard; the periodic lines follow from the same stream on a real disk.
+  encrypt_log=$WORK/encrypt.log
+  "$MIGRATE" --rehearse "$LOOP" --encrypt 2>&1 | tee "$encrypt_log"
+
+  check "cryptsetup's own output reaches the console" \
+    grep -qE 'Finished, time|Progress:' "$encrypt_log"
+  check "the run says when encryption starts" \
+    grep -q "Progress follows" "$encrypt_log"
+  check "and how long it took" \
+    grep -q "Encryption finished in" "$encrypt_log"
+
   verify_conversion 1
   unset EXPECT_FS_UUID
 else
