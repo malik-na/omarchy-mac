@@ -94,7 +94,9 @@ check "progress is asked for" \
 check "the passphrase goes to a keyfile, not stdin" \
   bash -c "grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--key-file=\"\$keyfile\"'"
 check "the keyfile lives on tmpfs and is removed" \
-  bash -c "grep -q 'mktemp /run/omb-key' '$MIGRATE' && grep -q 'rm -f \"\$keyfile\"' '$MIGRATE'"
+  bash -c "grep -q 'keyfile=/run/omb-key' '$MIGRATE' && grep -q 'rm -f \"\$keyfile\"' '$MIGRATE'"
+check "it needs no applet the initramfs might lack" \
+  bash -c "! sed -n '/^reencrypt_with_progress/,/^}/p' '$MIGRATE' | grep -v '^\s*#' | grep -qE 'mktemp|chmod'"
 check "a confirmation cannot block the boot" \
   grep -qF "printf 'YES" "$MIGRATE"
 

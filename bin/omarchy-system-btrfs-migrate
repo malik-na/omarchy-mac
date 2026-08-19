@@ -234,10 +234,12 @@ reencrypt_with_progress() {
   local dev="$1" passphrase="$2"
   shift 2
 
-  local keyfile status=0
-  keyfile=$(mktemp /run/omb-key.XXXXXX)
-  chmod 600 "$keyfile"
-  printf '%s' "$passphrase" >"$keyfile"
+  # A fixed path written under umask 077, rather than mktemp and chmod: this
+  # runs in the initramfs, where the userland is busybox and every applet is a
+  # thing to be sure of. /run is tmpfs, so the key stays in RAM.
+  local keyfile=/run/omb-key status=0
+  rm -f "$keyfile"
+  (umask 077; printf '%s' "$passphrase" >"$keyfile")
 
   printf 'YES\n' | cryptsetup reencrypt --key-file="$keyfile" \
     --progress-frequency 5 "$@" "$dev" || status=$?
