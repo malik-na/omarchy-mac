@@ -91,6 +91,8 @@ check "no reencrypt call silences itself with --batch-mode" \
   bash -c "! grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--batch-mode'"
 check "progress is asked for" \
   bash -c "grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--progress-frequency'"
+check "its interval can be turned down to watch it work" \
+  grep -q 'OMARCHY_BTRFS_PROGRESS_FREQUENCY' "$MIGRATE"
 check "the passphrase goes to a keyfile, not stdin" \
   bash -c "grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--key-file=\"\$keyfile\"'"
 check "the keyfile lives on tmpfs and is removed" \

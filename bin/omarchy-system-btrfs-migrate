@@ -242,7 +242,7 @@ reencrypt_with_progress() {
   (umask 077; printf '%s' "$passphrase" >"$keyfile")
 
   printf 'YES\n' | cryptsetup reencrypt --key-file="$keyfile" \
-    --progress-frequency 5 "$@" "$dev" || status=$?
+    --progress-frequency "${OMARCHY_BTRFS_PROGRESS_FREQUENCY:-5}" "$@" "$dev" || status=$?
 
   rm -f "$keyfile"
   return $status
