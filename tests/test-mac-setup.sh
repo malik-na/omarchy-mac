@@ -436,5 +436,22 @@ check "a runtime with no @factory is an install that did not finish" \
 check "neither is a machine that has not started" not install_complete 0 0
 
 echo
+echo "=== the setup unit must not fight the display manager for VT 1 ==="
+
+# SDDM runs its greeter on VT 1; the unit takes tty1 to show its steps. On the
+# last boot -- the one that runs the done step and retires the unit -- both
+# wanted it at once and the session lost. That produced no desktop on the first
+# boot after an install, twice in a row, working on every boot after because by
+# then the unit was gone.
+unit_text=$(sed -n '/^\[Unit\]/,/^\[Install\]/p' "$TOOL")
+
+check "the unit is ordered before sddm" \
+  grep -q '^Before=sddm.service' <<<"$unit_text"
+check "it still takes tty1 away from the getty" \
+  grep -q '^Conflicts=getty@tty1.service' <<<"$unit_text"
+check "it still owns the console it prints to" \
+  grep -q 'TTYPath=/dev/tty1' "$TOOL"
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

@@ -319,6 +319,12 @@ ConditionPathExists=$CONF
 After=network-online.target systemd-user-sessions.service
 After=omarchy-btrfs-migrate-finish.service
 Conflicts=getty@tty1.service
+# SDDM runs its greeter on VT 1, which is the VT this takes to show its steps.
+# On the last boot -- the one that runs the done step and retires this unit --
+# both wanted it at once, and the session lost: no desktop on the first boot
+# after an install, every time, working on every boot after because by then
+# this unit is gone. Ordering SDDM after it makes them take turns.
+Before=sddm.service
 
 [Service]
 Type=oneshot
@@ -349,7 +355,7 @@ cleanup_all() {
     rm -f "$UNIT"
     systemctl daemon-reload
   fi
-  systemctl start getty@tty1.service >/dev/null 2>&1 || true
+  restore_console
 }
 
 # The unit conflicts with getty@tty1 so the two do not fight over the console,
@@ -358,6 +364,12 @@ cleanup_all() {
 # harmless, and outside one it is the difference between a visible prompt and a
 # console that looks dead.
 restore_console() {
+  # Not when SDDM is going to own this VT: putting a getty back on tty1 in
+  # front of a display manager recreates the fight this unit just stopped
+  # having. A machine with SDDM has its way in already.
+  if systemctl is-enabled sddm.service >/dev/null 2>&1; then
+    return 0
+  fi
   systemctl start getty@tty1.service >/dev/null 2>&1 || true
 }
 
