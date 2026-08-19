@@ -328,6 +328,12 @@ Before=sddm.service
 
 [Service]
 Type=oneshot
+# The splash covers the console this prints to, and on a rolled-back root there
+# may be no plymouth in the system at all to quit it later -- the initramfs
+# starts plymouthd, and a root that predates the Omarchy install has nothing
+# that ever stops it. Dismiss it before taking the tty. Leading - so a machine
+# without plymouth is not a failed unit.
+ExecStartPre=-/usr/bin/plymouth quit
 ExecStart=$SELF --resume
 StandardInput=tty-force
 StandardOutput=tty

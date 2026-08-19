@@ -451,6 +451,8 @@ check "it still takes tty1 away from the getty" \
   grep -q '^Conflicts=getty@tty1.service' <<<"$unit_text"
 check "it still owns the console it prints to" \
   grep -q 'TTYPath=/dev/tty1' "$TOOL"
+check "it dismisses the splash covering that console" \
+  grep -q '^ExecStartPre=-/usr/bin/plymouth quit' "$TOOL"
 
 echo
 echo "=== $pass checks passed, $failures failed ==="
