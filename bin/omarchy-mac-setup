@@ -301,6 +301,39 @@ EOF
   chmod 600 "$CONF"
 }
 
+
+# Piped in with `curl ... | bash`, this script has no file on disk: it cannot
+# install itself for the resume-on-boot unit, and every prompt would read from
+# stdin, which is the script. Fetch a copy, then hand over to it with stdin
+# back on the terminal -- after which everything downstream behaves exactly as
+# it does when the file was downloaded by hand.
+fetch_self() {
+  local url="https://codeberg.org/$repo/raw/branch/$ref/bin/${SELF##*/}"
+
+  [[ $url == https://* ]] || fail "refusing to fetch this script over $url"
+  command -v curl >/dev/null || fail "curl is needed to fetch this script"
+
+  log "Fetching the setup script from $repo ($ref)"
+  local staged
+  staged=$(mktemp /tmp/omarchy-mac-setup.XXXXXX)
+  if ! curl -fsSL "$url" -o "$staged"; then
+    rm -f "$staged"
+    fail "could not download $url -- is --ref $ref right?"
+  fi
+  # A 404 page or an empty file would install cleanly and fail confusingly
+  # later, so check this is the script before trusting it.
+  if [[ ! -s $staged ]] || ! head -1 "$staged" | grep -q '^#!/bin/bash'; then
+    rm -f "$staged"
+    fail "what came back from $url is not the setup script"
+  fi
+
+  install -Dm755 "$staged" "$SELF"
+  rm -f "$staged"
+}
+
+running_from_a_file() {
+  [[ -f ${BASH_SOURCE[0]} ]]
+}
 install_self() {
   if [[ ${BASH_SOURCE[0]} -ef $SELF ]]; then
     return 0
@@ -1020,7 +1053,14 @@ main() {
     exit 0
   fi
 
-  (( EUID == 0 )) || fail "run as root (sudo $0)"
+  (( EUID == 0 )) || fail "run as root"
+
+  # Piped in rather than downloaded: get a copy on disk and continue from it,
+  # with stdin back on the terminal so the questions below can be answered.
+  if ! running_from_a_file; then
+    fetch_self
+    exec bash "$SELF" "$@" </dev/tty
+  fi
 
   trap on_exit EXIT
   quiet_console

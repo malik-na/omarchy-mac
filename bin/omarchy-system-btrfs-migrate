@@ -223,16 +223,40 @@ reencrypt_pending() {
 # space cryptsetup needs for a LUKS2 header, reencrypt the partition, and open
 # the container. Nothing is staged anywhere, so an interrupted pass resumes
 # instead of losing data. Sets $target_dev and $luks_uuid.
+# The passphrase goes to a keyfile rather than down stdin, because stdin is
+# what --batch-mode was there to protect: without -q cryptsetup may ask for
+# confirmation before reducing the device size, and a question nobody answers
+# blocks a boot. Feeding it YES up front settles that, and dropping -q is what
+# lets its progress line through -- with -q set, --progress-frequency prints
+# nothing at all, which is how an encryption pass came to look like a hang.
+# /run is tmpfs, so the key never touches a disk, and it is removed either way.
+reencrypt_with_progress() {
+  local dev="$1" passphrase="$2"
+  shift 2
+
+  local keyfile status=0
+  keyfile=$(mktemp /run/omb-key.XXXXXX)
+  chmod 600 "$keyfile"
+  printf '%s' "$passphrase" >"$keyfile"
+
+  printf 'YES\n' | cryptsetup reencrypt --key-file="$keyfile" \
+    --progress-frequency 5 "$@" "$dev" || status=$?
+
+  rm -f "$keyfile"
+  return $status
+}
+
 encrypt_in_place() {
-  local dev="$1" src=/run/omb-src passphrase
+  local dev="$1" src=/run/omb-src passphrase started elapsed
   luks_uuid=""
 
   if [[ $(blkid -o value -s TYPE "$dev" 2>/dev/null) == "crypto_LUKS" ]]; then
     log "An earlier encryption pass was interrupted; resuming it"
     read_passphrase unlock
-    printf '%s' "$passphrase" |
-      cryptsetup reencrypt --resume-only --batch-mode --key-file=- \
-        --progress-frequency 5 "$dev"
+    started=$SECONDS
+    log "Resuming now -- cryptsetup reports progress every 5 seconds:"
+    reencrypt_with_progress "$dev" "$passphrase" --resume-only ||
+      fail "could not resume the encryption of $dev"
   else
     log "Shrinking the filesystem by ${FS_SHRINK_MIB} MiB to make room for the LUKS2 header"
     mkdir -p "$src"
@@ -248,18 +272,25 @@ encrypt_in_place() {
     local size_gib=$(($(blockdev --getsize64 "$dev" 2>/dev/null || echo 0) / 1024 / 1024 / 1024))
     log "Encrypting the partition (you will choose the disk passphrase now)"
     if (( size_gib > 0 )); then
-      log "All ${size_gib} GiB are rewritten, whether or not anything is stored there,"
-      log "so this takes a while -- and the screen may sit silent for all of it."
+      log "All ${size_gib} GiB are rewritten, whether or not anything is stored there."
     else
-      log "Every block is rewritten, so this takes a while, and the screen may sit"
-      log "silent for all of it."
+      log "Every block is rewritten, whether or not anything is stored there."
     fi
     log "It is safe to interrupt: the next boot resumes where it stopped."
     read_passphrase choose
-    printf '%s' "$passphrase" |
-      cryptsetup reencrypt --encrypt --type luks2 --batch-mode --key-file=- \
-        --progress-frequency 5 --reduce-device-size "${LUKS_HEADER_MIB}M" "$dev"
+
+    echo
+    started=$SECONDS
+    log "Encrypting $dev now. Progress follows, updated every 5 seconds:"
+    echo
+    reencrypt_with_progress "$dev" "$passphrase" \
+      --encrypt --type luks2 --reduce-device-size "${LUKS_HEADER_MIB}M" ||
+      fail "could not encrypt $dev"
   fi
+
+  elapsed=$(( SECONDS - started ))
+  echo
+  log "Encryption finished in $(( elapsed / 60 ))m $(( elapsed % 60 ))s"
 
   printf '%s' "$passphrase" | cryptsetup open --key-file=- "$dev" "$MAPPER_NAME"
   target_dev=/dev/mapper/$MAPPER_NAME

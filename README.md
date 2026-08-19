@@ -86,8 +86,21 @@ Follow these steps after the installer has finished and you have booted into the
 On the first boot into Arch, as root:
 
 ```bash
+curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-mac-setup | bash
+```
+
+You are root at this point, so no `sudo` — and on a minimal image `sudo` is not
+installed yet anyway. To read the script before running it, or to pass options:
+
+```bash
 curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-mac-setup
-bash omarchy-mac-setup --encrypt
+bash omarchy-mac-setup --no-encrypt
+```
+
+Options work through the pipe too, after `-s --`:
+
+```bash
+curl -fsSL <url> | bash -s -- --repo <owner/repo> --ref <branch>
 ```
 
 (The script installs from the same place by default, so `--repo`/`--ref` are
@@ -95,7 +108,8 @@ only needed to install from a fork or a branch. If Quattro has not landed on
 `main` yet, add `--ref quattro` — the script checks the version it is about to
 install and refuses to give you Omarchy 3 by accident.)
 
-It asks for a hostname, username and password up front, then carries the machine
+It asks whether to encrypt (yes by default), then for a hostname, username and
+password, then carries the machine
 the rest of the way on its own — moving `/boot` onto the EFI partition,
 encrypting the root, installing Omarchy — rebooting between steps and resuming
 itself each time on tty1. The only thing you type after that is the disk

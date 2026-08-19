@@ -76,5 +76,28 @@ check "nothing else takes the snapshot" \
   [ "$(grep -c 'btrfs subvolume snapshot -r' "$MIGRATE")" = "1" ]
 
 echo
+echo "=== the encryption pass has to be visible ==="
+
+# cryptsetup's --batch-mode suppresses reencryption progress along with
+# confirmations, so --progress-frequency printed nothing and an encryption pass
+# looked exactly like a hung machine for ten to thirty minutes. The passphrase
+# goes in a keyfile now, which is what frees stdin to answer the confirmation
+# that -q was there to avoid.
+reencrypt_calls=$(grep -n 'cryptsetup reencrypt' "$MIGRATE")
+
+check "cryptsetup reencrypt is called" \
+  [ -n "$reencrypt_calls" ]
+check "no reencrypt call silences itself with --batch-mode" \
+  bash -c "! grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--batch-mode'"
+check "progress is asked for" \
+  bash -c "grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--progress-frequency'"
+check "the passphrase goes to a keyfile, not stdin" \
+  bash -c "grep -A3 'cryptsetup reencrypt' '$MIGRATE' | grep -q -- '--key-file=\"\$keyfile\"'"
+check "the keyfile lives on tmpfs and is removed" \
+  bash -c "grep -q 'mktemp /run/omb-key' '$MIGRATE' && grep -q 'rm -f \"\$keyfile\"' '$MIGRATE'"
+check "a confirmation cannot block the boot" \
+  grep -qF "printf 'YES" "$MIGRATE"
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

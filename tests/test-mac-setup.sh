@@ -455,5 +455,53 @@ check "it dismisses the splash covering that console" \
   grep -q '^ExecStartPre=-/usr/bin/plymouth quit' "$TOOL"
 
 echo
+echo "=== piped in with curl, there is no file to install from ==="
+
+# `curl ... | bash` gives the script no file on disk: it cannot install itself
+# for the resume-on-boot unit, and every prompt would read from stdin, which is
+# the script. It fetches a copy and hands over to that instead.
+fetch_dir=$work/fetch
+mkdir -p "$fetch_dir/bin"
+SELF=$fetch_dir/omarchy-mac-setup
+repo=example/repo
+ref=some-branch
+
+stub_curl() {
+  local kind="$1" exitcode="${2:-0}"
+  {
+    echo '#!/bin/bash'
+    echo 'for a in "$@"; do [[ $prev == -o ]] && out=$a; prev=$a; done'
+    case $kind in
+      script) echo 'printf "#!/bin/bash\\necho hi\\n" > "$out"' ;;
+      html) echo 'printf "<html>404</html>\\n" > "$out"' ;;
+      empty) echo ': > "$out"' ;;
+    esac
+    echo "exit $exitcode"
+  } >"$fetch_dir/bin/curl"
+  chmod +x "$fetch_dir/bin/curl"
+}
+
+fetch_ok() {
+  rm -f "$SELF"
+  (PATH="$fetch_dir/bin:$PATH"; fetch_self >/dev/null 2>&1) || return 1
+  [[ -x $SELF ]]
+}
+
+stub_curl script
+check "a fetched script is installed and executable" fetch_ok
+
+stub_curl html
+check "a 404 page is not mistaken for the script" not fetch_ok
+
+stub_curl empty
+check "an empty response is refused" not fetch_ok
+
+stub_curl script 22
+check "a failed download leaves nothing behind" not fetch_ok
+
+check "running from a real file needs no fetch" \
+  bash -c 'BASH_SOURCE0='"$TOOL"'; [[ -f '"$TOOL"' ]]'
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
