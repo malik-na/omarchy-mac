@@ -11,6 +11,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 
 - Start installer — `curl https://asahi-alarm.org/installer-bootstrap.sh | sh`
 - Installing Omarchy 4 once Arch is booted — [Install Omarchy Mac](#install-omarchy-mac)
+- Installing it in one command, encryption included — [The short version](#the-short-version-one-command)
 - Btrfs snapshots and optional disk encryption — [docs/btrfs.md](docs/btrfs.md)
 - Upgrading from 3.x to Quattro (Omarchy 4) — [docs/upgrade-to-quattro.md](docs/upgrade-to-quattro.md)
 - The Omarchy manual — [manual/](manual/)
@@ -26,6 +27,8 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 - [Quick start](#quick-start)
 - [Detailed installation](#detailed-installation)
   - [Run Asahi Alarm](#run-asahi-alarm)
+  - [The short version: one command](#the-short-version-one-command)
+  - [Optional: btrfs snapshots and disk encryption](#optional-btrfs-snapshots-and-disk-encryption)
   - [Initial Arch setup](#initial-arch-setup)
   - [Create a regular user](#create-a-regular-user)
   - [Install Omarchy Mac](#install-omarchy-mac)
@@ -266,6 +269,59 @@ sudo journalctl -u NetworkManager -b
 ```
 
 Replace `wlan0` with your wireless device name. Inspect `sudo journalctl -u NetworkManager -b` and `/var/log/pacman.log` for clues.
+
+### No sound, and the volume keys do nothing
+
+Both come from the same place, and brightness keys working is the giveaway --
+they never touch PulseAudio. Machines installed before this was fixed are
+missing the audio stack entirely:
+
+```bash
+sudo pacman -S --needed pipewire-pulse pipewire-alsa asahi-audio speakersafetyd
+sudo systemctl enable --now speakersafetyd
+systemctl --user enable --now pipewire-pulse.socket
+systemctl --user restart wireplumber
+```
+
+`speakersafetyd` is not optional: without it the kernel keeps the speakers
+muted on purpose, because these drivers can be damaged by what the hardware
+will happily ask of them. Do not unmute at the ALSA level instead.
+
+### The battery panel shows only the power profile
+
+Charge cycles, time remaining, charge rate and battery size are all there and
+were hidden by a device match that looked for `BAT` -- an x86 name. Apple
+Silicon calls it `macsmc-battery`. Update the checkout and rebuild, or on a
+machine you do not want to reinstall, check it directly:
+
+```bash
+omarchy-battery-status --shell     # empty output means the old match
+```
+
+Only two power profiles (`power-saver`, `balanced`) is not a bug: Asahi does
+not expose a `performance` profile, and the panel shows whatever the platform
+offers.
+
+### The machine boots to `grub rescue>`
+
+GRUB kept its modules and kernel on the root filesystem, and the root was
+encrypted underneath it. See [docs/btrfs.md](docs/btrfs.md) -- the short
+version is that `/boot` has to be the EFI partition before encrypting, which
+`omarchy-system-boot-to-esp` arranges and `omarchy-system-btrfs-migrate`
+refuses to proceed without.
+
+### Rolling back after a bad update
+
+`omarchy snapshot restore` works on Apple Silicon (it does the subvolume swap
+directly, since `limine-snapper-restore` only exists on x86 Limine installs).
+It offers snapper's snapshots alongside `@fresh` -- the system before Omarchy
+was installed -- and `@factory`, the installed system before it was yours. It
+says which one you are about to restore and what is in it before doing
+anything, and keeps the displaced root as `@old-<timestamp>`.
+
+Note `/boot` is the EFI partition and is outside every snapshot, so a rollback
+across a kernel update leaves the kernel and initramfs where they are; the tool
+warns when the restored root has no modules for the running kernel.
 
 ### Mirrors are slow or failing
 
