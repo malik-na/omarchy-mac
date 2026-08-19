@@ -69,6 +69,20 @@ list_snapper_snapshots() {
       }'
 }
 
+# What a subvolume actually contains, said plainly. @fresh and @factory sit next
+# to each other on the menu and read alike; the difference that matters is
+# whether Omarchy is in there, and the only moment that is worth knowing is
+# before the swap rather than after a reboot.
+describe_subvolume() {
+  local path="$1" version
+  if [[ -f $TOP/$path/usr/share/omarchy/version ]]; then
+    version=$(head -1 "$TOP/$path/usr/share/omarchy/version" 2>/dev/null || echo unknown)
+    printf 'Omarchy %s is installed in it' "$version"
+  else
+    printf 'no Omarchy installed in it'
+  fi
+}
+
 cleanup() {
   mountpoint -q "$TOP" && umount "$TOP" 2>/dev/null || true
   [[ -d $TOP ]] && rmdir "$TOP" 2>/dev/null || true
@@ -139,6 +153,8 @@ main() {
 
   echo
   log "Restoring ${labels[$index]}"
+  log "  subvolume: $source_path"
+  log "  contents:  $(describe_subvolume "$source_path")"
   log "The current root is kept as @old-$stamp until you delete it."
   warn "/boot is the EFI partition and is not part of any snapshot: the kernel"
   warn "and initramfs stay as they are. After rolling back across a kernel"

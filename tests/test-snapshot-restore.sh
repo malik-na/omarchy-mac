@@ -70,5 +70,24 @@ check "a snapshot with no description still lists" \
   grep -q '^2	' <<<"$listed"
 
 echo
+echo "=== saying what is in a snapshot before restoring it ==="
+
+# @fresh and @factory sit next to each other on the menu and read alike. One
+# has Omarchy in it and one does not, and picking the wrong one costs a reboot
+# to discover -- so the difference is stated before the swap, not after.
+TOP=$WORK/top
+mkdir -p "$TOP/@fresh/usr/share" "$TOP/@factory/usr/share/omarchy"
+printf '4.0.0\n' >"$TOP/@factory/usr/share/omarchy/version"
+
+check "a pre-Omarchy snapshot says so" \
+  [ "$(describe_subvolume @fresh)" = "no Omarchy installed in it" ]
+check "an installed one names the version" \
+  [ "$(describe_subvolume @factory)" = "Omarchy 4.0.0 is installed in it" ]
+
+mkdir -p "$TOP/@odd/usr/share/omarchy"
+check "a version file that is missing is not fatal" \
+  [ "$(describe_subvolume @odd)" = "no Omarchy installed in it" ]
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
