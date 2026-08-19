@@ -80,5 +80,46 @@ check "another section's Server is not picked up" \
   [ -z "$(server_url_from_conf "$WORK/other.conf")" ]
 
 echo
+echo "=== an epoch package is staged under the name GitHub serves ==="
+
+# GitHub allows no colon in a release asset name and rewrites it to a dot
+# without saying so. If the database keeps the colon, every pacman install of
+# that package 404s -- which is how brave-origin-bin-1:1.93.136 first went out.
+check "a colon becomes a dot" \
+  [ "$(github_asset_name brave-origin-bin-1:1.93.136-1-aarch64.pkg.tar.xz)" \
+    = "brave-origin-bin-1.1.93.136-1-aarch64.pkg.tar.xz" ]
+
+check "a name without a colon is untouched" \
+  [ "$(github_asset_name localsend-1.18.1-2-aarch64.pkg.tar.xz)" \
+    = "localsend-1.18.1-2-aarch64.pkg.tar.xz" ]
+
+check "every package is staged through the rename, not copied verbatim" \
+  grep -q 'cp "$pkg" "$db_dir/$(github_asset_name' "$TOOL"
+
+check "no bulk copy that would bypass it" \
+  not grep -qF 'cp "${built[@]}"' "$TOOL"
+
+# Prove the renamed file still describes itself correctly: pacman resolves
+# versions from the database's VERSION field, which repo-add reads out of the
+# package's own .PKGINFO, while FILENAME is what it fetches.
+if command -v repo-add >/dev/null && command -v bsdtar >/dev/null; then
+  (
+    cd "$WORK"
+    printf 'pkgname = fakepkg\npkgbase = fakepkg\npkgver = 1:2.0-1\npkgdesc = t\narch = any\nbuilddate = 1\nsize = 1\n' >.PKGINFO
+    bsdtar -czf "$(github_asset_name 'fakepkg-1:2.0-1-any.pkg.tar.gz')" .PKGINFO
+    repo-add --new testrepo.db.tar.zst ./fakepkg-*.pkg.tar.gz
+  ) >/dev/null 2>&1
+  desc=$(tar -xOf "$WORK/testrepo.db.tar.zst" --wildcards '*/desc' 2>/dev/null)
+
+  check "the database names a file GitHub can serve" \
+    [ "$(grep -A1 '%FILENAME%' <<<"$desc" | tail -1)" = "fakepkg-1.2.0-1-any.pkg.tar.gz" ]
+
+  check "the epoch survives in the version pacman compares" \
+    [ "$(grep -A1 '%VERSION%' <<<"$desc" | tail -1)" = "1:2.0-1" ]
+else
+  echo "- skipped the repo-add checks (repo-add/bsdtar not installed)"
+fi
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

@@ -61,6 +61,12 @@ fail() {
 # Pull the GitHub repo and release tag out of the pacman Server line, so the
 # publisher and the machines installing from it can never disagree about where
 # the packages live. Prints "owner/repo tag".
+# The name a file takes once it is a GitHub release asset. GitHub allows no
+# colon in an asset name and substitutes a dot without saying so.
+github_asset_name() {
+  printf '%s\n' "${1//:/.}"
+}
+
 parse_repo_server() {
   local url="$1" rest
 
@@ -180,18 +186,34 @@ main() {
     fi
   done
 
-  cp "${built[@]}" "$db_dir/"
+  # Stage under the name GitHub will actually serve. A release asset cannot hold
+  # a colon, and GitHub silently rewrites it to a dot rather than refusing the
+  # upload -- so an epoch package like brave-origin-bin-1:1.93.136 lands under a
+  # name the database does not name, and pacman 404s on it. Renaming before
+  # repo-add puts the served name in the database instead; pacman reads the
+  # package's own .PKGINFO for its identity, not the file name.
+  for pkg in "${built[@]}"; do
+    cp "$pkg" "$db_dir/$(github_asset_name "$(basename "$pkg")")"
+  done
   (
     cd "$db_dir"
-    repo-add --new --remove "$repo_name.db.tar.zst" ./*.pkg.tar.*
+    # No --new: it skips packages already in the database, so a republished
+    # package -- a rebuild, or a correction like the epoch rename above --
+    # would silently keep the old entry. No --remove either: it deletes the
+    # package file once the entry is written, and these staged files are
+    # exactly what gets uploaded next.
+    repo-add "$repo_name.db.tar.zst" ./*.pkg.tar.*
   )
 
   # repo-add leaves .db and .files as symlinks to the tarballs; pacman fetches
-  # them by those names, and a GitHub asset cannot be a symlink.
+  # them by those names, and a GitHub asset cannot be a symlink. The symlink has
+  # to go before the copy, or cp resolves the destination back to its own source
+  # and refuses -- "are the same file".
   (
     cd "$db_dir"
-    cp -L "$repo_name.db.tar.zst" "$repo_name.db"
-    cp -L "$repo_name.files.tar.zst" "$repo_name.files"
+    rm -f "$repo_name.db" "$repo_name.files"
+    cp "$repo_name.db.tar.zst" "$repo_name.db"
+    cp "$repo_name.files.tar.zst" "$repo_name.files"
   )
 
   if (( dry_run )); then
@@ -201,8 +223,10 @@ main() {
   fi
 
   log "Uploading"
+  # Upload the staged copies, not the originals in "${built[@]}": the staged
+  # ones carry the names the database points at.
   gh release upload "$tag" --repo "$owner_repo" --clobber \
-    "${built[@]}" \
+    "$db_dir"/*.pkg.tar.* \
     "$db_dir/$repo_name.db" "$db_dir/$repo_name.db.tar.zst" \
     "$db_dir/$repo_name.files" "$db_dir/$repo_name.files.tar.zst"
 
