@@ -53,5 +53,28 @@ check "allows an ESP on the same disk but a different partition" \
   boot_check /dev/nvme0n1p3 /dev/nvme0n1p4
 
 echo
+echo "=== @fresh is taken after the boot config is written ==="
+
+# The baseline was snapshotted before patch_boot_config wrote cryptdevice= into
+# /etc/default/grub, so restoring it and regenerating grub produced a machine
+# that could not unlock itself: "device UUID=... not found", emergency shell.
+# A baseline that will not boot is not a baseline.
+order_is_right() {
+  local func="$1" body patch_line snap_line
+  body=$(sed -n "/^$func() {/,/^}/p" "$MIGRATE")
+  patch_line=$(grep -n 'patch_boot_config' <<<"$body" | head -1 | cut -d: -f1)
+  snap_line=$(grep -n 'snapshot_fresh' <<<"$body" | head -1 | cut -d: -f1)
+  [[ -n $patch_line && -n $snap_line ]] || return 1
+  (( snap_line > patch_line ))
+}
+
+check "the convert path patches boot config before snapshotting" \
+  order_is_right worker_convert
+check "the encrypt path does too" \
+  order_is_right worker_encrypt
+check "nothing else takes the snapshot" \
+  [ "$(grep -c 'btrfs subvolume snapshot -r' "$MIGRATE")" = "1" ]
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

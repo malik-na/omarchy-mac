@@ -204,9 +204,6 @@ rebuild_as_btrfs() {
     awk '$1 !~ /^#/ && $2 != "/" && $2 != "/home" && $2 != "/var/log" && NF >= 4' "$old_fstab"
   } >"$new/@/etc/fstab"
 
-  log "Snapshotting the fresh system as @fresh"
-  btrfs subvolume snapshot -r "$new/@" "$new/@fresh" >/dev/null
-
   mkdir -p "$new/@/var/lib/omarchy"
   {
     echo "converted: pre-boot initramfs migration"
@@ -295,19 +292,27 @@ adopt_existing_btrfs() {
         >>"$new/@/etc/fstab"
   fi
 
-  if ! printf '%s\n' "$subvols" | grep -qx '@fresh'; then
-    log "Snapshotting the fresh system as @fresh"
-    btrfs subvolume snapshot -r "$new/@" "$new/@fresh" >/dev/null
-  fi
-
   mkdir -p "$new/@/var/lib/omarchy"
   {
     echo "converted: in-place LUKS2 encryption"
     echo "btrfs_uuid: $fs_uuid"
     echo "luks_uuid: $luks_uuid"
   } >"$new/@/var/lib/omarchy/btrfs-migrate-summary"
+}
 
-  umount "$new"
+# The baseline, taken last -- after the boot config has been written into @.
+# Snapshotting before that captured a root that predated its own boot
+# configuration: restoring it and regenerating grub produced a machine with no
+# cryptdevice= on its command line, which cannot unlock itself and drops to an
+# emergency shell. A baseline that will not boot is not a baseline.
+snapshot_fresh() {
+  local new="$1"
+
+  printf '%s\n' "$(btrfs subvolume list "$new" | awk '{print $NF}')" |
+    grep -qx '@fresh' && return 0
+
+  log "Snapshotting the fresh system as @fresh"
+  btrfs subvolume snapshot -r "$new/@" "$new/@fresh" >/dev/null
 }
 
 # Patch the boot chain for subsequent boots: GRUB defaults (authoritative,
@@ -420,6 +425,7 @@ worker_convert() {
   patch_boot_config /run/omb-final 1
   umount /run/omb-final 2>/dev/null || true
 
+  snapshot_fresh /run/omb-new
   umount /run/omb-new
   umount /run/omb-ram
 
@@ -462,6 +468,9 @@ worker_encrypt() {
   patch_boot_config /run/omb-final 0
   umount /run/omb-final 2>/dev/null || true
 
+  snapshot_fresh /run/omb-new
+  umount /run/omb-new
+
   {
     echo "root='/dev/mapper/$MAPPER_NAME'"
     echo "rootfstype='btrfs'"
@@ -489,6 +498,7 @@ run_rehearse() {
     ext4)
       stage_to_ram "$dev"
       rebuild_as_btrfs "$dev" "$encrypt"
+      snapshot_fresh /run/omb-new
       umount /run/omb-new
       umount /run/omb-ram
       ;;
@@ -497,6 +507,8 @@ run_rehearse() {
       old_fstab=""
       encrypt_in_place "$dev"
       adopt_existing_btrfs
+      snapshot_fresh /run/omb-new
+      umount /run/omb-new
       ;;
     *) fail "$dev is ${fstype:-unformatted}; --rehearse takes an ext4 or btrfs device" ;;
   esac
