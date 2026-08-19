@@ -44,6 +44,14 @@ create)
   echo "Snapshots can be selected during boot."
   ;;
 restore)
-  sudo limine-snapper-restore
+  # limine-snapper-restore ships with limine-snapper-sync, which Apple Silicon
+  # never installs because limine cannot boot a Mac -- so this was a command
+  # not found on every Mac, and the snapshot taken before each update had no
+  # way back.
+  if omarchy-cmd-missing limine-snapper-restore; then
+    sudo omarchy-mac-snapshot-restore
+  else
+    sudo limine-snapper-restore
+  fi
   ;;
 esac

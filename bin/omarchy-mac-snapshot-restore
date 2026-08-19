@@ -1,0 +1,166 @@
+#!/bin/bash
+
+# omarchy:summary=Roll the root subvolume back to a snapshot (Apple Silicon)
+# omarchy:group=system
+# omarchy:requires-sudo=true
+# omarchy:hidden=true
+
+# omarchy-snapshot restore runs limine-snapper-restore, which ships with
+# limine-snapper-sync -- a package Apple Silicon never installs, because limine
+# cannot boot a Mac. So "restore" was a command not found on every Mac, and the
+# snapshots taken before every update had no way back.
+#
+# This does the same job the way this layout allows: take a writable snapshot of
+# the chosen one, move the live @ aside, and put the new one in its place. That
+# is what the boot mounts, since fstab and the kernel command line both name
+# subvol=@ outright -- which is also why snapper's own rollback, which works by
+# changing the default subvolume, would do nothing here.
+#
+# The displaced @ is kept as @old-<timestamp>: the undo, until you delete it.
+
+set -euo pipefail
+
+TOP=/run/omarchy-snapshot-restore
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+# Where a snapper snapshot lives when read from the top of the tree. Snapper
+# makes .snapshots a subvolume inside the root it snapshots, so a root mounted
+# from @ puts them under @/.snapshots.
+snapshot_subvol_path() {
+  printf '@/.snapshots/%s/snapshot' "$1"
+}
+
+# number<TAB>date<TAB>description, oldest first, for every snapshot snapper has
+# of the root config. Columns are looked up by name from the header rather than
+# by position: snapper's --csvout has gained columns between versions, and
+# reading the wrong one silently offers to restore the wrong thing.
+list_snapper_snapshots() {
+  snapper -c root --csvout list 2>/dev/null |
+    awk -F, '
+      NR == 1 {
+        for (i = 1; i <= NF; i++) {
+          gsub(/^"|"$/, "", $i)
+          col[$i] = i
+        }
+        next
+      }
+      {
+        number = $col["number"]
+        gsub(/^"|"$/, "", number)
+        # 0 is the running system, not a snapshot to go back to.
+        if (number == "" || number == "0") next
+        date = col["date"] ? $col["date"] : ""
+        description = col["description"] ? $col["description"] : ""
+        gsub(/^"|"$/, "", date)
+        gsub(/^"|"$/, "", description)
+        printf "%s\t%s\t%s\n", number, date, description
+      }'
+}
+
+cleanup() {
+  mountpoint -q "$TOP" && umount "$TOP" 2>/dev/null || true
+  [[ -d $TOP ]] && rmdir "$TOP" 2>/dev/null || true
+}
+
+main() {
+  (( EUID == 0 )) || fail "run as root"
+
+  local root_source
+  root_source=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+  [[ $(findmnt -no FSTYPE /) == "btrfs" ]] || fail "/ is not btrfs; nothing to roll back to"
+  findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' ||
+    fail "/ is not mounted from the @ subvolume; this layout is not supported"
+
+  trap cleanup EXIT
+  mkdir -p "$TOP"
+  mount -o subvolid=5 "$root_source" "$TOP"
+
+  # Snapper's snapshots, plus the two the install leaves behind: @fresh (the
+  # system before Omarchy) and @factory (the installed system before it was
+  # anyone's).
+  local -a labels=() paths=()
+  local number date description path
+
+  while IFS=$'\t' read -r number date description; do
+    path=$(snapshot_subvol_path "$number")
+    [[ -d $TOP/$path ]] || continue
+    labels+=("snapshot $number  $date  ${description:-no description}")
+    paths+=("$path")
+  done < <(list_snapper_snapshots)
+
+  local baseline
+  for baseline in @fresh @factory; do
+    [[ -d $TOP/$baseline ]] || continue
+    case $baseline in
+      @fresh) labels+=("@fresh    the system as it was before Omarchy was installed") ;;
+      @factory) labels+=("@factory  the installed system, before it was anyone's") ;;
+    esac
+    paths+=("$baseline")
+  done
+
+  (( ${#paths[@]} )) || fail "no snapshots found to restore"
+
+  local choice=""
+  if command -v gum >/dev/null; then
+    choice=$(printf '%s\n' "${labels[@]}" | gum choose --header "Restore which snapshot?") || exit 1
+  else
+    local i
+    for i in "${!labels[@]}"; do
+      printf '%3d) %s\n' "$((i + 1))" "${labels[$i]}"
+    done
+    local picked
+    read -rp "Restore which? [1-${#labels[@]}] " picked
+    [[ $picked =~ ^[0-9]+$ ]] && (( picked >= 1 && picked <= ${#labels[@]} )) ||
+      fail "not a choice"
+    choice=${labels[$((picked - 1))]}
+  fi
+
+  local index=-1 i
+  for i in "${!labels[@]}"; do
+    [[ ${labels[$i]} == "$choice" ]] && index=$i && break
+  done
+  (( index >= 0 )) || fail "could not match that choice"
+
+  local source_path=${paths[$index]}
+  local stamp
+  stamp=$(date +%s)
+
+  echo
+  log "Restoring ${labels[$index]}"
+  log "The current root is kept as @old-$stamp until you delete it."
+  warn "/boot is the EFI partition and is not part of any snapshot: the kernel"
+  warn "and initramfs stay as they are. After rolling back across a kernel"
+  warn "update, run 'sudo mkinitcpio -P'."
+  echo
+  local typed
+  read -rp "Type 'restore' to continue: " typed
+  [[ $typed == "restore" ]] || fail "not confirmed"
+
+  btrfs subvolume snapshot "$TOP/$source_path" "$TOP/@new" >/dev/null
+  mv "$TOP/@" "$TOP/@old-$stamp"
+  mv "$TOP/@new" "$TOP/@"
+
+  echo
+  log "Restored. Reboot to run from it."
+  log "If it is not what you wanted, from a shell on the restored system:"
+  log "  sudo mount -o subvolid=5 $root_source /mnt"
+  log "  sudo mv /mnt/@ /mnt/@discard && sudo mv /mnt/@old-$stamp /mnt/@ && sudo reboot"
+}
+
+# Sourcing the script exposes its functions to the tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
