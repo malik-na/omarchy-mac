@@ -423,5 +423,18 @@ check "a session in the second directory is found" \
     [[ $(desktop_session) == omarchy.desktop ]]'
 
 echo
+echo "=== an install is finished only if both signs agree ==="
+
+# @factory is a top-level subvolume: rolling @ back to @fresh leaves it behind
+# while removing the install it was evidence of. Asked on its own, it reported
+# a rolled-back machine as finished, so --resume cleaned up and did nothing.
+check "both signs: finished" install_complete 1 1
+check "@factory alone is a rolled-back machine, not a finished one" \
+  not install_complete 1 0
+check "a runtime with no @factory is an install that did not finish" \
+  not install_complete 0 1
+check "neither is a machine that has not started" not install_complete 0 0
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

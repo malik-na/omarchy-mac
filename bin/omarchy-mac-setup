@@ -209,10 +209,31 @@ apply_hostname() {
   ensure_hosts_entry "$name"
 }
 
-# install.sh snapshots the finished system as @factory on its way out, so the
-# subvolume is proof the install ran to completion.
-omarchy_is_installed() {
+# install.sh snapshots the finished system as @factory on its way out, so that
+# subvolume means an install once finished on this filesystem.
+factory_snapshot_exists() {
   btrfs subvolume list / 2>/dev/null | awk '{print $NF}' | grep -qx '@factory'
+}
+
+# ...but @factory is a top-level subvolume, so rolling @ back to @fresh leaves
+# it in place while removing everything it was evidence of. The running system
+# has to be asked too, and its answer lives inside @.
+omarchy_runtime_present() {
+  [[ -f ${OMARCHY_RUNTIME_VERSION:-/usr/share/omarchy/version} ]]
+}
+
+# Pure: both signals, so the tests can walk the combinations that actually
+# occur -- a rollback, an install interrupted partway, a finished machine.
+install_complete() {
+  local factory="$1" runtime="$2"
+  [[ $factory == 1 && $runtime == 1 ]]
+}
+
+omarchy_is_installed() {
+  local factory=0 runtime=0
+  factory_snapshot_exists && factory=1
+  omarchy_runtime_present && runtime=1
+  install_complete "$factory" "$runtime"
 }
 
 # Pure: given the machine's state and what the user asked for, name the next
