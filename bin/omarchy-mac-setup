@@ -648,10 +648,32 @@ hooks_include_asahi() {
 # Hyprland session the SDDM theme looks for -- and nothing on this path
 # installs it. Autologin pointing at a session file that exists only in git is
 # a black screen instead of a desktop.
-install_session_file() {
-  local sessions=${OMARCHY_SESSIONS_DIR:-/usr/share/wayland-sessions} candidate
+session_dirs() {
+  if [[ -n ${OMARCHY_SESSIONS_DIR:-} ]]; then
+    printf '%s\n' "$OMARCHY_SESSIONS_DIR"
+    return 0
+  fi
+  # SDDM scans both, and the omarchy package installs into the second -- which
+  # is why a machine with a working Omarchy session can still look like it has
+  # none if you only check /usr/share.
+  printf '%s\n' /usr/share/wayland-sessions /usr/local/share/wayland-sessions
+}
 
-  [[ -f $sessions/omarchy.desktop ]] && return 0
+session_file_path() {
+  local name="$1" dir
+  while read -r dir; do
+    [[ -f $dir/$name ]] || continue
+    printf '%s' "$dir/$name"
+    return 0
+  done < <(session_dirs)
+  return 1
+}
+
+install_session_file() {
+  local sessions candidate
+  sessions=$(session_dirs | head -1)
+
+  session_file_path omarchy.desktop >/dev/null && return 0
   for candidate in \
     "${OMARCHY_PATH:-}/default/wayland-sessions/omarchy.desktop" \
     "$SRC/default/wayland-sessions/omarchy.desktop" \
@@ -669,10 +691,10 @@ install_session_file() {
 # uwsm-managed one -- the SDDM theme picks any session whose name contains
 # "uwsm", so autologin should agree with it.
 desktop_session() {
-  local sessions=${OMARCHY_SESSIONS_DIR:-/usr/share/wayland-sessions} candidate
+  local candidate
 
   for candidate in omarchy.desktop hyprland-uwsm.desktop hyprland.desktop; do
-    if [[ -f $sessions/$candidate ]]; then
+    if session_file_path "$candidate" >/dev/null; then
       printf '%s' "$candidate"
       return 0
     fi

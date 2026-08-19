@@ -409,6 +409,19 @@ touch "$sessions/omarchy.desktop"
 check "Omarchy's own session wins over both" \
   [ "$(session_chosen)" = "omarchy.desktop" ]
 
+# SDDM scans /usr/share and /usr/local/share, and the omarchy package installs
+# into the second. Checking only the first made a machine with a working
+# Omarchy session look like it had none -- the log from a real one read
+# "/usr/local/share/wayland-sessions/omarchy.desktop".
+local_sessions=$work/local-sessions
+mkdir -p "$local_sessions"
+touch "$local_sessions/omarchy.desktop"
+
+check "a session in the second directory is found" \
+  bash -c 'OMARCHY_SESSIONS_DIR=""; '"$(declare -f session_dirs session_file_path desktop_session)"'
+    session_dirs() { printf "%s\n" "'"$sessions"'" "'"$local_sessions"'"; }
+    [[ $(desktop_session) == omarchy.desktop ]]'
+
 echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
