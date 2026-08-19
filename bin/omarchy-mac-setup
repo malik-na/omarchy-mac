@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3] [--keep-root-password]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -655,16 +655,60 @@ ensure_wheel_sudo() {
   chmod 440 /etc/sudoers.d/00-wheel
 }
 
+# Asahi Alarm ships a known root password. Once the owner exists with a password
+# and sudo, root does not need one of its own: locking it closes password login
+# for root everywhere, including over ssh the day someone installs it, and
+# leaves every recovery route intact -- sudo, the initramfs shell, which asks
+# for nothing, and init=/bin/bash from the GRUB line.
+#
+# The x86 ISO sets root's password to the owner's instead. Locking is the same
+# reasoning taken one step further: a password nobody uses is a password nobody
+# has to keep secret.
+user_has_password() {
+  [[ $(passwd -S "$1" 2>/dev/null | awk '{print $2}') == "P" ]]
+}
+
+# Pure: never lock root unless someone else can actually get in.
+should_lock_root() {
+  local keep="$1" owner_has_password="$2"
+  [[ $keep != 1 && $owner_has_password == 1 ]]
+}
+
+lock_root_account() {
+  local user="$1" owner_has_password=0
+
+  user_has_password "$user" && owner_has_password=1
+  if ! should_lock_root "${keep_root_password:-0}" "$owner_has_password"; then
+    if (( owner_has_password )); then
+      log "Leaving the root password alone (--keep-root-password)"
+    else
+      warn "$user has no password, so root's is being left alone -- otherwise"
+      warn "nothing could log in."
+    fi
+    return 0
+  fi
+
+  if passwd -l root >/dev/null 2>&1; then
+    log "Locked the root account; $user has sudo, and Asahi Alarm's default root"
+    log "password no longer opens anything."
+  else
+    warn "could not lock the root account; its shipped password still works"
+  fi
+}
+
 ensure_user() {
   ensure_wheel_sudo
-  id -u "$username" >/dev/null 2>&1 && return 0
 
-  log "Creating user $username"
-  useradd -m -G wheel -s /bin/bash "$username"
-  log "Set a password for $username:"
-  until passwd "$username"; do
-    warn "Try again."
-  done
+  if ! id -u "$username" >/dev/null 2>&1; then
+    log "Creating user $username"
+    useradd -m -G wheel -s /bin/bash "$username"
+    log "Set a password for $username:"
+    until passwd "$username"; do
+      warn "Try again."
+    done
+  fi
+
+  lock_root_account "$username"
 }
 
 # install.sh runs as the user and calls sudo throughout, with nobody at the
@@ -1015,7 +1059,7 @@ ask_questions() {
 }
 
 main() {
-  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 encrypt_flag="" want_encrypt username hostname keymap repo ref
+  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 keep_root_password=0 encrypt_flag="" want_encrypt username hostname keymap repo ref
 
   load_conf
 
@@ -1033,6 +1077,7 @@ main() {
       --repo) repo=${2:?--repo needs owner/repo}; shift ;;
       --ref) ref=${2:?--ref needs a branch}; shift ;;
       --allow-omarchy3) allow_omarchy3=1 ;;
+      --keep-root-password) keep_root_password=1 ;;
       --resume) resume=1 ;;
       --status) status=1 ;;
       --step) step_only=${2:?--step needs a name}; shift ;;

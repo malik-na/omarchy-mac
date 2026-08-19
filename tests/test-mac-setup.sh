@@ -503,5 +503,38 @@ check "running from a real file needs no fetch" \
   bash -c 'BASH_SOURCE0='"$TOOL"'; [[ -f '"$TOOL"' ]]'
 
 echo
+echo "=== the root password Asahi Alarm ships ==="
+
+# Locking root closes a known password, but only once someone else can get in:
+# locking it on a machine whose owner has no password would leave nothing that
+# can log in at all.
+check "locked once the owner has a password" should_lock_root 0 1
+check "not locked when the owner has none" not should_lock_root 0 0
+check "not locked when asked to keep it" not should_lock_root 1 1
+check "keeping it wins even with a password set" not should_lock_root 1 0
+
+# passwd -S says P for a usable password, L for locked, NP for none.
+pw_stub=$work/pw
+mkdir -p "$pw_stub"
+cat >"$pw_stub/passwd" <<'STUB'
+#!/bin/bash
+case "$2" in
+  haspw) echo "haspw P 2026-08-19 0 99999 7 -1" ;;
+  locked) echo "locked L 2026-08-19 0 99999 7 -1" ;;
+  nopw) echo "nopw NP 2026-08-19 0 99999 7 -1" ;;
+esac
+STUB
+chmod +x "$pw_stub/passwd"
+
+has_password() {
+  PATH="$pw_stub:$PATH" user_has_password "$1"
+}
+
+check "a usable password is recognised" has_password haspw
+check "a locked account is not a usable password" not has_password locked
+check "no password is not a usable password" not has_password nopw
+check "an unknown user is not a usable password" not has_password ghost
+
+echo
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

@@ -137,6 +137,10 @@ Other flags:
   `fonts`, `autologin`, `done`. Useful when one of them half-worked, or on a
   machine installed before a step existed.
 - `--abort` stops the guided run without undoing anything already done.
+- `--keep-root-password` leaves root's password as Asahi Alarm shipped it.
+  By default it is locked once your user exists with a password and sudo: the
+  shipped root password is well known, and nothing needs it afterwards. Recovery
+  is unaffected — sudo, the initramfs shell, and `init=/bin/bash` all still work.
 
 The steps it drives are documented individually below and in
 [docs/btrfs.md](docs/btrfs.md); run them by hand if you would rather see each
