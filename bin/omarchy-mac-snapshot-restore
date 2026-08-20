@@ -73,6 +73,16 @@ list_snapper_snapshots() {
 # to each other on the menu and read alike; the difference that matters is
 # whether Omarchy is in there, and the only moment that is worth knowing is
 # before the swap rather than after a reboot.
+# One row of the menu: what the snapshot is, then what is inside it. The second
+# half is the part that prevents a wrong pick -- "snapshot 3" says nothing about
+# whether it predates Omarchy, and choosing a mid-install snapper snapshot gives
+# a machine with the packages installed but no display manager, which reads as a
+# broken install rather than a wrong choice.
+choice_label() {
+  local summary="$1" path="$2"
+  printf '%s  --  %s' "$summary" "$(describe_subvolume "$path")"
+}
+
 describe_subvolume() {
   local path="$1" version
   if [[ -f $TOP/$path/usr/share/omarchy/version ]]; then
@@ -107,22 +117,28 @@ main() {
   local -a labels=() paths=()
   local number date description path
 
-  while IFS=$'\t' read -r number date description; do
-    path=$(snapshot_subvol_path "$number")
-    [[ -d $TOP/$path ]] || continue
-    labels+=("snapshot $number  $date  ${description:-no description}")
-    paths+=("$path")
-  done < <(list_snapper_snapshots)
-
   local baseline
   for baseline in @fresh @factory; do
     [[ -d $TOP/$baseline ]] || continue
     case $baseline in
-      @fresh) labels+=("@fresh    the system as it was before Omarchy was installed") ;;
-      @factory) labels+=("@factory  the installed system, before it was anyone's") ;;
+      @fresh) labels+=("$(choice_label "@fresh    the system as it was before Omarchy was installed" "$baseline")") ;;
+      @factory) labels+=("$(choice_label "@factory  the installed system, before it was anyone's" "$baseline")") ;;
     esac
     paths+=("$baseline")
   done
+
+
+  while IFS=$'\t' read -r number date description; do
+    path=$(snapshot_subvol_path "$number")
+    [[ -d $TOP/$path ]] || continue
+    # What is inside goes in the label, not only in the confirmation below: the
+    # choice is made here, and "snapshot 3" says nothing about whether it
+    # predates Omarchy. Picking a mid-install snapper snapshot by mistake gives
+    # a machine with the packages installed but no display manager -- which
+    # looks like a broken install rather than a wrong choice.
+    labels+=("$(choice_label "snapshot $number  $date  ${description:-no description}" "$path")")
+    paths+=("$path")
+  done < <(list_snapper_snapshots)
 
   (( ${#paths[@]} )) || fail "no snapshots found to restore"
 

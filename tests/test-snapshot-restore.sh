@@ -27,6 +27,11 @@ check() {
   fi
 }
 
+matches() {
+  local pattern="$1" text="$2"
+  grep -qE -- "$pattern" <<<"$text"
+}
+
 echo "=== where a snapper snapshot lives at the top of the tree ==="
 
 # Snapper makes .snapshots a subvolume inside the root it snapshots, so a root
@@ -87,6 +92,38 @@ check "an installed one names the version" \
 mkdir -p "$TOP/@odd/usr/share/omarchy"
 check "a version file that is missing is not fatal" \
   [ "$(describe_subvolume @odd)" = "no Omarchy installed in it" ]
+
+echo
+echo "=== the menu says what each choice contains, before it is chosen ==="
+
+# A mid-install snapper snapshot was restored once while @fresh was intended:
+# "snapshot 1  <date>" says nothing about what is in it, and the contents line
+# only appeared in the confirmation text afterwards. The label carries it now.
+label_names_contents() {
+  matches 'Omarchy 4.0.0 is installed in it' "$(choice_label 'snapshot 1  2026-08-20' @factory)"
+}
+label_names_absence() {
+  matches 'no Omarchy installed in it' "$(choice_label '@fresh  before Omarchy' @fresh)"
+}
+label_keeps_its_summary() {
+  matches 'snapshot 1' "$(choice_label 'snapshot 1  2026-08-20' @factory)"
+}
+
+check "a row naming an installed snapshot says which version" label_names_contents
+check "a row for a pre-Omarchy snapshot says so" label_names_absence
+check "the row keeps its own description too" label_keeps_its_summary
+
+# gum choose lands on the first row, so the two curated, documented choices have
+# to come before the machine-generated snapper list -- otherwise an accidental
+# Enter picks a snapshot from the middle of an install.
+baselines_offered_first() {
+  local baseline_line snapper_line
+  baseline_line=$(grep -n 'for baseline in @fresh @factory' "$TOOL" | cut -d: -f1)
+  snapper_line=$(grep -n 'done < <(list_snapper_snapshots)' "$TOOL" | cut -d: -f1)
+  (( baseline_line < snapper_line ))
+}
+
+check "@fresh and @factory are offered before the snapper snapshots" baselines_offered_first
 
 echo
 echo "=== $pass checks passed, $failures failed ==="
