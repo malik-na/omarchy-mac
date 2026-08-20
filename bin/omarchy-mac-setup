@@ -1046,7 +1046,17 @@ print_status() {
     "$(boot_is_separate && findmnt -no SOURCE /boot || echo "on the root filesystem")"
   printf '  omarchy         %s\n' \
     "$(omarchy_is_installed && echo installed || echo "not installed")"
-  printf '  encryption      %s\n' "$( ((want_encrypt)) && echo requested || echo "not requested")"
+  # State first, intent only where there is still a choice: "requested" against
+  # an already-encrypted root reads as though the work is pending.
+  local encryption
+  if root_is_encrypted; then
+    encryption=done
+  elif ((want_encrypt)); then
+    encryption=requested
+  else
+    encryption="not requested"
+  fi
+  printf '  encryption      %s\n' "$encryption"
   printf '  hostname        %s\n' "$(current_hostname)"
   printf '  next step       %s\n\n' "$step"
 }
@@ -1059,7 +1069,17 @@ ask_questions() {
   echo "It asks everything now, then runs on its own."
   echo
 
-  if [[ -z $encrypt_flag ]]; then
+  if [[ -n $encrypt_flag ]]; then
+    : # already answered on the command line
+  elif root_is_encrypted; then
+    # Nothing left to decide. Asking whether to encrypt a root that is already a
+    # dm-crypt device invites a "no" that cannot be honoured -- next_step reads
+    # the disk, not this answer -- so it reports instead of asking. This is the
+    # path a resumed or re-run install takes, including after a rollback to a
+    # snapshot taken once the disk was already encrypted.
+    want_encrypt=1
+    log "The root is already encrypted; leaving it alone."
+  else
     read -rp "Encrypt the disk? [Y/n] " answer
     [[ ${answer,,} == n* ]] && want_encrypt=0 || want_encrypt=1
   fi
@@ -1094,8 +1114,13 @@ ask_questions() {
   log "  - keyboard layout: $keymap (--keymap to change; the passphrase is typed with it)"
   log "  - name this machine $hostname"
   log "  - create $username (in wheel, with sudo) and set its password"
-  ((want_encrypt)) && log "  - move /boot onto the EFI partition (if needed), then reboot"
-  ((want_encrypt)) && log "  - encrypt the root -- you choose the passphrase at the console"
+  # Only promise the work still to do: on a re-run these steps are usually
+  # already behind us, and a plan that claims otherwise reads as though the
+  # install is about to redo them.
+  if ((want_encrypt)); then
+    boot_is_separate || log "  - move /boot onto the EFI partition, then reboot"
+    root_is_encrypted || log "  - encrypt the root -- you choose the passphrase at the console"
+  fi
   log "  - install Omarchy from $repo ($ref) as $username"
   log "  - reboot into the desktop"
   echo

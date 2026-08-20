@@ -658,5 +658,91 @@ forge_persists() {
 
 check "the forge survives a reboot in the conf file" forge_persists
 
+echo "=== questions and status read the machine, not the intent flag ==="
+
+# Re-running against a machine that is already encrypted -- a resumed install,
+# or a rollback to a snapshot taken after step 2 -- used to ask "Encrypt the
+# disk?", then promise to "encrypt the root" in the plan, then report encryption
+# as "requested". All three describe intent, while next_step reads the disk, so
+# they contradicted what was about to happen and invited a "no" that could not
+# be honoured.
+#
+# read -rp only draws its prompt when stdin is a terminal, so these assert on
+# the plan and status text rather than on the prompt itself.
+ask_with() {
+  local state="$1" input="$2"
+  (
+    username=someone hostname=box keymap=us encrypt_flag="" want_encrypt=0
+    repo=owner/repo ref=branch
+    banner() { :; }
+    warn() { :; }
+    log() { printf '%s\n' "$*"; }
+    valid_hostname() { return 0; }
+    valid_keymap() { return 0; }
+    current_hostname() { echo box; }
+    current_keymap() { echo us; }
+    fail() { printf 'STOPPED: %s\n' "$*"; exit 1; }
+    if [[ $state == "encrypted" ]]; then
+      root_is_encrypted() { return 0; }
+      boot_is_separate() { return 0; }
+    else
+      root_is_encrypted() { return 1; }
+      boot_is_separate() { return 1; }
+    fi
+    printf '%s' "$input" | ask_questions 2>/dev/null
+    echo "WANT_ENCRYPT=$want_encrypt"
+  )
+}
+
+encrypted_run=$(ask_with encrypted '\n')
+plain_run=$(ask_with plain 'y\n\n')
+
+check "an encrypted root is reported, not asked about" \
+  matches 'already encrypted' "$encrypted_run"
+
+no_encrypt_promise() { ! matches 'encrypt the root' "$encrypted_run"; }
+check "the plan does not offer to encrypt an encrypted root" no_encrypt_promise
+
+no_boot_promise() { ! matches 'move /boot' "$encrypted_run"; }
+check "the plan does not offer to move an already-separate /boot" no_boot_promise
+
+check "an unencrypted root is still asked about and planned" \
+  matches 'encrypt the root' "$plain_run"
+
+check "a /boot on the root filesystem is still planned for" \
+  matches 'move /boot' "$plain_run"
+
+echo
+echo "=== the status line reports the disk ==="
+
+status_with() {
+  local encrypted="$1" want="$2"
+  (
+    want_encrypt=$want
+    banner() { :; }
+    current_step() { echo omarchy; }
+    current_hostname() { echo box; }
+    root_source() { echo /dev/mapper/root; }
+    boot_is_separate() { return 0; }
+    omarchy_is_installed() { return 1; }
+    findmnt() { echo /dev/sda1; }
+    if (( encrypted )); then
+      root_is_encrypted() { return 0; }
+    else
+      root_is_encrypted() { return 1; }
+    fi
+    print_status
+  )
+}
+
+check "an encrypted root reports encryption done" \
+  matches 'encryption +done' "$(status_with 1 1)"
+
+check "an unencrypted root with the flag set still reports requested" \
+  matches 'encryption +requested' "$(status_with 0 1)"
+
+check "an unencrypted root without the flag reports not requested" \
+  matches 'encryption +not requested' "$(status_with 0 0)"
+
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
