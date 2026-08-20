@@ -70,3 +70,25 @@ pass "the known-unwired list is accurate"
 grep -qF 'user/hardware/apple/share-picker.sh' "$ROOT/install/user/all.sh" ||
   fail "the Apple screen-share picker runs in the per-user stage"
 pass "the Apple screen-share picker runs in the per-user stage"
+
+# Obsidian is the same shape of problem: obsidian in the default set is a
+# pkgbase whose outputs are obsidian-bin (x86_64 only) and obsidian-appimage,
+# so nothing named "obsidian" installs on aarch64. The substitution builds an
+# AUR package, so it belongs in the per-user stage for the same reason.
+grep -qF 'user/hardware/apple/obsidian.sh' "$ROOT/install/user/all.sh" ||
+  fail "the Apple Obsidian substitution runs in the per-user stage"
+pass "the Apple Obsidian substitution runs in the per-user stage"
+
+# Asking for the pkgbase again would reproduce the bug it exists to fix.
+grep -qF 'obsidian-appimage' "$ROOT/install/user/hardware/apple/obsidian.sh" ||
+  fail "the substitution asks for obsidian-appimage by name"
+if grep -qE 'omarchy-pkg-aur-add[[:space:]]+obsidian$' "$ROOT/install/user/hardware/apple/obsidian.sh"; then
+  fail "the substitution must not ask for the obsidian pkgbase"
+fi
+pass "the substitution asks for obsidian-appimage by name"
+
+# Skipped in the base set, installed by name here: one without the other is
+# either a wasted build or no Obsidian at all.
+grep -qx 'obsidian' "$ROOT/install/omarchy-aarch64-unavailable.packages" ||
+  fail "the obsidian pkgbase is skipped in the default set"
+pass "the obsidian pkgbase is skipped in the default set"
