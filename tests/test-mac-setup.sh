@@ -83,6 +83,7 @@ echo "=== the branch must carry the tools this script drives ==="
 # enabled unit that fails on every boot.
 repo=example/repo
 ref=some-branch
+forge=$DEFAULT_FORGE
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
@@ -465,6 +466,7 @@ mkdir -p "$fetch_dir/bin"
 SELF=$fetch_dir/omarchy-mac-setup
 repo=example/repo
 ref=some-branch
+forge=$DEFAULT_FORGE
 
 stub_curl() {
   local kind="$1" exitcode="${2:-0}"
@@ -622,6 +624,39 @@ check "--ref survives the parse loop" \
 
 check "it re-runs the copy installed on disk" \
   matches 'omarchy-mac-setup' "$reexec_output"
+
+echo "=== the forge the repo is fetched from ==="
+
+# One forge being unreachable should not stop an install: codeberg.org stopped
+# completing TCP handshakes partway through one. The raw-file URL differs by
+# forge -- GitHub serves raw files from another host entirely -- so both shapes
+# are pinned here, and no call site may hardcode a host.
+raw_for() { ( repo=owner/repo; ref=some-branch; forge=$1; raw_url bin/omarchy-mac-setup ); }
+clone_for() { ( repo=owner/repo; forge=$1; clone_url ); }
+
+check "a Forgejo forge uses its raw/branch path" \
+  [ "$(raw_for codeberg.org)" = "https://codeberg.org/owner/repo/raw/branch/some-branch/bin/omarchy-mac-setup" ]
+
+check "github serves raw files from raw.githubusercontent.com" \
+  [ "$(raw_for github.com)" = "https://raw.githubusercontent.com/owner/repo/some-branch/bin/omarchy-mac-setup" ]
+
+check "the clone URL follows the chosen forge" \
+  [ "$(clone_for github.com)" = "https://github.com/owner/repo.git" ]
+
+check "a self-hosted Forgejo works too" \
+  [ "$(clone_for git.example.org)" = "https://git.example.org/owner/repo.git" ]
+
+# A hardcoded host would silently ignore --forge at that one call site, which is
+# the failure this change exists to prevent.
+check "no call site hardcodes a forge host" \
+  [ "$(grep -c 'https://codeberg\.org' "$TOOL")" = "0" ]
+
+forge_persists() {
+  grep -qF 'SETUP_FORGE=$forge' "$TOOL" &&
+    grep -qF 'forge=${SETUP_FORGE:-$forge}' "$TOOL"
+}
+
+check "the forge survives a reboot in the conf file" forge_persists
 
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

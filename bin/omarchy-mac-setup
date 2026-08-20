@@ -3,7 +3,7 @@
 # omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
 # omarchy:group=setup
 # omarchy:requires-sudo=true
-# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3] [--keep-root-password]
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--forge <host>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3] [--keep-root-password]
 # omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
 
 # One command, run once as root on a fresh Asahi Alarm install, that carries the
@@ -44,6 +44,12 @@ LOG=/var/log/omarchy-mac-setup.log
 # branch to pass instead rather than installing the wrong generation.
 DEFAULT_REPO=malik-na/omarchy-mac
 DEFAULT_REF=main
+# The host the repo is fetched from. Overridable because the same repo is
+# mirrored on more than one forge, and an install should not be stopped by one
+# of them being unreachable -- which has happened: codeberg.org stopped
+# completing TCP handshakes mid-install. It is also the whole change needed if
+# the project's home moves.
+DEFAULT_FORGE=codeberg.org
 
 # Everything this script shells out to, and therefore everything the chosen
 # branch has to contain.
@@ -275,6 +281,7 @@ load_conf() {
   keymap=""
   repo=$DEFAULT_REPO
   ref=$DEFAULT_REF
+  forge=$DEFAULT_FORGE
 
   if [[ -f $CONF ]]; then
     # shellcheck source=/dev/null
@@ -285,6 +292,7 @@ load_conf() {
     keymap=${SETUP_KEYMAP:-$keymap}
     repo=${SETUP_REPO:-$repo}
     ref=${SETUP_REF:-$ref}
+    forge=${SETUP_FORGE:-$forge}
   fi
 }
 
@@ -297,10 +305,29 @@ SETUP_HOSTNAME=$hostname
 SETUP_KEYMAP=$keymap
 SETUP_REPO=$repo
 SETUP_REF=$ref
+SETUP_FORGE=$forge
 EOF
   chmod 600 "$CONF"
 }
 
+
+# Where to read one file out of the repo. Forgejo (Codeberg) and GitHub spell
+# this differently, and GitHub serves raw files from another host entirely, so
+# the shape follows the forge rather than being pasted together from parts.
+raw_url() {
+  local path="$1"
+
+  if [[ $forge == "github.com" ]]; then
+    printf 'https://raw.githubusercontent.com/%s/%s/%s\n' "$repo" "$ref" "$path"
+  else
+    printf 'https://%s/%s/raw/branch/%s/%s\n' "$forge" "$repo" "$ref" "$path"
+  fi
+}
+
+# Clone URL, which every forge spells the same way.
+clone_url() {
+  printf 'https://%s/%s.git\n' "$forge" "$repo"
+}
 
 # Piped in with `curl ... | bash`, this script has no file on disk: it cannot
 # install itself for the resume-on-boot unit, and every prompt would read from
@@ -308,7 +335,8 @@ EOF
 # back on the terminal -- after which everything downstream behaves exactly as
 # it does when the file was downloaded by hand.
 fetch_self() {
-  local url="https://codeberg.org/$repo/raw/branch/$ref/bin/${SELF##*/}"
+  local url
+  url=$(raw_url "bin/${SELF##*/}")
 
   [[ $url == https://* ]] || fail "refusing to fetch this script over $url"
   command -v curl >/dev/null || fail "curl is needed to fetch this script"
@@ -594,7 +622,7 @@ ensure_source_checkout() {
   # Shallow: this checkout only supplies the two tools and is thrown away. The
   # user's own checkout below is cloned in full, because it stays as the live
   # Omarchy install that `omarchy update` pulls into.
-  git clone --branch "$ref" --depth 1 "https://codeberg.org/$repo.git" "$SRC" ||
+  git clone --branch "$ref" --depth 1 "$(clone_url)" "$SRC" ||
     fail "could not clone $repo at $ref"
 
   # Anything that rejects this checkout takes it with it. Leaving a rejected
@@ -924,7 +952,7 @@ step_omarchy() {
     log "Cloning $repo ($ref) into $home/.local/share/omarchy"
     sudo -u "$username" mkdir -p "$home/.local/share"
     sudo -u "$username" -H git -C / clone --branch "$ref" \
-      "https://codeberg.org/$repo.git" "$home/.local/share/omarchy"
+      "$(clone_url)" "$home/.local/share/omarchy"
   fi
 
   ensure_quickshell_source "$username"
@@ -1082,7 +1110,7 @@ ask_questions() {
 }
 
 main() {
-  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 keep_root_password=0 encrypt_flag="" want_encrypt username hostname keymap repo ref
+  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 keep_root_password=0 encrypt_flag="" want_encrypt username hostname keymap repo ref forge
 
   # The parse loop below shifts every argument away, so keep a copy first. The
   # piped re-exec has to hand the same arguments to the copy on disk: without
@@ -1105,6 +1133,7 @@ main() {
         ;;
       --repo) repo=${2:?--repo needs owner/repo}; shift ;;
       --ref) ref=${2:?--ref needs a branch}; shift ;;
+      --forge) forge=${2:?--forge needs a host}; shift ;;
       --allow-omarchy3) allow_omarchy3=1 ;;
       --keep-root-password) keep_root_password=1 ;;
       --resume) resume=1 ;;
