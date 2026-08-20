@@ -115,10 +115,11 @@ encrypting the root, installing Omarchy — rebooting between steps and resuming
 itself each time on tty1. The only thing you type after that is the disk
 passphrase, once, when it asks you to choose one.
 
-Expect about twenty minutes, three reboots, and two questions along the way.
-(Measured end to end on an M2 Max: sixteen minutes from a fresh Asahi Alarm
-install to the desktop, now that the aarch64 package repo means almost nothing
-is compiled locally.)
+Expect about fifteen minutes, three reboots, and two questions along the way.
+(Measured on an M2 Max: fourteen minutes from the first boot into Asahi Alarm to
+the Omarchy desktop, after roughly ten minutes for the Asahi Alarm installer
+itself. Almost nothing is compiled locally -- the aarch64 package repo carries
+the default set.)
 
 - **A gum dialog offering to build packages with no known aarch64 build.** Say
   no. `obs-studio` alone compiles for about three hours and then fails an
@@ -250,9 +251,9 @@ generation it is putting on the machine — an easy hour to lose. `-b quattro` i
 what makes it 4.x, and `cat version` is how you check before committing to it.
 (The guided setup above reads that file and refuses to install 3.x unasked.)
 
-That is the whole install. It takes roughly fifteen minutes on a good
-connection — most of the default set now comes prebuilt from the aarch64
-package repo rather than being compiled here — and it:
+That is the whole install. It takes under ten minutes on a good connection --
+most of the default set now comes prebuilt from the aarch64 package repo rather
+than being compiled here -- and it:
 
 - installs `yay` if you do not already have it
 - builds the four Omarchy packages from this checkout, since Omarchy's own
