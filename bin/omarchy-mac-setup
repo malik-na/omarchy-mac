@@ -331,14 +331,37 @@ fetch_self() {
   rm -f "$staged"
 }
 
+# Piped in through `bash -s`, this script has no file behind it: BASH_SOURCE is
+# an empty array, and every reference to it has to tolerate that or set -u kills
+# the run before main() is even reached.
 running_from_a_file() {
-  [[ -f ${BASH_SOURCE[0]} ]]
+  [[ -f ${BASH_SOURCE[0]:-} ]]
 }
 install_self() {
+  running_from_a_file || return 0
   if [[ ${BASH_SOURCE[0]} -ef $SELF ]]; then
     return 0
   fi
   install -Dm755 "${BASH_SOURCE[0]}" "$SELF"
+}
+
+# --help is answered before the piped re-exec below has a file to work with, so
+# fall back to the copy an earlier run left on disk, and to a one-liner when
+# there is no copy either.
+print_help() {
+  local source=""
+  if running_from_a_file; then
+    source=${BASH_SOURCE[0]}
+  elif [[ -f $SELF ]]; then
+    source=$SELF
+  fi
+  if [[ -n $source ]]; then
+    sed -n '/^# One command/,/^# where it left off/p' "$source" | sed 's/^# \{0,3\}//'
+  else
+    echo "Run with --status to see where this machine has got to, or with no"
+    echo "arguments to start the install. Download the script and run"
+    echo "\`$SELF --help\` for the full description."
+  fi
 }
 
 # The unit takes over tty1 so the next step runs, and can be watched, without
@@ -1085,7 +1108,7 @@ main() {
       --autologin) step_only=autologin ;;
       --abort) abort=1 ;;
       -h | --help)
-        sed -n '/^# One command/,/^# where it left off/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,3\}//'
+        print_help
         exit 0
         ;;
       *) fail "unknown argument: $1" ;;
@@ -1151,7 +1174,10 @@ main() {
 }
 
 # Sourcing the script exposes its functions to the tests without running
-# anything; executing it does the work.
-if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+# anything; executing it does the work. Piped through `bash -s` there is no
+# BASH_SOURCE at all -- that is an execution, not a sourcing, so it must still
+# run: comparing an empty BASH_SOURCE against $0 ("bash") would silently do
+# nothing at all.
+if [[ -z ${BASH_SOURCE[0]:-} || ${BASH_SOURCE[0]} == "$0" ]]; then
   main "$@"
 fi

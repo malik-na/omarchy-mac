@@ -536,5 +536,42 @@ check "no password is not a usable password" not has_password nopw
 check "an unknown user is not a usable password" not has_password ghost
 
 echo
+echo "=== arriving through a pipe, with no file behind the script ==="
+
+# These run the real script through `bash -s`, the way `curl ... | bash` does.
+# Sourcing it or stubbing BASH_SOURCE cannot catch this: under a pipe
+# BASH_SOURCE is an empty array, and set -u then kills the run at the
+# bottom-of-file guard before main() is ever reached. That shipped once --
+# "unbound variable BASH_SOURCE[0]" on a fresh Asahi install -- so the check
+# has to actually pipe. Each assertion is a function, because `check` runs its
+# argument directly and a `bash -c` subshell would not inherit $TOOL.
+piped() {
+  cat "$TOOL" | bash -s -- "$@" 2>&1
+}
+
+# Every assertion captures the output before grepping it. Piping straight into
+# `grep -q` looks equivalent but is not: grep exits on the first match, the
+# still-writing bash takes SIGPIPE, and pipefail -- left on by sourcing the
+# tool above -- fails the pipeline even though the match succeeded. Negated
+# checks then "pass" on the 141 rather than on what they claim to test.
+matches() {
+  local pattern="$1" text="$2"
+  grep -qiE -- "$pattern" <<<"$text"
+}
+
+no_unbound_when_piped() { ! matches 'unbound variable' "$(piped --status)"; }
+piped_reaches_main() { matches 'Omarchy Mac setup status' "$(piped --status)"; }
+piped_help_is_useful() { matches '[-][-]status' "$(piped --help)"; }
+piped_help_is_clean() { ! matches 'no such file|unbound variable' "$(piped --help)"; }
+file_help_prints_header() { matches 'carries the' "$(bash "$TOOL" --help 2>&1)"; }
+sourcing_runs_nothing() { ! matches 'Omarchy Mac setup' "$(bash -c 'source "$1"' _ "$TOOL" 2>&1)"; }
+
+check "piped --status does not die on an unbound variable" no_unbound_when_piped
+check "piped --status reaches main and prints the status" piped_reaches_main
+check "piped --help says something useful instead of failing" piped_help_is_useful
+check "piped --help does not error on a missing source file" piped_help_is_clean
+check "run from a file, --help still prints the header" file_help_prints_header
+check "sourcing still does not run main" sourcing_runs_nothing
+
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
