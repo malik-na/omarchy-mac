@@ -92,3 +92,13 @@ pass "the substitution asks for obsidian-appimage by name"
 grep -qx 'obsidian' "$ROOT/install/omarchy-aarch64-unavailable.packages" ||
   fail "the obsidian pkgbase is skipped in the default set"
 pass "the obsidian pkgbase is skipped in the default set"
+
+# The ARM repo carries a built obsidian-appimage, so the substitution must try
+# the repos before building 118 MB of AppImage locally -- and must still build
+# when the repo is unreachable.
+obsidian_script="$ROOT/install/user/hardware/apple/obsidian.sh"
+grep -qF 'omarchy-pkg-add obsidian-appimage' "$obsidian_script" ||
+  fail "the substitution tries the repos before building"
+grep -qF 'omarchy-pkg-aur-add obsidian-appimage' "$obsidian_script" ||
+  fail "the substitution still falls back to building"
+pass "the substitution prefers the repo and falls back to building"

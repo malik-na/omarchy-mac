@@ -11,6 +11,14 @@
 if [[ $(uname -m) == "aarch64" ]] && omarchy-cmd-missing obsidian; then
   echo "Installing Obsidian for Apple Silicon (the AppImage build)."
 
-  omarchy-pkg-aur-add obsidian-appimage ||
-    echo "Warning: obsidian-appimage failed to build; install it later with 'omarchy pkg aur add obsidian-appimage'." >&2
+  # The Omarchy ARM repo carries a built obsidian-appimage, so try the repos
+  # first: it is a 118 MB AppImage that every machine would otherwise download
+  # and repack for itself. omarchy-pkg-add skips packages the repos do not have,
+  # so fall back to building when the repo is missing or unreachable.
+  omarchy-pkg-add obsidian-appimage
+
+  if omarchy-cmd-missing obsidian; then
+    omarchy-pkg-aur-add obsidian-appimage ||
+      echo "Warning: obsidian-appimage failed to build; install it later with 'omarchy pkg aur add obsidian-appimage'." >&2
+  fi
 fi
