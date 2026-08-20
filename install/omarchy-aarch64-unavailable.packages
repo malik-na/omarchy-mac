@@ -33,3 +33,18 @@ dotnet-runtime
 # changes nothing about what ends up on the machine, and drops a Qt/C++ compile
 # plus its cli11 and vulkan-headers makedepends from every install.
 quickshell-git
+
+# pinta is arch=('x86_64') in the AUR, so makepkg refuses it in seconds -- but
+# yay installs makedepends before makepkg gets that far, and pinta's are
+# autoconf-archive, intltool and dotnet-sdk. A clean install was left with
+# dotnet-sdk-2.1 and friends orphaned for a package that never had a chance of
+# building. Cheap in time, expensive in leftovers.
+pinta
+
+# obsidian in the AUR is a pkgbase, not a package: pkgname=(${pkgbase}-{bin,appimage}).
+# Asking for "obsidian" installs the dependencies -- fuse2, for the AppImage --
+# builds, and then installs nothing, because no package by that name exists. A
+# clean aarch64 install ends up with fuse2 orphaned and no Obsidian. The
+# appimage variant does build here, so this is a naming problem rather than a
+# missing port: obsidian-appimage would work if it were asked for by name.
+obsidian
