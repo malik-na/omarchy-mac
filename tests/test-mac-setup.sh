@@ -429,12 +429,29 @@ echo "=== an install is finished only if both signs agree ==="
 # @factory is a top-level subvolume: rolling @ back to @fresh leaves it behind
 # while removing the install it was evidence of. Asked on its own, it reported
 # a rolled-back machine as finished, so --resume cleaned up and did nothing.
-check "both signs: finished" install_complete 1 1
-check "@factory alone is a rolled-back machine, not a finished one" \
-  not install_complete 1 0
-check "a runtime with no @factory is an install that did not finish" \
-  not install_complete 0 1
-check "neither is a machine that has not started" not install_complete 0 0
+# install_complete <marker> <factory> <runtime> <display-manager>
+#
+# The marker is written by this script when step 3 finishes. The other three
+# recognise a machine installed before the marker existed. @factory alone is not
+# enough -- it is a top-level subvolume that survives a rollback -- and neither
+# is the omarchy package, which lands early in the install. An install
+# interrupted after the packages therefore satisfies both, which is exactly what
+# reported "Setup complete" on a machine that had not finished. The display
+# manager is enabled at the end, so it is what tells the two apart.
+check "the marker alone is enough" install_complete 1 0 0 0
+check "the marker wins even mid-install" install_complete 1 1 1 0
+
+check "factory, package and display manager together: finished" \
+  install_complete 0 1 1 1
+
+check "an install interrupted after the packages is not finished" \
+  not install_complete 0 1 1 0
+check "a rolled-back machine with @factory still around is not finished" \
+  not install_complete 0 1 0 0
+check "packages without @factory is not finished" \
+  not install_complete 0 0 1 1
+check "nothing at all is a machine that has not started" \
+  not install_complete 0 0 0 0
 
 echo
 echo "=== the setup unit must not fight the display manager for VT 1 ==="
@@ -792,6 +809,21 @@ check "it asks nothing" no_questions_asked
 check "it does not re-create the user or relock root" no_user_created
 check "it does not rebuild the fonts" no_fonts_rebuilt
 check "it does not clone the repo" no_clone_made
+
+echo "=== an existing checkout is brought to the requested ref ==="
+
+# @home is not part of a root rollback, so a previous run's clone of
+# ~/.local/share/omarchy survives a restore of @fresh. Treating any .git as
+# good enough meant "install <repo> (<ref>)" installed whatever commit was left
+# there -- which is how a re-run kept building a package the branch had already
+# dropped, five commits behind and silent about it.
+checkout_is_fetched() { grep -qF 'fetch --prune origin "$ref"' "$TOOL"; }
+checkout_is_reset() { grep -qF 'checkout -B "$ref" FETCH_HEAD' "$TOOL"; }
+checkout_remote_is_set() { grep -qF 'remote set-url origin "$(clone_url)"' "$TOOL"; }
+
+check "an existing checkout is fetched" checkout_is_fetched
+check "and moved onto the requested ref" checkout_is_reset
+check "and pointed at the requested forge and repo" checkout_remote_is_set
 
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))

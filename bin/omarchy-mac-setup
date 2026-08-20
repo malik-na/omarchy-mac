@@ -217,6 +217,22 @@ apply_hostname() {
 
 # install.sh snapshots the finished system as @factory on its way out, so that
 # subvolume means an install once finished on this filesystem.
+# Written by this script when step 3 finishes, and nowhere else. It lives inside
+# @, so a rollback removes it along with the install it records -- unlike
+# @factory, which is a top-level subvolume and survives.
+INSTALLED_MARKER=/var/lib/omarchy-mac-setup/installed
+
+installed_marker_present() {
+  [[ -f ${OMARCHY_INSTALLED_MARKER:-$INSTALLED_MARKER} ]]
+}
+
+# The display manager is enabled at the end of Omarchy's install, so it
+# separates a finished install from one that got as far as the packages. The
+# omarchy package -- and therefore /usr/share/omarchy/version -- lands early.
+display_manager_enabled() {
+  [[ -L ${OMARCHY_DISPLAY_MANAGER_UNIT:-/etc/systemd/system/display-manager.service} ]]
+}
+
 factory_snapshot_exists() {
   btrfs subvolume list / 2>/dev/null | awk '{print $NF}' | grep -qx '@factory'
 }
@@ -231,15 +247,26 @@ omarchy_runtime_present() {
 # Pure: both signals, so the tests can walk the combinations that actually
 # occur -- a rollback, an install interrupted partway, a finished machine.
 install_complete() {
-  local factory="$1" runtime="$2"
-  [[ $factory == 1 && $runtime == 1 ]]
+  local marker="$1" factory="$2" runtime="$3" display="$4"
+
+  # This script's own marker is authoritative for anything it installed.
+  [[ $marker == 1 ]] && return 0
+
+  # Otherwise recognise a machine installed before this marker existed, or by
+  # hand. @factory and the omarchy package are not enough on their own: both
+  # are true of an install that was interrupted after the packages landed,
+  # because @factory survives a rollback and the package arrives early. The
+  # display manager is what only a finished install has.
+  [[ $factory == 1 && $runtime == 1 && $display == 1 ]]
 }
 
 omarchy_is_installed() {
-  local factory=0 runtime=0
+  local marker=0 factory=0 runtime=0 display=0
+  installed_marker_present && marker=1
   factory_snapshot_exists && factory=1
   omarchy_runtime_present && runtime=1
-  install_complete "$factory" "$runtime"
+  display_manager_enabled && display=1
+  install_complete "$marker" "$factory" "$runtime" "$display"
 }
 
 # Pure: given the machine's state and what the user asked for, name the next
@@ -948,11 +975,24 @@ step_omarchy() {
   local home
   home=$(getent passwd "$username" | cut -d: -f6)
 
+  # A rollback to @fresh does not touch @home, so an earlier run's clone is
+  # still sitting here -- on whatever commit it was then. Accepting any .git as
+  # good enough meant "install $repo ($ref)" silently installed that instead,
+  # which is how a re-run kept building a package the branch had already
+  # dropped. Bring an existing checkout to the requested ref rather than
+  # trusting it.
   if [[ ! -d $home/.local/share/omarchy/.git ]]; then
     log "Cloning $repo ($ref) into $home/.local/share/omarchy"
     sudo -u "$username" mkdir -p "$home/.local/share"
     sudo -u "$username" -H git -C / clone --branch "$ref" \
       "$(clone_url)" "$home/.local/share/omarchy"
+  else
+    log "Updating $home/.local/share/omarchy to $repo ($ref)"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" remote set-url origin "$(clone_url)"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" fetch --prune origin "$ref" ||
+      fail "could not fetch $ref from $repo"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" checkout -B "$ref" FETCH_HEAD ||
+      fail "could not check out $ref in $home/.local/share/omarchy"
   fi
 
   ensure_quickshell_source "$username"
@@ -969,6 +1009,8 @@ step_omarchy() {
 
   configure_autologin "$username"
   verify_initramfs
+  mkdir -p "$(dirname "$INSTALLED_MARKER")"
+  date -u +%Y-%m-%dT%H:%M:%SZ >"$INSTALLED_MARKER"
   reboot_now "Omarchy installed."
 }
 
