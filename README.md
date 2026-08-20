@@ -115,14 +115,20 @@ encrypting the root, installing Omarchy — rebooting between steps and resuming
 itself each time on tty1. The only thing you type after that is the disk
 passphrase, once, when it asks you to choose one.
 
-Expect roughly an hour, three reboots, and two questions along the way:
+Expect about twenty minutes, three reboots, and two questions along the way.
+(Measured end to end on an M2 Max: sixteen minutes from a fresh Asahi Alarm
+install to the desktop, now that the aarch64 package repo means almost nothing
+is compiled locally.)
 
 - **A gum dialog offering to build packages with no known aarch64 build.** Say
   no. `obs-studio` alone compiles for about three hours and then fails an
   architecture check. It defaults to no.
 - **The disk passphrase**, chosen at the console on the boot that does the
-  encryption. That boot then rewrites the whole partition and prints nothing
-  while it does — ten to thirty minutes on a 200 GB root, and it is not stuck.
+  encryption. That boot then rewrites every block of the partition, printing
+  cryptsetup's own progress every five seconds — percentage, bytes written,
+  throughput and an ETA — so you can watch it rather than wonder. On an M2 Max
+  that runs at about 1 GiB/s, so a 200 GB root takes roughly three and a half
+  minutes. It is safe to interrupt: the next boot resumes where it stopped.
 
 Encrypted machines log straight into the desktop afterwards: the passphrase at
 boot is the authentication, and a second password immediately after it protects
@@ -244,8 +250,9 @@ generation it is putting on the machine — an easy hour to lose. `-b quattro` i
 what makes it 4.x, and `cat version` is how you check before committing to it.
 (The guided setup above reads that file and refuses to install 3.x unasked.)
 
-That is the whole install. It takes roughly 40 minutes on a good connection,
-almost all of it building the AUR packages in the default set, and it:
+That is the whole install. It takes roughly fifteen minutes on a good
+connection — most of the default set now comes prebuilt from the aarch64
+package repo rather than being compiled here — and it:
 
 - installs `yay` if you do not already have it
 - builds the four Omarchy packages from this checkout, since Omarchy's own
@@ -287,6 +294,24 @@ sudo journalctl -u NetworkManager -b
 ```
 
 Replace `wlan0` with your wireless device name. Inspect `sudo journalctl -u NetworkManager -b` and `/var/log/pacman.log` for clues.
+
+### SSH stopped working after the install
+
+Asahi Alarm ships openssh enabled — the images are built for headless boards —
+and Omarchy's install turns on a default-deny firewall that never opens port 22.
+Nothing is uninstalled; the machine simply stops answering, which looks exactly
+like sshd having been removed. This bites on Apple Silicon in particular,
+because the install is often driven from another machine.
+
+Turn it back on deliberately:
+
+```bash
+omarchy-setup-security-sshd
+```
+
+It enables `sshd`, adds `ufw limit 22/tcp`, and offers to fetch your public keys
+from `https://github.com/<user>.keys`. The same thing lives in the menu under
+Setup → Security → SSH.
 
 ### The machine boots to `grub rescue>`
 
