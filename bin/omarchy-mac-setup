@@ -1209,6 +1209,16 @@ main() {
 
   mkdir -p "$(dirname "$LOG")"
 
+  # Nothing left to do: say so before touching anything. Discovering this only
+  # after the block below meant a machine that was already finished still had
+  # its root account locked, its user re-created, its fonts rebuilt and its
+  # keymap reapplied -- writes to a machine that was then told there was
+  # nothing to do.
+  if (( ! resume )) && [[ $(current_step) == "done" ]]; then
+    run_step done
+    exit 0
+  fi
+
   if (( ! resume )); then
     ask_questions
     # The checkout comes first so a branch that is missing this script's tools

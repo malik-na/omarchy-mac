@@ -744,5 +744,54 @@ check "an unencrypted root with the flag set still reports requested" \
 check "an unencrypted root without the flag reports not requested" \
   matches 'encryption +not requested' "$(status_with 0 0)"
 
+echo "=== a finished machine is not worked on before being told it is finished ==="
+
+# Reaching the done step only after the setup block meant an already-complete
+# machine had its root account locked, its user re-created, its GRUB font
+# rebuilt and its keymap reapplied -- and was then told there was nothing to do.
+# Stubs report what would have run; fail is neutered so the EUID and
+# architecture checks do not end the run on a development machine.
+finished_machine_run() {
+  (
+    resume=0 step_only="" abort=0 status=0
+    username=someone hostname=box keymap=us want_encrypt=1
+    repo=owner/repo ref=branch forge=codeberg.org
+    invocation=()
+    fail() { :; }
+    quiet_console() { :; }
+    on_exit() { :; }
+    load_conf() { :; }
+    current_step() { echo done; }
+    ask_questions() { echo "ASKED QUESTIONS"; }
+    require_network() { :; }
+    ensure_source_checkout() { echo "CLONED"; }
+    ensure_user() { echo "CREATED USER"; }
+    lock_root_account() { echo "LOCKED ROOT"; }
+    setup_console_font() { echo "CONSOLE FONT"; }
+    setup_grub_font() { echo "GRUB FONT"; }
+    apply_keymap() { echo "APPLIED KEYMAP"; }
+    apply_hostname() { echo "APPLIED HOSTNAME"; }
+    save_conf() { :; }
+    install_self() { :; }
+    run_step() { echo "RAN STEP: $1"; }
+    main
+  ) 2>&1
+}
+
+finished_run=$(finished_machine_run)
+
+check "it runs the done step" matches 'RAN STEP: done' "$finished_run"
+
+no_questions_asked() { ! matches 'ASKED QUESTIONS' "$finished_run"; }
+no_user_created() { ! matches 'CREATED USER' "$finished_run"; }
+no_fonts_rebuilt() { ! matches 'GRUB FONT|CONSOLE FONT' "$finished_run"; }
+no_clone_made() { ! matches 'CLONED' "$finished_run"; }
+
+check "it asks nothing" no_questions_asked
+# ensure_user is also what locks the root account, so this covers both.
+check "it does not re-create the user or relock root" no_user_created
+check "it does not rebuild the fonts" no_fonts_rebuilt
+check "it does not clone the repo" no_clone_made
+
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
