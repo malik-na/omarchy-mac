@@ -1084,6 +1084,12 @@ ask_questions() {
 main() {
   local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 keep_root_password=0 encrypt_flag="" want_encrypt username hostname keymap repo ref
 
+  # The parse loop below shifts every argument away, so keep a copy first. The
+  # piped re-exec has to hand the same arguments to the copy on disk: without
+  # them the second run falls back to the defaults and installs a different
+  # repo and branch than the one asked for.
+  local -a invocation=("$@")
+
   load_conf
 
   while (( $# )); do
@@ -1127,7 +1133,7 @@ main() {
   # with stdin back on the terminal so the questions below can be answered.
   if ! running_from_a_file; then
     fetch_self
-    exec bash "$SELF" "$@" </dev/tty
+    exec bash "$SELF" "${invocation[@]}" </dev/tty
   fi
 
   trap on_exit EXIT

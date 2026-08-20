@@ -573,5 +573,55 @@ check "piped --help does not error on a missing source file" piped_help_is_clean
 check "run from a file, --help still prints the header" file_help_prints_header
 check "sourcing still does not run main" sourcing_runs_nothing
 
+echo "=== the piped re-exec carries its arguments ==="
+
+# The parse loop shifts every argument away, so "$@" is empty by the time the
+# re-exec runs. That shipped: a piped run with --repo/--ref fetched the right
+# script, then re-ran it with no arguments at all and went for the DEFAULT repo
+# and branch -- Omarchy 3 upstream instead of the branch asked for. Only the
+# unrelated Omarchy-3 guard caught it.
+#
+# Stubs walk main() to that one line without root: running_from_a_file reports
+# a pipe, fetch_self does nothing, fail is made non-fatal so the EUID check
+# does not end the run, and exec is shadowed by a function so this process
+# survives to be asserted on.
+#
+# It has to run under a pty. The re-exec carries a `</dev/tty` redirection, and
+# with no controlling terminal that redirection fails -- which skips the call
+# entirely and falls through into the interactive prompts, hanging the suite
+# instead of failing it. `script` supplies the terminal; timeout is the
+# backstop if a future change reintroduces the fall-through.
+reexec_command() {
+  local harness output
+  harness=$(mktemp)
+  cat >"$harness" <<'HARNESS'
+source "$TOOL" 2>/dev/null
+set +e
+running_from_a_file() { return 1; }
+fetch_self() { :; }
+load_conf() { :; }
+fail() { :; }
+exec() { printf 'EXEC: %s\n' "$*"; exit 0; }
+main --repo scottjones/omarchy-mac --ref feat/btrfs-encrypt-only
+HARNESS
+  output=$(TOOL="$TOOL" timeout 30 script -qec "bash '$harness'" /dev/null 2>/dev/null | tr -d '\r')
+  rm -f "$harness"
+  printf '%s\n' "$output"
+}
+
+reexec_output=$(reexec_command)
+
+check "the re-exec happens at all" \
+  matches 'EXEC:' "$reexec_output"
+
+check "--repo survives the parse loop" \
+  matches 'repo scottjones/omarchy-mac' "$reexec_output"
+
+check "--ref survives the parse loop" \
+  matches 'ref feat/btrfs-encrypt-only' "$reexec_output"
+
+check "it re-runs the copy installed on disk" \
+  matches 'omarchy-mac-setup' "$reexec_output"
+
 echo "=== $pass checks passed, $failures failed ==="
 (( failures == 0 ))
