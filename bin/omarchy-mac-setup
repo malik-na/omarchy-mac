@@ -1,0 +1,1295 @@
+#!/bin/bash
+
+# omarchy:summary=Guided end-to-end Omarchy Mac install: boot layout, encryption, Omarchy
+# omarchy:group=setup
+# omarchy:requires-sudo=true
+# omarchy:args=[--encrypt|--no-encrypt] [--user <name>] [--hostname <name>] [--keymap <name>] [--repo <owner/repo>] [--ref <branch>] [--forge <host>] [--status] [--step <name>] [--fonts] [--autologin] [--resume] [--abort] [--allow-omarchy3] [--keep-root-password]
+# omarchy:examples=sudo omarchy-mac-setup --encrypt | omarchy-mac-setup --status
+
+# One command, run once as root on a fresh Asahi Alarm install, that carries the
+# machine all the way to a booted Omarchy desktop. It asks its questions up
+# front, then drives the steps across the reboots each one needs, resuming
+# itself on every boot until the machine is done:
+#
+#   1. BOOT LAYOUT  Asahi Alarm's btrfs images keep /boot on the root
+#      filesystem, where GRUB cannot read it once the root is encrypted. The
+#      EFI partition is mounted at /boot instead.       (reboot)
+#   2. ENCRYPTION   The root is encrypted in place. You choose the disk
+#      passphrase at the console on the boot that does the work, and enter it
+#      on every boot after.                              (reboot)
+#   3. OMARCHY      The repo is cloned and install.sh runs as your user.
+#                                                        (reboot into Omarchy)
+#
+# The only thing you type after starting it is the disk passphrase.
+#
+# Each step is done by the tool that owns it -- omarchy-system-boot-to-esp and
+# omarchy-system-btrfs-migrate -- from a checkout this script makes. Where the
+# machine has got to is read from the machine itself (is /boot separate, is the
+# root a dm-crypt device, does @factory exist), so an interrupted run picks up
+# where it left off rather than repeating work.
+
+set -euo pipefail
+
+CONF=/etc/omarchy-mac-setup.conf
+SELF=/usr/local/bin/omarchy-mac-setup
+UNIT=/etc/systemd/system/omarchy-mac-setup.service
+SUDOERS=/etc/sudoers.d/01-omarchy-mac-setup
+SRC=/var/lib/omarchy-mac-setup/src
+LOG=/var/log/omarchy-mac-setup.log
+
+# Upstream, on the branch this is published from. The defaults have to name a
+# branch that actually carries this script and the two tools it drives, and the
+# check below refuses to install Omarchy 3 unasked -- so if this runs before
+# the merge that puts Quattro on main, it stops with a message naming the
+# branch to pass instead rather than installing the wrong generation.
+DEFAULT_REPO=malik-na/omarchy-mac
+DEFAULT_REF=main
+# The host the repo is fetched from. Overridable because the same repo is
+# mirrored on more than one forge, and an install should not be stopped by one
+# of them being unreachable -- which has happened: codeberg.org stopped
+# completing TCP handshakes mid-install. It is also the whole change needed if
+# the project's home moves.
+DEFAULT_FORGE=codeberg.org
+
+# Everything this script shells out to, and therefore everything the chosen
+# branch has to contain.
+REQUIRED_TOOLS=(omarchy-system-boot-to-esp omarchy-system-btrfs-migrate)
+
+# quickshell's AUR source, and the mirror the project publishes itself.
+QUICKSHELL_UPSTREAM=https://git.outfoxxed.me/quickshell/
+QUICKSHELL_MIRROR=https://github.com/quickshell-mirror/
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+banner() {
+  printf '\n\033[36m=== %s ===\033[0m\n\n' "$*"
+}
+
+# ---------------------------------------------------------------------------
+# State, read from the machine rather than remembered
+# ---------------------------------------------------------------------------
+
+root_source() {
+  findmnt -no SOURCE / | sed 's/\[.*\]//'
+}
+
+# /boot has to be its own (unencrypted) partition before the root can be
+# encrypted, or GRUB loses its modules and kernel behind the LUKS header.
+boot_is_separate() {
+  local boot
+  boot=$(findmnt -no SOURCE /boot 2>/dev/null | sed 's/\[.*\]//') || return 1
+  [[ -n $boot && $boot != "$(root_source)" ]]
+}
+
+# A dm-crypt root is not the same as a finished one: an interrupted pass leaves
+# a mapped device whose LUKS2 header still records the reencryption. Treating
+# that as done would move on to the install while the encryption is unfinished.
+root_is_encrypted() {
+  local source backing
+  source=$(root_source)
+  [[ $(lsblk -no TYPE "$source" 2>/dev/null) == "crypt" ]] || return 1
+
+  backing=$(lsblk -nsplo NAME,TYPE "$source" 2>/dev/null |
+    awk '$2 == "part" {print $1; exit}')
+  if [[ -n $backing ]] && cryptsetup luksDump "$backing" 2>/dev/null | grep -q 'online-reencrypt'; then
+    return 1
+  fi
+  return 0
+}
+
+
+# vconsole.conf first: it is the file the initramfs reads, so it is the keymap
+# the passphrase prompt will actually use. localectl is the fallback, and it
+# reports a machine that has never set one as "(unset)" or "n/a" -- neither of
+# which is a keymap, though both look like one to anything that just takes the
+# text after the colon.
+current_keymap() {
+  local keymap="" vconsole=${OMARCHY_VCONSOLE_CONF:-/etc/vconsole.conf}
+
+  if [[ -f $vconsole ]]; then
+    keymap=$(sed -n 's/^KEYMAP=//p' "$vconsole" | tr -d '"' | head -1)
+  fi
+  if [[ -z $keymap ]]; then
+    keymap=$(localectl status 2>/dev/null | sed -n 's/.*VC Keymap: *//p' | head -1)
+  fi
+
+  case $keymap in
+    "" | "n/a" | "(unset)") keymap=us ;;
+  esac
+  printf '%s' "$keymap"
+}
+
+# localectl can only list keymaps when the kbd data is installed, which a
+# minimal Asahi image may not have. An unlistable machine is not a machine with
+# a bad keymap, so an empty list means "cannot check" rather than "wrong" --
+# refusing to proceed there would block an install over a lookup table.
+keymaps_listable() {
+  localectl --no-pager list-keymaps 2>/dev/null | grep -q .
+}
+
+valid_keymap() {
+  local keymap="$1"
+  [[ -n $keymap ]] || return 1
+  keymaps_listable || return 0
+  localectl --no-pager list-keymaps 2>/dev/null | grep -qix "$keymap"
+}
+
+# The keymap the console uses is the keymap the LUKS passphrase prompt uses:
+# omarchy_hooks.conf bundles /etc/vconsole.conf into the initramfs so the
+# prompt types the same letters the passphrase was chosen with. Get it wrong
+# and the machine rejects a passphrase its owner is typing correctly. The x86
+# ISO asks for this; nothing on the Mac path did.
+apply_keymap() {
+  local keymap="$1"
+  [[ -n $keymap ]] || return 0
+
+  log "Setting the console keymap to $keymap"
+  loadkeys "$keymap" 2>/dev/null || true
+  systemd-firstboot --keymap="$keymap" --force >/dev/null 2>&1 ||
+    localectl set-keymap "$keymap" >/dev/null 2>&1 ||
+    warn "could not persist the keymap; the unlock prompt keeps the current one"
+
+  # localectl writes vconsole.conf itself, but not on every path, and the
+  # initramfs reads that file rather than asking localectl.
+  touch /etc/vconsole.conf
+  if grep -q '^KEYMAP=' /etc/vconsole.conf; then
+    sed -i "s|^KEYMAP=.*|KEYMAP=$keymap|" /etc/vconsole.conf
+  else
+    printf 'KEYMAP=%s\n' "$keymap" >>/etc/vconsole.conf
+  fi
+}
+current_hostname() {
+  local name
+  name=$(hostnamectl --static 2>/dev/null) || name=""
+  [[ -n $name ]] || name=$(cat /etc/hostname 2>/dev/null || true)
+  [[ -n $name ]] || name=$(uname -n)
+  printf '%s' "$name"
+}
+
+# RFC 1123: each dot-separated label is 1–63 characters of letters, digits and
+# hyphens, and cannot start or end with a hyphen. Dots are allowed so a fully
+# qualified name can be given.
+valid_hostname() {
+  local name="$1"
+  [[ -n $name ]] || return 1
+  (( ${#name} <= 253 )) || return 1
+  [[ $name =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]
+}
+
+# Keep the name resolving locally as well: sudo warns about an unresolvable
+# host, and plenty of desktop software looks itself up. 127.0.1.1 is where a
+# machine's own name goes when it is not a real network address.
+ensure_hosts_entry() {
+  local name="$1" short=${1%%.*} entry
+  if [[ $name == "$short" ]]; then
+    entry=$name
+  else
+    entry="$name $short"
+  fi
+
+  if grep -qE '^127\.0\.1\.1[[:space:]]' /etc/hosts; then
+    sed -i "s|^127\.0\.1\.1[[:space:]].*|127.0.1.1\t$entry|" /etc/hosts
+  else
+    printf '127.0.1.1\t%s\n' "$entry" >>/etc/hosts
+  fi
+}
+
+apply_hostname() {
+  local name="$1"
+  [[ -n $name ]] || return 0
+  [[ $name != "$(current_hostname)" ]] || return 0
+
+  log "Setting hostname to $name"
+  hostnamectl set-hostname "$name" 2>/dev/null || printf '%s\n' "$name" >/etc/hostname
+  ensure_hosts_entry "$name"
+}
+
+# install.sh snapshots the finished system as @factory on its way out, so that
+# subvolume means an install once finished on this filesystem.
+# Written by this script when step 3 finishes, and nowhere else. It lives inside
+# @, so a rollback removes it along with the install it records -- unlike
+# @factory, which is a top-level subvolume and survives.
+INSTALLED_MARKER=/var/lib/omarchy-mac-setup/installed
+
+installed_marker_present() {
+  [[ -f ${OMARCHY_INSTALLED_MARKER:-$INSTALLED_MARKER} ]]
+}
+
+# The display manager is enabled at the end of Omarchy's install, so it
+# separates a finished install from one that got as far as the packages. The
+# omarchy package -- and therefore /usr/share/omarchy/version -- lands early.
+display_manager_enabled() {
+  [[ -L ${OMARCHY_DISPLAY_MANAGER_UNIT:-/etc/systemd/system/display-manager.service} ]]
+}
+
+factory_snapshot_exists() {
+  btrfs subvolume list / 2>/dev/null | awk '{print $NF}' | grep -qx '@factory'
+}
+
+# ...but @factory is a top-level subvolume, so rolling @ back to @fresh leaves
+# it in place while removing everything it was evidence of. The running system
+# has to be asked too, and its answer lives inside @.
+omarchy_runtime_present() {
+  [[ -f ${OMARCHY_RUNTIME_VERSION:-/usr/share/omarchy/version} ]]
+}
+
+# Pure: both signals, so the tests can walk the combinations that actually
+# occur -- a rollback, an install interrupted partway, a finished machine.
+install_complete() {
+  local marker="$1" factory="$2" runtime="$3" display="$4"
+
+  # This script's own marker is authoritative for anything it installed.
+  [[ $marker == 1 ]] && return 0
+
+  # Otherwise recognise a machine installed before this marker existed, or by
+  # hand. @factory and the omarchy package are not enough on their own: both
+  # are true of an install that was interrupted after the packages landed,
+  # because @factory survives a rollback and the package arrives early. The
+  # display manager is what only a finished install has.
+  [[ $factory == 1 && $runtime == 1 && $display == 1 ]]
+}
+
+omarchy_is_installed() {
+  local marker=0 factory=0 runtime=0 display=0
+  installed_marker_present && marker=1
+  factory_snapshot_exists && factory=1
+  omarchy_runtime_present && runtime=1
+  display_manager_enabled && display=1
+  install_complete "$marker" "$factory" "$runtime" "$display"
+}
+
+# Pure: given the machine's state and what the user asked for, name the next
+# step. Kept side-effect free so the tests can walk the whole matrix.
+next_step() {
+  local boot_separate="$1" encrypted="$2" want_encrypt="$3" installed="$4"
+
+  if [[ $installed == 1 ]]; then
+    echo done
+  elif [[ $want_encrypt == 1 && $encrypted != 1 ]]; then
+    if [[ $boot_separate == 1 ]]; then
+      echo encrypt
+    else
+      echo boot-layout
+    fi
+  else
+    echo omarchy
+  fi
+}
+
+current_step() {
+  local boot_separate=0 encrypted=0 installed=0
+  boot_is_separate && boot_separate=1
+  root_is_encrypted && encrypted=1
+  omarchy_is_installed && installed=1
+  next_step "$boot_separate" "$encrypted" "$want_encrypt" "$installed"
+}
+
+# ---------------------------------------------------------------------------
+# Persistence: the answers, this script, and the unit that resumes it
+# ---------------------------------------------------------------------------
+
+load_conf() {
+  # Plain defaults, not environment fallbacks: USERNAME and friends are already
+  # set in a login shell and would quietly pick the wrong answers.
+  want_encrypt=1
+  username=""
+  hostname=""
+  keymap=""
+  repo=$DEFAULT_REPO
+  ref=$DEFAULT_REF
+  forge=$DEFAULT_FORGE
+
+  if [[ -f $CONF ]]; then
+    # shellcheck source=/dev/null
+    . "$CONF"
+    want_encrypt=${WANT_ENCRYPT:-$want_encrypt}
+    username=${SETUP_USER:-$username}
+    hostname=${SETUP_HOSTNAME:-$hostname}
+    keymap=${SETUP_KEYMAP:-$keymap}
+    repo=${SETUP_REPO:-$repo}
+    ref=${SETUP_REF:-$ref}
+    forge=${SETUP_FORGE:-$forge}
+  fi
+}
+
+save_conf() {
+  cat >"$CONF" <<EOF
+# Written by omarchy-mac-setup; delete it to stop the guided install.
+WANT_ENCRYPT=$want_encrypt
+SETUP_USER=$username
+SETUP_HOSTNAME=$hostname
+SETUP_KEYMAP=$keymap
+SETUP_REPO=$repo
+SETUP_REF=$ref
+SETUP_FORGE=$forge
+EOF
+  chmod 600 "$CONF"
+}
+
+
+# Where to read one file out of the repo. Forgejo (Codeberg) and GitHub spell
+# this differently, and GitHub serves raw files from another host entirely, so
+# the shape follows the forge rather than being pasted together from parts.
+raw_url() {
+  local path="$1"
+
+  if [[ $forge == "github.com" ]]; then
+    printf 'https://raw.githubusercontent.com/%s/%s/%s\n' "$repo" "$ref" "$path"
+  else
+    printf 'https://%s/%s/raw/branch/%s/%s\n' "$forge" "$repo" "$ref" "$path"
+  fi
+}
+
+# Clone URL, which every forge spells the same way.
+clone_url() {
+  printf 'https://%s/%s.git\n' "$forge" "$repo"
+}
+
+# Piped in with `curl ... | bash`, this script has no file on disk: it cannot
+# install itself for the resume-on-boot unit, and every prompt would read from
+# stdin, which is the script. Fetch a copy, then hand over to it with stdin
+# back on the terminal -- after which everything downstream behaves exactly as
+# it does when the file was downloaded by hand.
+fetch_self() {
+  local url
+  url=$(raw_url "bin/${SELF##*/}")
+
+  [[ $url == https://* ]] || fail "refusing to fetch this script over $url"
+  command -v curl >/dev/null || fail "curl is needed to fetch this script"
+
+  log "Fetching the setup script from $repo ($ref)"
+  local staged
+  staged=$(mktemp /tmp/omarchy-mac-setup.XXXXXX)
+  if ! curl -fsSL "$url" -o "$staged"; then
+    rm -f "$staged"
+    fail "could not download $url -- is --ref $ref right?"
+  fi
+  # A 404 page or an empty file would install cleanly and fail confusingly
+  # later, so check this is the script before trusting it.
+  if [[ ! -s $staged ]] || ! head -1 "$staged" | grep -q '^#!/bin/bash'; then
+    rm -f "$staged"
+    fail "what came back from $url is not the setup script"
+  fi
+
+  install -Dm755 "$staged" "$SELF"
+  rm -f "$staged"
+}
+
+# Piped in through `bash -s`, this script has no file behind it: BASH_SOURCE is
+# an empty array, and every reference to it has to tolerate that or set -u kills
+# the run before main() is even reached.
+running_from_a_file() {
+  [[ -f ${BASH_SOURCE[0]:-} ]]
+}
+install_self() {
+  running_from_a_file || return 0
+  if [[ ${BASH_SOURCE[0]} -ef $SELF ]]; then
+    return 0
+  fi
+  install -Dm755 "${BASH_SOURCE[0]}" "$SELF"
+}
+
+# --help is answered before the piped re-exec below has a file to work with, so
+# fall back to the copy an earlier run left on disk, and to a one-liner when
+# there is no copy either.
+print_help() {
+  local source=""
+  if running_from_a_file; then
+    source=${BASH_SOURCE[0]}
+  elif [[ -f $SELF ]]; then
+    source=$SELF
+  fi
+  if [[ -n $source ]]; then
+    sed -n '/^# One command/,/^# where it left off/p' "$source" | sed 's/^# \{0,3\}//'
+  else
+    echo "Run with --status to see where this machine has got to, or with no"
+    echo "arguments to start the install. Download the script and run"
+    echo "\`$SELF --help\` for the full description."
+  fi
+}
+
+# The unit takes over tty1 so the next step runs, and can be watched, without
+# anyone logging in. Conflicting with the getty keeps the two off each other's
+# console.
+install_unit() {
+  cat >"$UNIT" <<EOF
+[Unit]
+Description=Omarchy Mac guided setup
+ConditionPathExists=$CONF
+After=network-online.target systemd-user-sessions.service
+After=omarchy-btrfs-migrate-finish.service
+Conflicts=getty@tty1.service
+# SDDM runs its greeter on VT 1, which is the VT this takes to show its steps.
+# On the last boot -- the one that runs the done step and retires this unit --
+# both wanted it at once, and the session lost: no desktop on the first boot
+# after an install, every time, working on every boot after because by then
+# this unit is gone. Ordering SDDM after it makes them take turns.
+Before=sddm.service
+
+[Service]
+Type=oneshot
+# The splash covers the console this prints to, and on a rolled-back root there
+# may be no plymouth in the system at all to quit it later -- the initramfs
+# starts plymouthd, and a root that predates the Omarchy install has nothing
+# that ever stops it. Dismiss it before taking the tty. Leading - so a machine
+# without plymouth is not a failed unit.
+ExecStartPre=-/usr/bin/plymouth quit
+ExecStart=$SELF --resume
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+# The Omarchy step compiles AUR packages for the better part of an hour, and a
+# timeout that killed it mid-build would leave a half-installed machine. The
+# bounds that matter live in the script: the network wait gives up after 15
+# minutes, and each step either finishes or fails.
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable omarchy-mac-setup.service >/dev/null 2>&1
+}
+
+cleanup_all() {
+  rm -f "$CONF" "$SUDOERS"
+  if [[ -f $UNIT ]]; then
+    systemctl disable omarchy-mac-setup.service >/dev/null 2>&1 || true
+    rm -f "$UNIT"
+    systemctl daemon-reload
+  fi
+  restore_console
+}
+
+# The unit conflicts with getty@tty1 so the two do not fight over the console,
+# which means a step that dies leaves tty1 with no login -- on the machine whose
+# setup just failed. Every exit puts the getty back; during a reboot it is
+# harmless, and outside one it is the difference between a visible prompt and a
+# console that looks dead.
+restore_console() {
+  # Not when SDDM is going to own this VT: putting a getty back on tty1 in
+  # front of a display manager recreates the fight this unit just stopped
+  # having. A machine with SDDM has its way in already.
+  if systemctl is-enabled sddm.service >/dev/null 2>&1; then
+    return 0
+  fi
+  systemctl start getty@tty1.service >/dev/null 2>&1 || true
+}
+
+# Wi-Fi and Bluetooth drivers retry loudly on these machines, and their
+# messages land on the same console the setup is printing to. Quiet it while
+# the setup owns tty1; the messages still reach the kernel log, and the level
+# goes back on the way out.
+quiet_console() {
+  [[ -w /proc/sys/kernel/printk ]] || return 0
+  read -r SAVED_PRINTK _ </proc/sys/kernel/printk || SAVED_PRINTK=""
+  echo 3 >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+restore_printk() {
+  [[ -n ${SAVED_PRINTK:-} ]] || return 0
+  echo "$SAVED_PRINTK" >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+on_exit() {
+  revoke_passwordless_sudo
+  restore_printk
+  restore_console
+}
+
+reboot_now() {
+  local reason="$1"
+  log "$reason"
+  log "Rebooting in 5 seconds; the setup continues automatically on tty1."
+  sleep 5
+  systemctl reboot
+}
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+
+have_network() {
+  ip route 2>/dev/null | grep -q '^default '
+}
+
+require_network() {
+  have_network && return 0
+
+  warn "No default route -- the install needs the network."
+  warn "Connect with 'nmtui' on another console (Ctrl+Alt+F2), then come back."
+  local waited=0
+  while ! have_network; do
+    sleep 10
+    (( waited += 10 ))
+    (( waited % 60 == 0 )) && log "Still waiting for the network ($((waited / 60))m)"
+    (( waited > 900 )) && fail "no network after 15 minutes; run '$SELF --resume' when it is up"
+  done
+  log "Network is up."
+}
+
+# A Retina panel renders the kernel's 8x16 console font at about a millimetre
+# tall, and GRUB's built-in font is no better — which is a problem, because the
+# console is where the disk passphrase is typed and the GRUB editor is where
+# you end up when a boot has gone wrong. Both are set to something legible
+# before the first reboot.
+setup_console_font() {
+  command -v setfont >/dev/null || return 0
+
+  if ! pacman -Sy --noconfirm --needed terminus-font >/dev/null 2>&1; then
+    warn "Could not install terminus-font; leaving the console font alone."
+    return 0
+  fi
+
+  touch /etc/vconsole.conf
+  if grep -q '^FONT=' /etc/vconsole.conf; then
+    sed -i 's|^FONT=.*|FONT=ter-132b|' /etc/vconsole.conf
+  else
+    printf 'FONT=ter-132b\n' >>/etc/vconsole.conf
+  fi
+
+  # Immediately, so the rest of this run is readable too. The initramfs picks
+  # it up from vconsole.conf at the next mkinitcpio, which the encryption step
+  # runs anyway — so the passphrase prompt gets it as well.
+  setfont ter-132b 2>/dev/null || true
+}
+
+setup_grub_font() {
+  local ttf out=/boot/grub/fonts/unicode32.pf2 candidate
+  command -v grub-mkfont >/dev/null || {
+    warn "grub-mkfont is missing; leaving the GRUB font alone"
+    return 0
+  }
+
+  # A minimal Arch has no DejaVu, and silently giving up here is how the menu
+  # stayed unreadable on a machine that had run this. Try what Omarchy
+  # installs, then anything, then install DejaVu rather than skip.
+  for candidate in \
+    /usr/share/fonts/TTF/DejaVuSansMono.ttf \
+    /usr/share/fonts/ttf-jetbrains-mono-nerd/JetBrainsMonoNerdFont-Regular.ttf; do
+    [[ -f $candidate ]] && ttf=$candidate && break
+  done
+
+  if [[ -z ${ttf:-} ]]; then
+    ttf=$(find /usr/share/fonts -name '*Mono*.ttf' -print -quit 2>/dev/null || true)
+  fi
+  if [[ -z $ttf ]]; then
+    pacman -Sy --noconfirm --needed ttf-dejavu >/dev/null 2>&1 || true
+    ttf=$(find /usr/share/fonts -name 'DejaVuSansMono.ttf' -print -quit 2>/dev/null || true)
+  fi
+  if [[ -z $ttf ]]; then
+    warn "No TrueType font to build a GRUB font from; the menu keeps its size"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$out")"
+  if ! grub-mkfont -s 32 -o "$out" "$ttf"; then
+    warn "grub-mkfont failed on $ttf; the menu keeps its size"
+    return 0
+  fi
+
+  if grep -q '^GRUB_FONT=' /etc/default/grub 2>/dev/null; then
+    sed -i "s|^GRUB_FONT=.*|GRUB_FONT=$out|" /etc/default/grub
+  else
+    printf 'GRUB_FONT=%s\n' "$out" >>/etc/default/grub
+  fi
+
+  # GRUB_FONT is only a setting until grub.cfg is regenerated -- that is where
+  # the loadfont line lives.
+  if [[ -f /boot/grub/grub.cfg ]]; then
+    grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 ||
+      warn "could not regenerate grub.cfg; the GRUB menu keeps its old font"
+  fi
+  log "GRUB font built from $ttf at 32px"
+}
+
+# True when the staged checkout is the one being asked for and carries the
+# tools. A checkout left behind by an earlier, refused run is not: the version
+# guard rejects a branch only after cloning it, so a 3.x tree can be sitting
+# there when the corrected run starts -- and reusing it silently was how a run
+# reached "moving /boot onto the EFI partition" and then found no such file.
+checkout_matches() {
+  local dir="$1" want_repo="$2" want_ref="$3" url branch
+
+  [[ -d $dir/.git ]] || return 1
+  url=$(git -C "$dir" remote get-url origin 2>/dev/null) || return 1
+  branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 1
+
+  [[ $url == *"$want_repo"* ]] || return 1
+  [[ $branch == "$want_ref" ]] || return 1
+  tools_present "$dir"
+}
+
+ensure_source_checkout() {
+  if [[ -d $SRC/.git ]]; then
+    if checkout_matches "$SRC" "$repo" "$ref"; then
+      return 0
+    fi
+    log "The staged checkout is not $repo ($ref), or is missing the tools; replacing it"
+    rm -rf "$SRC"
+  fi
+
+  command -v git >/dev/null || pacman -Sy --noconfirm --needed git
+  mkdir -p "$(dirname "$SRC")"
+  log "Fetching $repo ($ref)"
+  # Shallow: this checkout only supplies the two tools and is thrown away. The
+  # user's own checkout below is cloned in full, because it stays as the live
+  # Omarchy install that `omarchy update` pulls into.
+  git clone --branch "$ref" --depth 1 "$(clone_url)" "$SRC" ||
+    fail "could not clone $repo at $ref"
+
+  # Anything that rejects this checkout takes it with it. Leaving a rejected
+  # tree behind is what made a corrected retry reuse the branch it had just
+  # refused.
+  if ! omarchy_generation_ok || ! tools_present "$SRC"; then
+    rm -rf "$SRC"
+    fail "$repo ($ref) is not usable; see the warnings above"
+  fi
+}
+
+# A branch can be a perfectly good Omarchy 4 branch and still not carry these
+# tools -- malik-na/quattro does not, today. Catching that here, before anything
+# is installed on the machine, turns a unit that fails on every boot into one
+# clear message.
+tools_present() {
+  local dir="$1" tool
+  for tool in "${REQUIRED_TOOLS[@]}"; do
+    if [[ ! -f $dir/bin/$tool ]]; then
+      warn "$dir has no bin/$tool -- wrong branch? Pass --repo/--ref."
+      return 1
+    fi
+  done
+  return 0
+}
+
+require_tools_present() {
+  tools_present "$1" || fail "$repo ($ref) does not carry the tools this drives"
+}
+
+# Until quattro is merged into main, main is still the Omarchy 3.x line -- and
+# its install.sh installs Omarchy 3 without ever announcing which generation it
+# is. Say the version out loud, and stop rather than silently deliver 3.x to
+# someone who came here for 4.
+omarchy_generation_ok() {
+  local version
+  version=$(head -1 "$SRC/version" 2>/dev/null || echo unknown)
+  log "This is Omarchy $version ($repo, branch $ref)"
+
+  if [[ $version == "unknown" || -z $version ]]; then
+    warn "$repo ($ref) has no version file -- cannot tell which Omarchy this is."
+  fi
+
+  if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
+    warn "Branch '$ref' of $repo is the Omarchy 3.x line."
+    warn "For Omarchy 4 pass a quattro-line branch: --ref quattro, until that"
+    warn "is merged into $DEFAULT_REF."
+    warn "Refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it."
+    return 1
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# The steps
+# ---------------------------------------------------------------------------
+
+step_boot_layout() {
+  banner "Step 1 of 3 -- boot layout"
+  log "/boot is on the root filesystem, where GRUB cannot reach it once the"
+  log "root is encrypted. Moving it onto the EFI partition."
+  bash "$SRC/bin/omarchy-system-boot-to-esp" --yes
+  reboot_now "Boot layout done."
+}
+
+step_encrypt() {
+  banner "Step 2 of 3 -- disk encryption"
+  log "Staging the in-place encryption of the root filesystem."
+  log "On the next boot you will CHOOSE THE DISK PASSPHRASE at this console,"
+  log "and the whole partition is rewritten -- that part takes a while and"
+  log "prints nothing. Do not power the machine off during it."
+  bash "$SRC/bin/omarchy-system-btrfs-migrate" --encrypt --yes
+  reboot_now "Encryption staged."
+}
+
+# Ordinary, permanent sudo for the wheel group -- the arrangement the user needs
+# for the rest of the machine's life, and what the manual instructions set up
+# by hand. Kept separate from the temporary NOPASSWD rule below so neither one
+# hides inside the other.
+ensure_wheel_sudo() {
+  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/00-wheel
+  chmod 440 /etc/sudoers.d/00-wheel
+}
+
+# Asahi Alarm ships a known root password. Once the owner exists with a password
+# and sudo, root does not need one of its own: locking it closes password login
+# for root everywhere, including over ssh the day someone installs it, and
+# leaves every recovery route intact -- sudo, the initramfs shell, which asks
+# for nothing, and init=/bin/bash from the GRUB line.
+#
+# The x86 ISO sets root's password to the owner's instead. Locking is the same
+# reasoning taken one step further: a password nobody uses is a password nobody
+# has to keep secret.
+user_has_password() {
+  [[ $(passwd -S "$1" 2>/dev/null | awk '{print $2}') == "P" ]]
+}
+
+# Pure: never lock root unless someone else can actually get in.
+should_lock_root() {
+  local keep="$1" owner_has_password="$2"
+  [[ $keep != 1 && $owner_has_password == 1 ]]
+}
+
+lock_root_account() {
+  local user="$1" owner_has_password=0
+
+  user_has_password "$user" && owner_has_password=1
+  if ! should_lock_root "${keep_root_password:-0}" "$owner_has_password"; then
+    if (( owner_has_password )); then
+      log "Leaving the root password alone (--keep-root-password)"
+    else
+      warn "$user has no password, so root's is being left alone -- otherwise"
+      warn "nothing could log in."
+    fi
+    return 0
+  fi
+
+  if passwd -l root >/dev/null 2>&1; then
+    log "Locked the root account; $user has sudo, and Asahi Alarm's default root"
+    log "password no longer opens anything."
+  else
+    warn "could not lock the root account; its shipped password still works"
+  fi
+}
+
+ensure_user() {
+  ensure_wheel_sudo
+
+  if ! id -u "$username" >/dev/null 2>&1; then
+    log "Creating user $username"
+    useradd -m -G wheel -s /bin/bash "$username"
+    log "Set a password for $username:"
+    until passwd "$username"; do
+      warn "Try again."
+    done
+  fi
+
+  lock_root_account "$username"
+}
+
+# install.sh runs as the user and calls sudo throughout, with nobody at the
+# keyboard to answer. This rule makes that possible and is removed the moment
+# the install returns -- including when it fails, which is why every exit from
+# step_omarchy goes through revoke_passwordless_sudo.
+grant_passwordless_sudo() {
+  printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$username" >"$SUDOERS"
+  chmod 440 "$SUDOERS"
+}
+
+revoke_passwordless_sudo() {
+  rm -f "$SUDOERS"
+}
+
+# The Omarchy install regenerates the initramfs, and its HOOKS come from a
+# drop-in written for x86. An image built without the asahi hook does not boot
+# this hardware — it wedges in the initramfs, keyboard included, which is only
+# discoverable by rebooting into it. Check before that reboot, while there is
+# still a shell to fix it from.
+# The HOOKS the next mkinitcpio run will use: its config, then the drop-ins in
+# the order mkinitcpio sources them -- which is where a later file assigning
+# HOOKS outright overrides everything before it.
+effective_hooks() {
+  local conf=${OMARCHY_MKINITCPIO_CONF:-/etc/mkinitcpio.conf}
+  local confd=${OMARCHY_MKINITCPIO_CONFD:-/etc/mkinitcpio.conf.d}
+
+  bash -c '
+    HOOKS=(); MODULES=(); FILES=(); BINARIES=()
+    [[ -f $1 ]] && source "$1"
+    for _conf in "$2"/*.conf; do
+      [[ -f $_conf ]] && source "$_conf"
+    done
+    printf "%s\n" "${HOOKS[*]}"
+  ' -- "$conf" "$confd" 2>/dev/null
+}
+
+hooks_include_asahi() {
+  [[ " $(effective_hooks) " == *" asahi "* ]]
+}
+
+
+# Omarchy enables SDDM but leaves autologin to the x86 ISO's provisioning step,
+# which never runs on a Mac: install/login/sddm.sh says outright that "the ISO
+# owns autologin/session state because it knows whether the target is
+# encrypted". Without it you land on a greeter that was never configured with a
+# username field, which looks exactly like a login refusing your password.
+#
+# The ISO's rule for an encrypted machine is autologin, permanently: the disk
+# passphrase at boot is the authentication, and asking for a second password
+# afterwards protects nothing that the first one did not.
+# The repo ships default/wayland-sessions/omarchy.desktop -- the uwsm-managed
+# Hyprland session the SDDM theme looks for -- and nothing on this path
+# installs it. Autologin pointing at a session file that exists only in git is
+# a black screen instead of a desktop.
+session_dirs() {
+  if [[ -n ${OMARCHY_SESSIONS_DIR:-} ]]; then
+    printf '%s\n' "$OMARCHY_SESSIONS_DIR"
+    return 0
+  fi
+  # SDDM scans both, and the omarchy package installs into the second -- which
+  # is why a machine with a working Omarchy session can still look like it has
+  # none if you only check /usr/share.
+  printf '%s\n' /usr/share/wayland-sessions /usr/local/share/wayland-sessions
+}
+
+session_file_path() {
+  local name="$1" dir
+  while read -r dir; do
+    [[ -f $dir/$name ]] || continue
+    printf '%s' "$dir/$name"
+    return 0
+  done < <(session_dirs)
+  return 1
+}
+
+install_session_file() {
+  local sessions candidate
+  sessions=$(session_dirs | head -1)
+
+  session_file_path omarchy.desktop >/dev/null && return 0
+  for candidate in \
+    "${OMARCHY_PATH:-}/default/wayland-sessions/omarchy.desktop" \
+    "$SRC/default/wayland-sessions/omarchy.desktop" \
+    "/home/${username:-}/.local/share/omarchy/default/wayland-sessions/omarchy.desktop"; do
+    if [[ -n $candidate && -f $candidate ]]; then
+      install -Dm644 "$candidate" "$sessions/omarchy.desktop"
+      log "Installed the Omarchy session file"
+      return 0
+    fi
+  done
+  return 0
+}
+
+# Whichever session is actually on disk, preferring Omarchy's own and then the
+# uwsm-managed one -- the SDDM theme picks any session whose name contains
+# "uwsm", so autologin should agree with it.
+desktop_session() {
+  local candidate
+
+  for candidate in omarchy.desktop hyprland-uwsm.desktop hyprland.desktop; do
+    if session_file_path "$candidate" >/dev/null; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+configure_autologin() {
+  local user="$1" session
+
+  command -v sddm >/dev/null || return 0
+  install_session_file
+
+  if ! session=$(desktop_session); then
+    warn "No wayland session found; leaving the greeter alone rather than"
+    warn "autologging into nothing."
+    return 0
+  fi
+
+  mkdir -p /etc/sddm.conf.d /var/lib/sddm
+  printf '[Autologin]\nUser=%s\nSession=%s\n' "$user" "$session" \
+    >/etc/sddm.conf.d/autologin.conf
+  printf '[Last]\nSession=%s\nUser=%s\n' "$session" "$user" \
+    >/var/lib/sddm/state.conf
+  log "SDDM will log $user straight into $session; the disk passphrase is the authentication"
+}
+verify_initramfs() {
+  # Asking the config rather than the built image: the config is what the build
+  # reads, and reading an image back means parsing whatever lsinitcpio prints
+  # today -- which failed a perfectly good initramfs once already.
+  [[ -e /usr/lib/initcpio/install/asahi ]] || return 0
+
+  if hooks_include_asahi; then
+    log "Initramfs hooks include asahi"
+    return 0
+  fi
+
+  warn "The initramfs hooks do not include asahi, which stages this machine's"
+  warn "firmware. An image built without it hangs before login."
+  log "Rebuilding it"
+  if ! mkinitcpio -P; then
+    fail "could not rebuild the initramfs; do not reboot until asahi is in HOOKS"
+  fi
+  hooks_include_asahi ||
+    fail "asahi is still missing from HOOKS -- check /etc/mkinitcpio.conf.d/"
+}
+
+# quickshell-git is the only AUR package for the Quattro shell, and its source
+# is one self-hosted git server. When that server is down the build fails and
+# takes the whole desktop with it -- there is no Quattro without quickshell.
+# The project publishes an official GitHub mirror; use it, but only when
+# upstream is genuinely unreachable, and say so rather than quietly building
+# from somewhere the PKGBUILD did not name.
+ensure_quickshell_source() {
+  # -H and -C /: sudo otherwise keeps root's HOME, and git run as another user
+  # from /root dies discovering a repository in a directory it cannot read
+  # ("fatal: error reading '/root/.git'") before it reaches --global at all.
+  local user="$1"
+
+  if sudo -u "$user" -H git -C / config --global --get-regexp 'url\..*\.insteadof' 2>/dev/null |
+    grep -q quickshell; then
+    return 0
+  fi
+
+  if timeout 30 git ls-remote --exit-code "${QUICKSHELL_UPSTREAM}quickshell.git" \
+    >/dev/null 2>&1; then
+    return 0
+  fi
+
+  warn "quickshell's upstream git ($QUICKSHELL_UPSTREAM) is unreachable."
+  log "Building from the project's own GitHub mirror instead:"
+  log "  $QUICKSHELL_MIRROR"
+  log "Undo later with:"
+  log "  git config --global --unset url.${QUICKSHELL_MIRROR}.insteadof"
+  sudo -u "$user" -H git -C / config --global \
+    "url.${QUICKSHELL_MIRROR}.insteadOf" "$QUICKSHELL_UPSTREAM"
+}
+
+step_omarchy() {
+  banner "Step 3 of 3 -- installing Omarchy"
+  require_network
+  ensure_user
+
+  local home
+  home=$(getent passwd "$username" | cut -d: -f6)
+
+  # A rollback to @fresh does not touch @home, so an earlier run's clone is
+  # still sitting here -- on whatever commit it was then. Accepting any .git as
+  # good enough meant "install $repo ($ref)" silently installed that instead,
+  # which is how a re-run kept building a package the branch had already
+  # dropped. Bring an existing checkout to the requested ref rather than
+  # trusting it.
+  if [[ ! -d $home/.local/share/omarchy/.git ]]; then
+    log "Cloning $repo ($ref) into $home/.local/share/omarchy"
+    sudo -u "$username" mkdir -p "$home/.local/share"
+    sudo -u "$username" -H git -C / clone --branch "$ref" \
+      "$(clone_url)" "$home/.local/share/omarchy"
+  else
+    log "Updating $home/.local/share/omarchy to $repo ($ref)"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" remote set-url origin "$(clone_url)"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" fetch --prune origin "$ref" ||
+      fail "could not fetch $ref from $repo"
+    sudo -u "$username" -H git -C "$home/.local/share/omarchy" checkout -B "$ref" FETCH_HEAD ||
+      fail "could not check out $ref in $home/.local/share/omarchy"
+  fi
+
+  ensure_quickshell_source "$username"
+  grant_passwordless_sudo
+
+  log "Running install.sh as $username -- this takes a while (AUR builds)."
+  # Run from a login shell so the install sees a normal user environment. The
+  # status is captured rather than left to set -e: a failed install must still
+  # give the NOPASSWD rule back before anything else happens.
+  local status=0
+  sudo -u "$username" -i bash -lc 'cd ~/.local/share/omarchy && bash install.sh' || status=$?
+  revoke_passwordless_sudo
+  (( status == 0 )) || fail "install.sh exited $status -- fix it and run '$SELF --resume'"
+
+  configure_autologin "$username"
+  verify_initramfs
+  mkdir -p "$(dirname "$INSTALLED_MARKER")"
+  date -u +%Y-%m-%dT%H:%M:%SZ >"$INSTALLED_MARKER"
+  reboot_now "Omarchy installed."
+}
+
+step_done() {
+  banner "Setup complete"
+  cleanup_all
+  log "Encryption: $(root_is_encrypted && echo "on ($(root_source))" || echo off)"
+  log "/boot: $(findmnt -no SOURCE /boot 2>/dev/null || echo '(not separate)')"
+  log "Log in as $username and enjoy Omarchy."
+  log "You can delete /boot.old and $SRC when you are happy with the machine."
+}
+
+
+# --step runs one step by name, out of order and regardless of what the machine
+# looks like: for re-running something that half-worked, or for a machine that
+# finished installing before a step existed. The state machine decides the
+# order on its own; this is the manual override.
+STEPS=(boot-layout encrypt omarchy fonts autologin keymap done)
+
+run_named_step() {
+  local step="$1"
+
+  case $step in
+    boot-layout | encrypt | omarchy)
+      # These drive the tools from the checkout, which a machine that never ran
+      # the guided setup will not have.
+      [[ -d $SRC/.git ]] || { require_network; ensure_source_checkout; }
+      run_step "$step"
+      ;;
+    fonts)
+      setup_console_font
+      setup_grub_font
+      log "Reboot to see the GRUB menu at the new size."
+      ;;
+    keymap)
+      [[ -n $keymap ]] || fail "no keymap recorded; pass --keymap <name>"
+      valid_keymap "$keymap" || fail "unknown keymap: $keymap"
+      apply_keymap "$keymap"
+      log "Rebuild the initramfs to give the unlock prompt the new layout: mkinitcpio -P"
+      ;;
+    autologin)
+      [[ -n $username ]] || fail "no user recorded; pass --user <name>"
+      id -u "$username" >/dev/null 2>&1 || fail "$username does not exist"
+      configure_autologin "$username"
+      log "Restart the greeter to see it: systemctl restart sddm"
+      ;;
+    done)
+      step_done
+      ;;
+    *)
+      fail "unknown step: $step (one of: ${STEPS[*]})"
+      ;;
+  esac
+}
+run_step() {
+  local step="$1"
+  case $step in
+    boot-layout) step_boot_layout ;;
+    encrypt) step_encrypt ;;
+    omarchy) step_omarchy ;;
+    done) step_done ;;
+    *) fail "unknown step: $step" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+
+print_status() {
+  local step
+  step=$(current_step)
+  banner "Omarchy Mac setup status"
+  printf '  root            %s (%s)\n' "$(root_source)" \
+    "$(root_is_encrypted && echo encrypted || echo "not encrypted")"
+  printf '  /boot           %s\n' \
+    "$(boot_is_separate && findmnt -no SOURCE /boot || echo "on the root filesystem")"
+  printf '  omarchy         %s\n' \
+    "$(omarchy_is_installed && echo installed || echo "not installed")"
+  # State first, intent only where there is still a choice: "requested" against
+  # an already-encrypted root reads as though the work is pending.
+  local encryption
+  if root_is_encrypted; then
+    encryption=done
+  elif ((want_encrypt)); then
+    encryption=requested
+  else
+    encryption="not requested"
+  fi
+  printf '  encryption      %s\n' "$encryption"
+  printf '  hostname        %s\n' "$(current_hostname)"
+  printf '  next step       %s\n\n' "$step"
+}
+
+ask_questions() {
+  local answer
+
+  banner "Omarchy Mac setup"
+  echo "This installs Omarchy on this machine, rebooting a few times on the way."
+  echo "It asks everything now, then runs on its own."
+  echo
+
+  if [[ -n $encrypt_flag ]]; then
+    : # already answered on the command line
+  elif root_is_encrypted; then
+    # Nothing left to decide. Asking whether to encrypt a root that is already a
+    # dm-crypt device invites a "no" that cannot be honoured -- next_step reads
+    # the disk, not this answer -- so it reports instead of asking. This is the
+    # path a resumed or re-run install takes, including after a rollback to a
+    # snapshot taken once the disk was already encrypted.
+    want_encrypt=1
+    log "The root is already encrypted; leaving it alone."
+  else
+    read -rp "Encrypt the disk? [Y/n] " answer
+    [[ ${answer,,} == n* ]] && want_encrypt=0 || want_encrypt=1
+  fi
+
+  while [[ -z $username ]]; do
+    read -rp "Username to create (your everyday login): " username
+    [[ $username =~ ^[a-z_][a-z0-9_-]*$ ]] || {
+      warn "That is not a valid Linux username."
+      username=""
+    }
+  done
+
+  while [[ -z $hostname ]]; do
+    read -rp "Hostname for this machine [$(current_hostname)]: " hostname
+    [[ -n $hostname ]] || hostname=$(current_hostname)
+    valid_hostname "$hostname" || {
+      warn "That is not a valid hostname (letters, digits and hyphens)."
+      hostname=""
+    }
+  done
+
+  # Not asked: an Apple keyboard on a fresh Asahi install is already on the
+  # layout it shipped with, and asking everyone to retype "us" is a question
+  # that earns nothing. It is still applied explicitly, and still printed --
+  # because it is the layout the disk passphrase gets typed under, and someone
+  # on a non-US keyboard needs to see that before choosing one.
+  [[ -n $keymap ]] || keymap=$(current_keymap)
+  valid_keymap "$keymap" || warn "keymap '$keymap' is not in localectl's list; using it anyway"
+
+  echo
+  log "Plan:"
+  log "  - keyboard layout: $keymap (--keymap to change; the passphrase is typed with it)"
+  log "  - name this machine $hostname"
+  log "  - create $username (in wheel, with sudo) and set its password"
+  # Only promise the work still to do: on a re-run these steps are usually
+  # already behind us, and a plan that claims otherwise reads as though the
+  # install is about to redo them.
+  if ((want_encrypt)); then
+    boot_is_separate || log "  - move /boot onto the EFI partition, then reboot"
+    root_is_encrypted || log "  - encrypt the root -- you choose the passphrase at the console"
+  fi
+  log "  - install Omarchy from $repo ($ref) as $username"
+  log "  - reboot into the desktop"
+  echo
+  read -rp "Start? [Y/n] " answer
+  # A full conditional, not `[[ ... ]] && fail`: as the last statement of the
+  # function that returns 1 on the yes path, and set -e turns that into a
+  # silent exit at the call site.
+  if [[ ${answer,,} == n* ]]; then
+    fail "not started"
+  fi
+  return 0
+}
+
+main() {
+  local resume=0 status=0 abort=0 step_only="" allow_omarchy3=0 keep_root_password=0 encrypt_flag="" want_encrypt username hostname keymap repo ref forge
+
+  # The parse loop below shifts every argument away, so keep a copy first. The
+  # piped re-exec has to hand the same arguments to the copy on disk: without
+  # them the second run falls back to the defaults and installs a different
+  # repo and branch than the one asked for.
+  local -a invocation=("$@")
+
+  load_conf
+
+  while (( $# )); do
+    case $1 in
+      --encrypt) encrypt_flag=1; want_encrypt=1 ;;
+      --no-encrypt) encrypt_flag=0; want_encrypt=0 ;;
+      --user) username=${2:?--user needs a name}; shift ;;
+      --hostname) hostname=${2:?--hostname needs a name}; shift ;;
+      --keymap)
+        keymap=${2:?--keymap needs a name}
+        valid_keymap "$keymap" || fail "unknown keymap: $keymap (see localectl list-keymaps)"
+        shift
+        ;;
+      --repo) repo=${2:?--repo needs owner/repo}; shift ;;
+      --ref) ref=${2:?--ref needs a branch}; shift ;;
+      --forge) forge=${2:?--forge needs a host}; shift ;;
+      --allow-omarchy3) allow_omarchy3=1 ;;
+      --keep-root-password) keep_root_password=1 ;;
+      --resume) resume=1 ;;
+      --status) status=1 ;;
+      --step) step_only=${2:?--step needs a name}; shift ;;
+      --fonts) step_only=fonts ;;
+      --autologin) step_only=autologin ;;
+      --abort) abort=1 ;;
+      -h | --help)
+        print_help
+        exit 0
+        ;;
+      *) fail "unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  if (( status )); then
+    print_status
+    exit 0
+  fi
+
+  (( EUID == 0 )) || fail "run as root"
+
+  # Piped in rather than downloaded: get a copy on disk and continue from it,
+  # with stdin back on the terminal so the questions below can be answered.
+  if ! running_from_a_file; then
+    fetch_self
+    exec bash "$SELF" "${invocation[@]}" </dev/tty
+  fi
+
+  trap on_exit EXIT
+  quiet_console
+
+  # One step by name, for re-running something rather than starting over.
+  if [[ -n $step_only ]]; then
+    run_named_step "$step_only"
+    exit 0
+  fi
+
+  if (( abort )); then
+    cleanup_all
+    log "Guided setup stopped. Nothing already done was undone."
+    exit 0
+  fi
+
+  [[ $(uname -m) == "aarch64" ]] || fail "this tool is for Apple Silicon (aarch64) installs"
+
+  mkdir -p "$(dirname "$LOG")"
+
+  # Nothing left to do: say so before touching anything. Discovering this only
+  # after the block below meant a machine that was already finished still had
+  # its root account locked, its user re-created, its fonts rebuilt and its
+  # keymap reapplied -- writes to a machine that was then told there was
+  # nothing to do.
+  if (( ! resume )) && [[ $(current_step) == "done" ]]; then
+    run_step done
+    exit 0
+  fi
+
+  if (( ! resume )); then
+    ask_questions
+    # The checkout comes first so a branch that is missing this script's tools
+    # fails here, with nothing installed on the machine -- rather than after the
+    # unit is enabled, where it would refuse the same way on every boot.
+    require_network
+    ensure_source_checkout
+    ensure_user
+    setup_console_font
+    setup_grub_font
+    apply_keymap "$keymap"
+    apply_hostname "$hostname"
+    save_conf
+    install_self
+    install_unit
+  else
+    # A resumed run has a checkout already, unless the first run was
+    # interrupted before it finished cloning.
+    [[ -d $SRC/.git ]] || { require_network; ensure_source_checkout; }
+  fi
+
+  run_step "$(current_step)"
+}
+
+# Sourcing the script exposes its functions to the tests without running
+# anything; executing it does the work. Piped through `bash -s` there is no
+# BASH_SOURCE at all -- that is an execution, not a sourcing, so it must still
+# run: comparing an empty BASH_SOURCE against $0 ("bash") would silently do
+# nothing at all.
+if [[ -z ${BASH_SOURCE[0]:-} || ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

@@ -1,0 +1,922 @@
+#!/bin/bash
+
+# omarchy:summary=Put a fresh Asahi install on btrfs and LUKS with the Omarchy snapshot layout
+# omarchy:group=setup
+# omarchy:requires-sudo=true
+# omarchy:args=[--encrypt] | --rehearse <device> [--encrypt]
+# omarchy:examples=sudo omarchy-system-btrfs-migrate --encrypt | sudo omarchy-system-btrfs-migrate --rehearse /dev/loop0
+
+# Gives a fresh Asahi Alarm install the Omarchy Quattro root layout —
+# btrfs with @, @home and @log, optionally inside a LUKS2 container — so
+# snapper, omarchy-system-factory-reset, and the rest of the snapshot tooling
+# work on Apple Silicon exactly as they do on the x86 ISO install.
+#
+# Run it as root on a freshly installed Asahi Arch system, BEFORE bootstrap.sh.
+# Either way it stages an initramfs hook and reboots, and the work happens
+# while the root is unmounted. What that work is depends on where the
+# installer left the machine:
+#
+# ext4 root (Asahi Alarm's plain images) — CONVERT
+#   The system is copied into RAM, the partition is rebuilt as btrfs (inside a
+#   new LUKS2 container with --encrypt), and the system is restored into @.
+#   Because the copy is staged in RAM this is strictly for FRESH installs: a
+#   power loss mid-conversion loses the root filesystem. The guard below
+#   refuses roots too large to stage safely.
+#
+# btrfs root (Asahi Alarm's btrfs images, which land on @ and @home) — ENCRYPT
+#   Nothing is staged and no filesystem is recreated. The filesystem is shrunk
+#   to make room for a LUKS2 header and cryptsetup encrypts the partition in
+#   place. That rewrites every block, so it is slow, but it is resumable: an
+#   interrupted pass is picked up on the next boot rather than losing data.
+#   The missing pieces of the layout (@log, the @fresh baseline) are added
+#   afterwards.
+#
+# In both cases the conversion boot does not depend on the GRUB edits: the
+# hook mounts the new root directly. GRUB is patched in place only as a
+# fallback in case the finish service cannot run. A one-shot service on the
+# first boot regenerates the GRUB config and initramfs and retires the hook.
+#
+# Modes:
+#   (default) [--encrypt]      stage the work on this machine and reboot
+#   --worker <device>          internal: do the work (called from the initramfs)
+#   --rehearse <device>        run the same core on a scratch block device
+#                              (a loop device) to exercise the logic in a test;
+#                              an ext4 device is converted, a btrfs one is
+#                              encrypted in place with --encrypt;
+#                              reads OMARCHY_BTRFS_PASSPHRASE for --encrypt
+
+set -euo pipefail
+
+CONF=/etc/omarchy-btrfs-migrate.conf
+WORKER_DIR=/usr/local/lib/omarchy-btrfs-migrate
+INITCPIO_HOOK=/etc/initcpio/hooks/omarchy-btrfs-migrate
+INITCPIO_INSTALL=/etc/initcpio/install/omarchy-btrfs-migrate
+FINISH_UNIT=/etc/systemd/system/omarchy-btrfs-migrate-finish.service
+MAPPER_NAME=root
+BTRFS_LABEL=omarchy
+MOUNT_OPTS="rw,noatime,compress=zstd:1"
+RAM_HEADROOM_KB=$((1024 * 1024)) # 1 GiB kept free beyond the staged copy
+LUKS_HEADER_MIB=32               # device shrink cryptsetup needs for a LUKS2 header
+FS_SHRINK_MIB=64                 # filesystem shrink, with slack over the header
+MIN_FREE_MIB=512                 # refuse to shrink a filesystem tighter than this
+ASSUME_YES=0                     # --yes: skip typed confirmations and self-reboot
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+# ---------------------------------------------------------------------------
+# Conversion core — shared by --worker (initramfs) and --rehearse (test).
+# Everything here must survive the initramfs environment: busybox userland
+# plus the binaries the initcpio install file adds explicitly.
+# ---------------------------------------------------------------------------
+
+# Copy the source filesystem into a RAM-backed tarball. Sets $staged_tar and
+# $old_fstab, and refuses when MemAvailable leaves no safe headroom.
+stage_to_ram() {
+  local dev="$1" src=/run/omb-src ram=/run/omb-ram
+  mkdir -p "$src" "$ram"
+
+  mount -o ro -t ext4 "$dev" "$src"
+
+  local used_kb avail_kb
+  used_kb=$(df -Pk "$src" | awk 'NR==2 {print $3}')
+  avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+  if (( used_kb + RAM_HEADROOM_KB >= avail_kb )); then
+    umount "$src"
+    fail "root uses ${used_kb}K but only ${avail_kb}K RAM is available; refusing to stage. This tool is for fresh installs only."
+  fi
+
+  mount -t tmpfs -o size=$((used_kb + RAM_HEADROOM_KB / 2))k omb-ram "$ram"
+
+  log "Copying the system into RAM ($((used_kb / 1024)) MiB)"
+  tar --numeric-owner --xattrs --acls -S -cpf "$ram/root.tar" -C "$src" .
+  cp "$src/etc/fstab" "$ram/fstab.old"
+
+  umount "$src"
+  staged_tar="$ram/root.tar"
+  old_fstab="$ram/fstab.old"
+}
+
+# Prompt for a passphrase on the current console and set $passphrase. The
+# default asks twice and requires a match (choosing a new one); "unlock" asks
+# once (entering an existing one). Honors OMARCHY_BTRFS_PASSPHRASE for
+# non-interactive rehearsals.
+read_passphrase() {
+  local mode=${1:-choose}
+
+  if [[ -n ${OMARCHY_BTRFS_PASSPHRASE:-} ]]; then
+    passphrase=$OMARCHY_BTRFS_PASSPHRASE
+    return 0
+  fi
+
+  if [[ $mode == "unlock" ]]; then
+    while true; do
+      printf 'Disk encryption passphrase: ' >&2
+      read -rs passphrase
+      printf '\n' >&2
+      [[ -n $passphrase ]] && return 0
+      printf 'Empty passphrase, try again.\n' >&2
+    done
+  fi
+
+  local first second
+  while true; do
+    printf 'Choose a disk encryption passphrase: ' >&2
+    read -rs first
+    printf '\nVerify passphrase: ' >&2
+    read -rs second
+    printf '\n' >&2
+    if [[ -z $first ]]; then
+      printf 'Empty passphrase, try again.\n' >&2
+    elif [[ $first != "$second" ]]; then
+      printf 'Passphrases do not match, try again.\n' >&2
+    else
+      passphrase=$first
+      return 0
+    fi
+  done
+}
+
+# Rebuild $dev as (LUKS2 →) btrfs with @/@home/@log, restore the staged
+# tarball into @, snapshot @fresh, and write the new fstab. Sets $target_dev
+# (the btrfs-bearing device) and $fs_uuid / $luks_uuid.
+rebuild_as_btrfs() {
+  local dev="$1" encrypt="$2" new=/run/omb-new
+  target_dev=$dev
+  luks_uuid=""
+
+  if [[ $encrypt == 1 ]]; then
+    log "Creating LUKS2 container (you will choose the disk passphrase now)"
+    local passphrase
+    read_passphrase
+    printf '%s' "$passphrase" | cryptsetup luksFormat --type luks2 --batch-mode --key-file=- "$dev"
+    printf '%s' "$passphrase" | cryptsetup open --key-file=- "$dev" "$MAPPER_NAME"
+    target_dev=/dev/mapper/$MAPPER_NAME
+    luks_uuid=$(blkid -o value -s UUID "$dev")
+  fi
+
+  log "Creating btrfs filesystem"
+  # Sectorsize is pinned to 4K even though Asahi kernels run 16K pages:
+  # 4K-on-16K subpage mounts are what Fedora Asahi ships in production, and a
+  # 4K filesystem stays readable on 4K-page kernels (x86 recovery included),
+  # which a 16K one would not. mkfs warns about the page-size mismatch; that
+  # warning is expected and harmless here.
+  mkfs.btrfs -q -f --sectorsize 4096 -L "$BTRFS_LABEL" "$target_dev"
+
+  mkdir -p "$new"
+  mount -t btrfs -o "$MOUNT_OPTS" "$target_dev" "$new"
+  btrfs subvolume create "$new/@" >/dev/null
+  btrfs subvolume create "$new/@home" >/dev/null
+  btrfs subvolume create "$new/@log" >/dev/null
+
+  log "Restoring the system into @"
+  tar --numeric-owner --xattrs --acls -xpf "$staged_tar" -C "$new/@"
+
+  # Relocate /home and /var/log contents into their subvolumes; the emptied
+  # directories remain as mount points.
+  local entry
+  for entry in "$new/@/home/"* "$new/@/home/".[!.]*; do
+    [[ -e $entry ]] && mv "$entry" "$new/@home/"
+  done
+  mkdir -p "$new/@/var/log"
+  for entry in "$new/@/var/log/"* "$new/@/var/log/".[!.]*; do
+    [[ -e $entry ]] && mv "$entry" "$new/@log/"
+  done
+
+  fs_uuid=$(blkid -o value -s UUID "$target_dev")
+
+  # New fstab: btrfs subvolume mounts plus every non-root line the old fstab
+  # carried (the ESP at /boot, in particular).
+  {
+    printf 'UUID=%s / btrfs %s,subvol=@ 0 0\n' "$fs_uuid" "$MOUNT_OPTS"
+    printf 'UUID=%s /home btrfs %s,subvol=@home 0 0\n' "$fs_uuid" "$MOUNT_OPTS"
+    printf 'UUID=%s /var/log btrfs %s,subvol=@log 0 0\n' "$fs_uuid" "$MOUNT_OPTS"
+    awk '$1 !~ /^#/ && $2 != "/" && $2 != "/home" && $2 != "/var/log" && NF >= 4' "$old_fstab"
+  } >"$new/@/etc/fstab"
+
+  mkdir -p "$new/@/var/lib/omarchy"
+  {
+    echo "converted: pre-boot initramfs migration"
+    echo "btrfs_uuid: $fs_uuid"
+    if [[ -n $luks_uuid ]]; then
+      echo "luks_uuid: $luks_uuid"
+    fi
+  } >"$new/@/var/lib/omarchy/btrfs-migrate-summary"
+}
+
+# True while a LUKS2 header still records an unfinished reencryption.
+reencrypt_pending() {
+  cryptsetup luksDump "$1" 2>/dev/null | grep -q 'online-reencrypt'
+}
+
+# Encrypt an already-btrfs $1 in place: shrink the filesystem to free the
+# space cryptsetup needs for a LUKS2 header, reencrypt the partition, and open
+# the container. Nothing is staged anywhere, so an interrupted pass resumes
+# instead of losing data. Sets $target_dev and $luks_uuid.
+# The passphrase goes to a keyfile rather than down stdin, because stdin is
+# what --batch-mode was there to protect: without -q cryptsetup may ask for
+# confirmation before reducing the device size, and a question nobody answers
+# blocks a boot. Feeding it YES up front settles that, and dropping -q is what
+# lets its progress line through -- with -q set, --progress-frequency prints
+# nothing at all, which is how an encryption pass came to look like a hang.
+# /run is tmpfs, so the key never touches a disk, and it is removed either way.
+reencrypt_with_progress() {
+  local dev="$1" passphrase="$2"
+  shift 2
+
+  # A fixed path written under umask 077, rather than mktemp and chmod: this
+  # runs in the initramfs, where the userland is busybox and every applet is a
+  # thing to be sure of. /run is tmpfs, so the key stays in RAM.
+  local keyfile=/run/omb-key status=0
+  rm -f "$keyfile"
+  (umask 077; printf '%s' "$passphrase" >"$keyfile")
+
+  printf 'YES\n' | cryptsetup reencrypt --key-file="$keyfile" \
+    --progress-frequency "${OMARCHY_BTRFS_PROGRESS_FREQUENCY:-5}" "$@" "$dev" || status=$?
+
+  rm -f "$keyfile"
+  return $status
+}
+
+encrypt_in_place() {
+  local dev="$1" src=/run/omb-src passphrase started elapsed
+  luks_uuid=""
+
+  if [[ $(blkid -o value -s TYPE "$dev" 2>/dev/null) == "crypto_LUKS" ]]; then
+    log "An earlier encryption pass was interrupted; resuming it"
+    read_passphrase unlock
+    started=$SECONDS
+    log "Resuming now -- cryptsetup reports progress every 5 seconds:"
+    reencrypt_with_progress "$dev" "$passphrase" --resume-only ||
+      fail "could not resume the encryption of $dev"
+  else
+    log "Shrinking the filesystem by ${FS_SHRINK_MIB} MiB to make room for the LUKS2 header"
+    mkdir -p "$src"
+    mount -t btrfs "$dev" "$src"
+    if ! btrfs filesystem resize "-${FS_SHRINK_MIB}M" "$src" >/dev/null; then
+      umount "$src"
+      fail "could not shrink the filesystem on $dev"
+    fi
+    umount "$src"
+
+    # blockdev is a busybox applet in the initramfs, but do not bet the message
+    # on it being there.
+    local size_gib=$(($(blockdev --getsize64 "$dev" 2>/dev/null || echo 0) / 1024 / 1024 / 1024))
+    log "Encrypting the partition (you will choose the disk passphrase now)"
+    if (( size_gib > 0 )); then
+      log "All ${size_gib} GiB are rewritten, whether or not anything is stored there."
+    else
+      log "Every block is rewritten, whether or not anything is stored there."
+    fi
+    log "It is safe to interrupt: the next boot resumes where it stopped."
+    read_passphrase choose
+
+    echo
+    started=$SECONDS
+    log "Encrypting $dev now. Progress follows, updated every 5 seconds:"
+    echo
+    reencrypt_with_progress "$dev" "$passphrase" \
+      --encrypt --type luks2 --reduce-device-size "${LUKS_HEADER_MIB}M" ||
+      fail "could not encrypt $dev"
+  fi
+
+  elapsed=$(( SECONDS - started ))
+  echo
+  log "Encryption finished in $(( elapsed / 60 ))m $(( elapsed % 60 ))s"
+
+  printf '%s' "$passphrase" | cryptsetup open --key-file=- "$dev" "$MAPPER_NAME"
+  target_dev=/dev/mapper/$MAPPER_NAME
+  luks_uuid=$(blkid -o value -s UUID "$dev")
+}
+
+# Bring an existing btrfs root the rest of the way to the Omarchy layout: add
+# the @log subvolume the Asahi Alarm images do not create, take the @fresh
+# baseline, and record what happened. Sets $fs_uuid.
+adopt_existing_btrfs() {
+  local new=/run/omb-new entry subvols
+  mkdir -p "$new"
+  # subvolid=5 pins this to the top of the tree: an existing install may have
+  # set @ as the default subvolume, and the layout is edited from above it.
+  mount -t btrfs -o "$MOUNT_OPTS,subvolid=5" "$target_dev" "$new"
+  fs_uuid=$(blkid -o value -s UUID "$target_dev")
+
+  [[ -d $new/@ ]] || fail "no @ subvolume on $target_dev"
+  subvols=$(btrfs subvolume list "$new" | awk '{print $NF}')
+
+  if ! printf '%s\n' "$subvols" | grep -qx '@log'; then
+    log "Creating the @log subvolume"
+    btrfs subvolume create "$new/@log" >/dev/null
+    mkdir -p "$new/@/var/log"
+    for entry in "$new/@/var/log/"* "$new/@/var/log/".[!.]*; do
+      [[ -e $entry ]] && mv "$entry" "$new/@log/"
+    done
+    grep -q ' /var/log ' "$new/@/etc/fstab" ||
+      printf 'UUID=%s /var/log btrfs %s,subvol=@log 0 0\n' "$fs_uuid" "$MOUNT_OPTS" \
+        >>"$new/@/etc/fstab"
+  fi
+
+  mkdir -p "$new/@/var/lib/omarchy"
+  {
+    echo "converted: in-place LUKS2 encryption"
+    echo "btrfs_uuid: $fs_uuid"
+    echo "luks_uuid: $luks_uuid"
+  } >"$new/@/var/lib/omarchy/btrfs-migrate-summary"
+}
+
+# The baseline, taken last -- after the boot config has been written into @.
+# Snapshotting before that captured a root that predated its own boot
+# configuration: restoring it and regenerating grub produced a machine with no
+# cryptdevice= on its command line, which cannot unlock itself and drops to an
+# emergency shell. A baseline that will not boot is not a baseline.
+snapshot_fresh() {
+  local new="$1"
+
+  printf '%s\n' "$(btrfs subvolume list "$new" | awk '{print $NF}')" |
+    grep -qx '@fresh' && return 0
+
+  log "Snapshotting the fresh system as @fresh"
+  btrfs subvolume snapshot -r "$new/@" "$new/@fresh" >/dev/null
+}
+
+# Patch the boot chain for subsequent boots: GRUB defaults (authoritative,
+# consumed by the finish service's grub-mkconfig) and grub.cfg in place (the
+# fallback if the finish service never runs). $1 is the mounted @ subvolume;
+# $2 asks for rootflags=subvol=@ to be added, which a root that was already
+# btrfs carries from its own grub-mkconfig run.
+patch_boot_config() {
+  local root="$1" add_rootflags="$2" esp=/run/omb-esp
+  local fstab=${old_fstab:-$root/etc/fstab}
+  local cmdline_extra="" rootspec="root=UUID=$fs_uuid"
+
+  if [[ -n $luks_uuid ]]; then
+    cmdline_extra="cryptdevice=UUID=$luks_uuid:$MAPPER_NAME:allow-discards"
+    rootspec="root=/dev/mapper/$MAPPER_NAME"
+  fi
+  if [[ $add_rootflags == 1 ]]; then
+    cmdline_extra="${cmdline_extra:+$cmdline_extra }rootflags=subvol=@"
+  fi
+
+  if [[ -f $root/etc/default/grub ]]; then
+    sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$cmdline_extra |" \
+      "$root/etc/default/grub"
+  fi
+
+  # In-place grub.cfg fallback: swap the old root spec for the new one on the
+  # ESP copy. The old root UUID is whatever the old fstab mounted at /.
+  local old_root_spec esp_uuid
+  old_root_spec=$(awk '$1 !~ /^#/ && $2 == "/" {print $1}' "$fstab")
+  esp_uuid=$(awk '$1 !~ /^#/ && $2 == "/boot" {print $1}' "$fstab")
+  esp_uuid=${esp_uuid#UUID=}
+
+  if [[ -n $esp_uuid ]]; then
+    mkdir -p "$esp"
+    if mount "/dev/disk/by-uuid/$esp_uuid" "$esp" 2>/dev/null; then
+      if [[ -f $esp/grub/grub.cfg && $old_root_spec == UUID=* ]]; then
+        sed -i "s|root=$old_root_spec|$rootspec $cmdline_extra|g" "$esp/grub/grub.cfg"
+      fi
+      umount "$esp"
+    else
+      warn "could not mount the ESP; grub.cfg fallback patch skipped (the finish service will regenerate it)"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# --worker: called by the initramfs hook with the resolved root device while
+# nothing is mounted. On success, writes the new root parameters for init to
+# /run/omarchy-btrfs-migrate.env and lets the boot continue.
+# ---------------------------------------------------------------------------
+# Wi-Fi retries, Bluetooth probes and DCP deferrals print to the console right
+# through this work — over the passphrase prompt, and through an encryption
+# pass that prints nothing of its own, so the only thing on screen ends up
+# being errors about something else. Drop the console level while we own the
+# screen; the messages still reach the kernel log.
+quiet_console() {
+  [[ -w /proc/sys/kernel/printk ]] || return 0
+  read -r SAVED_PRINTK _ </proc/sys/kernel/printk || SAVED_PRINTK=""
+  echo 3 >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+restore_printk() {
+  [[ -n ${SAVED_PRINTK:-} ]] || return 0
+  echo "$SAVED_PRINTK" >/proc/sys/kernel/printk 2>/dev/null || true
+}
+
+run_worker() {
+  local dev="$1"
+  [[ -f $CONF ]] && . "$CONF"
+
+  quiet_console
+  trap restore_printk EXIT
+
+  # The partition is addressed by PARTUUID, which survives both the conversion
+  # and the encryption. The root= the boot passed us does not: it names a
+  # filesystem UUID that stops resolving the moment a LUKS header lands on the
+  # partition, so a resumed encryption would never find its device.
+  if [[ -n ${OMARCHY_BTRFS_PARTUUID:-} && -b /dev/disk/by-partuuid/${OMARCHY_BTRFS_PARTUUID:-} ]]; then
+    dev=/dev/disk/by-partuuid/$OMARCHY_BTRFS_PARTUUID
+  fi
+
+  case ${OMARCHY_BTRFS_MODE:-convert} in
+    convert) worker_convert "$dev" "${OMARCHY_BTRFS_ENCRYPT:-0}" ;;
+    encrypt) worker_encrypt "$dev" ;;
+    *) return 0 ;;
+  esac
+}
+
+# ext4 → btrfs, staged through RAM.
+worker_convert() {
+  local dev="$1" encrypt="$2"
+
+  # Self-disarming: only an ext4 root is converted. After conversion (or on
+  # any unexpected layout) boot proceeds untouched.
+  local fstype
+  fstype=$(blkid -o value -s TYPE "$dev" 2>/dev/null || true)
+  [[ $fstype == "ext4" ]] || return 0
+
+  echo ""
+  log "Omarchy btrfs migration: converting $dev"
+
+  e2fsck -fy "$dev" >/dev/null 2>&1 || (( $? <= 2 )) || fail "e2fsck failed on $dev"
+
+  local staged_tar old_fstab target_dev fs_uuid luks_uuid
+  stage_to_ram "$dev"
+  rebuild_as_btrfs "$dev" "$encrypt"
+
+  mkdir -p /run/omb-final
+  mount -t btrfs -o "$MOUNT_OPTS,subvol=@" "$target_dev" /run/omb-final
+  patch_boot_config /run/omb-final 1
+  umount /run/omb-final 2>/dev/null || true
+
+  snapshot_fresh /run/omb-new
+  umount /run/omb-new
+  umount /run/omb-ram
+
+  local newroot="UUID=$fs_uuid"
+  [[ -n $luks_uuid ]] && newroot=/dev/mapper/$MAPPER_NAME
+  {
+    echo "root='$newroot'"
+    echo "rootfstype='btrfs'"
+    echo "rootflags='$MOUNT_OPTS,subvol=@'"
+  } >/run/omarchy-btrfs-migrate.env
+
+  log "Conversion complete; continuing boot on btrfs"
+}
+
+# btrfs → LUKS2-encrypted btrfs, in place.
+worker_encrypt() {
+  local dev="$1" fstype
+
+  fstype=$(blkid -o value -s TYPE "$dev" 2>/dev/null || true)
+
+  # Self-disarming: once the container is fully encrypted there is nothing
+  # left to do, and the ordinary encrypt hook has already opened it by the
+  # time we run. Anything that is neither the plain filesystem nor a
+  # half-encrypted container is left alone.
+  case $fstype in
+    btrfs) ;;
+    crypto_LUKS) reencrypt_pending "$dev" || return 0 ;;
+    *) return 0 ;;
+  esac
+
+  echo ""
+  log "Omarchy disk encryption: encrypting $dev in place"
+
+  local old_fstab="" target_dev fs_uuid luks_uuid
+  encrypt_in_place "$dev"
+  adopt_existing_btrfs
+
+  mkdir -p /run/omb-final
+  mount -t btrfs -o "$MOUNT_OPTS,subvol=@" "$target_dev" /run/omb-final
+  patch_boot_config /run/omb-final 0
+  umount /run/omb-final 2>/dev/null || true
+
+  snapshot_fresh /run/omb-new
+  umount /run/omb-new
+
+  {
+    echo "root='/dev/mapper/$MAPPER_NAME'"
+    echo "rootfstype='btrfs'"
+    echo "rootflags='$MOUNT_OPTS,subvol=@'"
+  } >/run/omarchy-btrfs-migrate.env
+
+  log "Encryption complete; continuing boot"
+}
+
+# ---------------------------------------------------------------------------
+# --rehearse: same conversion against a scratch block device, from a normal
+# running system. Exercises staging, (optional) LUKS, subvolume layout,
+# restore fidelity, and fstab generation. Never touches boot config.
+# ---------------------------------------------------------------------------
+run_rehearse() {
+  local dev="$1" encrypt="$2" fstype
+  [[ -b $dev ]] || fail "$dev is not a block device"
+  findmnt -no TARGET "$dev" >/dev/null 2>&1 && fail "$dev is mounted; unmount it first"
+  fstype=$(blkid -o value -s TYPE "$dev" 2>/dev/null || true)
+
+  local staged_tar old_fstab target_dev fs_uuid luks_uuid
+  MAPPER_NAME=omb-rehearse
+
+  case $fstype in
+    ext4)
+      stage_to_ram "$dev"
+      rebuild_as_btrfs "$dev" "$encrypt"
+      snapshot_fresh /run/omb-new
+      umount /run/omb-new
+      umount /run/omb-ram
+      ;;
+    btrfs)
+      (( encrypt )) || fail "$dev is already btrfs; rehearsing it needs --encrypt"
+      old_fstab=""
+      encrypt_in_place "$dev"
+      adopt_existing_btrfs
+      snapshot_fresh /run/omb-new
+      umount /run/omb-new
+      ;;
+    *) fail "$dev is ${fstype:-unformatted}; --rehearse takes an ext4 or btrfs device" ;;
+  esac
+
+  if [[ $encrypt == 1 ]]; then
+    cryptsetup close "$MAPPER_NAME"
+  fi
+
+  log "Rehearsal complete: $dev carries btrfs (@, @home, @log, @fresh)"
+}
+
+# ---------------------------------------------------------------------------
+# Default mode: stage the conversion on this machine.
+# ---------------------------------------------------------------------------
+
+write_initcpio_files() {
+  mkdir -p "$(dirname "$INITCPIO_HOOK")" "$(dirname "$INITCPIO_INSTALL")"
+
+  cat >"$INITCPIO_INSTALL" <<'EOF'
+#!/bin/bash
+
+build() {
+  add_binary bash
+  add_binary tar
+  add_binary blkid
+  add_binary e2fsck
+  add_binary mkfs.btrfs
+  add_binary btrfs
+  add_binary cryptsetup
+  add_binary /usr/lib/libgcc_s.so.1
+  add_module btrfs
+  add_module dm-crypt
+  add_file /usr/local/lib/omarchy-btrfs-migrate/worker /usr/bin/omarchy-btrfs-migrate-worker 755
+  add_file /etc/omarchy-btrfs-migrate.conf
+  add_runscript
+}
+
+help() {
+  echo "One-shot hook that converts an ext4 root to btrfs, or encrypts a btrfs"
+  echo "root in place, before the root is mounted."
+  echo "Staged by omarchy-system-btrfs-migrate; removed by its finish service."
+}
+EOF
+
+  cat >"$INITCPIO_HOOK" <<'EOF'
+#!/usr/bin/ash
+
+run_hook() {
+    [ -f /etc/omarchy-btrfs-migrate.conf ] || return 0
+    . /etc/omarchy-btrfs-migrate.conf
+
+    local dev=""
+
+    # Prefer the partition's PARTUUID: it is the one name that survives both
+    # the conversion and a half-finished encryption, so an interrupted pass
+    # can still find its device on the next boot.
+    if [ -n "${OMARCHY_BTRFS_PARTUUID:-}" ]; then
+        dev=$(resolve_device "PARTUUID=$OMARCHY_BTRFS_PARTUUID") || dev=""
+    fi
+    [ -n "$dev" ] || dev=$(resolve_device "$root") || return 0
+
+    omarchy-btrfs-migrate-worker --worker "$dev" || {
+        err "omarchy btrfs migration failed; dropping to a shell"
+        launch_interactive_shell
+    }
+
+    if [ -f /run/omarchy-btrfs-migrate.env ]; then
+        . /run/omarchy-btrfs-migrate.env
+    fi
+}
+EOF
+}
+
+write_finish_service() {
+  install -d "$WORKER_DIR"
+
+  cat >"$WORKER_DIR/finish" <<'EOF'
+#!/bin/bash
+# First-boot cleanup after the btrfs migration: regenerate boot config from
+# inside the converted system and retire the initramfs hook.
+set -uo pipefail
+
+CONF=/etc/omarchy-btrfs-migrate.conf
+LOG=/var/log/omarchy-btrfs-migrate.log
+exec >>"$LOG" 2>&1
+
+echo "=== btrfs migrate finish: $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+OMARCHY_BTRFS_MODE=convert
+[[ -f $CONF ]] && . "$CONF"
+
+if [[ $(findmnt -no FSTYPE /) != btrfs ]]; then
+  echo "root is not btrfs yet; the conversion has not run -- leaving everything staged"
+  exit 0
+fi
+
+findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' || {
+  echo "root is btrfs but not mounted from @; refusing to clean up"
+  exit 1
+}
+
+# In encrypt mode the root is btrfs before and after, so the only proof the
+# work happened is that it now sits on a dm-crypt device.
+if [[ $OMARCHY_BTRFS_MODE == "encrypt" ]]; then
+  root_source=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+  if [[ $(lsblk -no TYPE "$root_source" 2>/dev/null) != "crypt" ]]; then
+    echo "root is not on a dm-crypt device; the encryption has not run -- leaving everything staged"
+    exit 0
+  fi
+fi
+
+sed -i 's/ *omarchy-btrfs-migrate//' /etc/mkinitcpio.conf
+rm -f /etc/initcpio/hooks/omarchy-btrfs-migrate \
+      /etc/initcpio/install/omarchy-btrfs-migrate \
+      /etc/omarchy-btrfs-migrate.conf
+
+mkinitcpio -P || exit 1
+grub-mkconfig -o /boot/grub/grub.cfg || exit 1
+
+systemctl disable omarchy-btrfs-migrate-finish.service
+rm -f /etc/systemd/system/omarchy-btrfs-migrate-finish.service
+touch /var/lib/omarchy/btrfs-migrate-done
+
+echo "btrfs migration finished and cleaned up"
+EOF
+  chmod 755 "$WORKER_DIR/finish"
+
+  cat >"$FINISH_UNIT" <<EOF
+[Unit]
+Description=Finish the Omarchy btrfs migration
+ConditionPathExists=$CONF
+
+[Service]
+Type=oneshot
+ExecStart=$WORKER_DIR/finish
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl enable omarchy-btrfs-migrate-finish.service >/dev/null 2>&1
+}
+
+patch_mkinitcpio_conf() {
+  local encrypt="$1"
+
+  grep -q '^MODULES=.*btrfs' /etc/mkinitcpio.conf ||
+    sed -i 's/^MODULES=(/MODULES=(btrfs /' /etc/mkinitcpio.conf
+
+  grep -q 'omarchy-btrfs-migrate' /etc/mkinitcpio.conf && return 0
+
+  local insert="omarchy-btrfs-migrate"
+  if [[ $encrypt == 1 ]] && ! grep -q '^HOOKS=.* encrypt ' /etc/mkinitcpio.conf; then
+    insert="encrypt omarchy-btrfs-migrate"
+  fi
+  sed -i "s/^\(HOOKS=(.*\) filesystems/\1 $insert filesystems/" /etc/mkinitcpio.conf
+
+  grep -q 'omarchy-btrfs-migrate filesystems' /etc/mkinitcpio.conf ||
+    fail "could not insert the migration hook into /etc/mkinitcpio.conf HOOKS; is 'filesystems' present?"
+}
+
+# Everything staged into $CONF for the initramfs worker, plus the hook, the
+# finish service, and the rebuilt initramfs. $1 is the mode, $2 whether LUKS
+# is involved.
+stage_worker() {
+  local mode="$1" encrypt="$2" rootdev partuuid
+
+  rootdev=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+  partuuid=$(blkid -o value -s PARTUUID "$rootdev" 2>/dev/null || true)
+
+  log "Staging the worker and initramfs hook"
+  install -Dm755 "${BASH_SOURCE[0]}" "$WORKER_DIR/worker"
+  {
+    printf 'OMARCHY_BTRFS_MODE=%s\n' "$mode"
+    printf 'OMARCHY_BTRFS_ENCRYPT=%s\n' "$encrypt"
+    printf 'OMARCHY_BTRFS_PARTUUID=%s\n' "$partuuid"
+  } >"$CONF"
+  write_initcpio_files
+  write_finish_service
+  patch_mkinitcpio_conf "$encrypt"
+
+  log "Rebuilding the initramfs"
+  mkinitcpio -P
+}
+
+confirm_reboot() {
+  local typed
+  if (( ASSUME_YES )); then
+    log "Not rebooting (--yes); the caller decides when."
+    return 0
+  fi
+  echo
+  read -rp "Reboot now? [y/N] " typed
+  if [[ ${typed,,} == y* ]]; then
+    reboot
+  fi
+}
+
+# Under --yes the typed confirmation is skipped: the caller (omarchy-mac-setup)
+# has already asked. $1 is the word a human would have typed.
+confirm_or_yes() {
+  local word="$1" typed
+  if (( ASSUME_YES )); then
+    log "Proceeding without confirmation (--yes)."
+    return 0
+  fi
+  read -rp "Type '$word' to continue: " typed
+  [[ $typed == "$word" ]] || fail "not confirmed"
+}
+
+run_stage() {
+  local encrypt="$1"
+
+  (( EUID == 0 )) || fail "run as root"
+  [[ $(uname -m) == aarch64 ]] || fail "this tool is for Apple Silicon (aarch64) installs"
+  [[ -f ${BASH_SOURCE[0]} ]] || fail "run this from a file, not via a pipe (curl -O it first)"
+  [[ -d /boot/grub ]] || fail "no GRUB found at /boot/grub; unsupported boot layout"
+
+  local rootfs
+  rootfs=$(findmnt -no FSTYPE /)
+  case $rootfs in
+    ext4) stage_convert "$encrypt" ;;
+    btrfs) stage_encrypt "$encrypt" ;;
+    *) fail "root is $rootfs; only ext4 and btrfs roots are supported" ;;
+  esac
+}
+
+# GRUB is installed with its prefix — modules, grub.cfg, kernel, initramfs —
+# under /boot. When /boot is a directory on the root filesystem instead of a
+# separately mounted EFI partition, anything that changes that filesystem takes
+# the bootloader's own files with it: a reformat changes the UUID its embedded
+# search looks for, and a LUKS header hides the filesystem outright. Either
+# lands the machine in `grub rescue>` with no way back in. Some Asahi Alarm
+# images are laid out exactly this way, so check before touching anything.
+require_separate_boot() {
+  local rootdev="$1" bootdev
+  bootdev=${OMARCHY_BOOT_SOURCE-$(findmnt -no SOURCE /boot 2>/dev/null | sed 's/\[.*\]//')}
+
+  [[ -n $bootdev && $bootdev != "$rootdev" ]] && return 0
+
+  echo >&2
+  warn "/boot is on the root filesystem, not on a separately mounted EFI partition."
+  warn "GRUB reads its modules and kernel from there before anything can be"
+  warn "unlocked, so this would leave the machine at a grub rescue prompt."
+  warn "Run 'sudo omarchy-system-boot-to-esp' to move /boot onto the EFI"
+  warn "partition, reboot to confirm the machine still comes up, then try again."
+  fail "refusing to make this machine unbootable"
+}
+
+# ext4 root: the full conversion, staged through RAM.
+stage_convert() {
+  local encrypt="$1"
+
+  require_separate_boot "$(findmnt -no SOURCE / | sed 's/\[.*\]//')"
+
+  local used_kb avail_kb
+  used_kb=$(df -Pk / | awk 'NR==2 {print $3}')
+  avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+  (( used_kb + RAM_HEADROOM_KB < avail_kb )) ||
+    fail "root uses $((used_kb / 1024)) MiB but only $((avail_kb / 1024)) MiB RAM is available. This tool stages the copy in RAM and is meant for fresh installs."
+
+  echo
+  log "This converts the root filesystem to btrfs ON THE NEXT BOOT."
+  log "Root: $(findmnt -no SOURCE /) ($((used_kb / 1024)) MiB used)"
+  [[ $encrypt == 1 ]] && log "Encryption: a LUKS2 container will be created (passphrase prompted during conversion)"
+  warn "The system is staged through RAM: a power loss during conversion loses the root filesystem."
+  warn "Only run this on a fresh install with nothing to lose."
+  echo
+  confirm_or_yes convert
+
+  ensure_packages "$encrypt"
+  stage_worker convert "$encrypt"
+
+  echo
+  log "Staged. The conversion runs early on the next boot."
+  [[ $encrypt == 1 ]] && log "You will be prompted to choose the disk passphrase on the console during that boot."
+  confirm_reboot
+}
+
+# btrfs root (an Asahi Alarm btrfs image): encrypt it in place and fill in the
+# rest of the layout. Nothing to do without --encrypt.
+stage_encrypt() {
+  local encrypt="$1" rootdev typed avail_mib
+
+  if (( ! encrypt )); then
+    log "root is already btrfs; the layout is in place."
+    log "Pass --encrypt to put it inside a LUKS2 container."
+    exit 0
+  fi
+
+  rootdev=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+  [[ $(lsblk -no TYPE "$rootdev" 2>/dev/null) != "crypt" ]] ||
+    fail "root is already on a dm-crypt device; it is encrypted"
+  [[ -b $rootdev ]] || fail "could not resolve the root device ($rootdev)"
+  [[ -n $(blkid -o value -s PARTUUID "$rootdev" 2>/dev/null || true) ]] ||
+    fail "the root device has no PARTUUID; the resume path needs one"
+
+  findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' ||
+    fail "root is btrfs but not mounted from the @ subvolume; unsupported layout"
+
+  require_separate_boot "$rootdev"
+
+  grep -q '^HOOKS=.*\bsystemd\b' /etc/mkinitcpio.conf &&
+    fail "this initramfs uses the systemd hooks; only the busybox 'encrypt' hook is wired up here"
+
+  avail_mib=$(($(df -Pk / | awk 'NR==2 {print $4}') / 1024))
+  (( avail_mib > MIN_FREE_MIB )) ||
+    fail "only ${avail_mib} MiB free on /; the filesystem must shrink by ${FS_SHRINK_MIB} MiB to fit a LUKS header"
+
+  echo
+  log "This encrypts the root filesystem IN PLACE ON THE NEXT BOOT."
+  log "Root: $rootdev"
+  log "The filesystem shrinks by ${FS_SHRINK_MIB} MiB, then every block is rewritten."
+  log "Nothing is copied anywhere, and an interrupted pass resumes on the next boot."
+  warn "Lose the passphrase and the data is gone; there is no recovery key."
+  warn "Back up anything that matters before starting."
+  echo
+  confirm_or_yes encrypt
+
+  ensure_packages 1
+  stage_worker encrypt 1
+
+  echo
+  log "Staged. The encryption runs early on the next boot."
+  log "You will be prompted to choose the disk passphrase on the console during that boot,"
+  log "and every boot after it will ask for that passphrase."
+  confirm_reboot
+}
+
+# btrfs-progs and cryptsetup are both in the Asahi Alarm base install, but a
+# Minimal image is worth checking before the point of no return.
+ensure_packages() {
+  local encrypt="$1" missing=()
+
+  command -v mkfs.btrfs >/dev/null 2>&1 || missing+=(btrfs-progs)
+  if (( encrypt )); then
+    command -v cryptsetup >/dev/null 2>&1 || missing+=(cryptsetup)
+  fi
+
+  if (( ${#missing[@]} )); then
+    log "Installing ${missing[*]}"
+    pacman -Sy --noconfirm --needed "${missing[@]}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+
+main() {
+  local mode=stage encrypt=0 device=""
+
+  while (( $# )); do
+    case $1 in
+      --encrypt) encrypt=1 ;;
+      -y|--yes) ASSUME_YES=1 ;;
+      --worker) mode=worker; device=${2:?--worker needs a device}; shift ;;
+      --rehearse) mode=rehearse; device=${2:?--rehearse needs a device}; shift ;;
+      -h|--help)
+        sed -n '/^# Gives a fresh/,/reads OMARCHY_BTRFS_PASSPHRASE/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,3\}//'
+        exit 0
+        ;;
+      *) fail "unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  case $mode in
+    stage) run_stage "$encrypt" ;;
+    worker) run_worker "$device" ;;
+    rehearse) run_rehearse "$device" "$encrypt" ;;
+  esac
+}
+
+# Sourcing the script exposes its functions to the guard tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

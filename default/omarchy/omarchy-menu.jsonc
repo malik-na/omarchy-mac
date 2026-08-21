@@ -209,7 +209,7 @@
   "install.browser.brave-origin": {"icon":"","label":"Brave Origin","when":"! omarchy-pkg-present brave-origin-bin","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-install-browser brave-origin'"},
   "install.browser.firefox": {"icon":"","label":"Firefox","when":"! omarchy-pkg-present firefox","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-install-browser firefox'"},
   "install.browser.zen": {"icon":"󰖟","label":"Zen","when":"! omarchy-pkg-present zen-browser-bin","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-install-browser zen'"},
-  "install.service.1password": {"icon":"󰢁","label":"1Password","when":"! omarchy-pkg-present 1password","action":"omarchy-launch-floating-terminal-with-presentation omarchy-install-service-1password"},
+  "install.service.1password": {"icon":"󰢁","label":"1Password","when":"omarchy-cmd-missing 1password","action":"omarchy-launch-floating-terminal-with-presentation omarchy-install-service-1password"},
   "install.service.dropbox": {"icon":"","label":"Dropbox","when":"! omarchy-pkg-present dropbox","action":"omarchy-launch-floating-terminal-with-presentation omarchy-install-service-dropbox"},
   "install.service.spotify": {"icon":"󰓇","label":"Spotify","when":"! omarchy-pkg-present spotify","action":"omarchy-launch-floating-terminal-with-presentation omarchy-install-service-spotify"},
   "install.service.signal": {"icon":"󰭹","label":"Signal","when":"! omarchy-pkg-present signal-desktop","action":"omarchy-launch-floating-terminal-with-presentation omarchy-install-service-signal"},

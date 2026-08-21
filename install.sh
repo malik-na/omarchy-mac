@@ -142,7 +142,10 @@ confirm() {
   local question="$1"
 
   if command -v gum >/dev/null 2>&1; then
-    gum confirm "$question" </dev/tty
+    # --default=false to match the [y/N] fallback below: gum selects Yes
+    # otherwise, so Enter accepts -- and what this asks about is whether to
+    # spend three hours building packages that were measured to fail.
+    gum confirm --default=false "$question" </dev/tty
   else
     local answer
     read -r -p "$question [y/N] " answer </dev/tty
@@ -222,6 +225,28 @@ run_system_setup() {
   omarchy-provision-user --first-install
 }
 
+# On a btrfs root (see omarchy-system-btrfs-migrate) record the finished
+# install as the @factory baseline, mirroring the snapshot the Quattro ISO
+# takes, so omarchy-system-factory-reset can return the machine to this state.
+# The reset itself scrubs user accounts from the clone, so a baseline taken
+# after user creation is fine. Silently does nothing on ext4 roots.
+snapshot_factory_baseline() {
+  [[ $(findmnt -no FSTYPE /) == btrfs ]] || return 0
+  findmnt -no OPTIONS / | grep -q 'subvol=/@\(,\|$\)' || return 0
+
+  local top=/run/omarchy-install-top device
+  device=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+
+  sudo mkdir -p "$top"
+  sudo mount -o subvolid=5 "$device" "$top"
+  if [[ ! -d $top/@factory ]]; then
+    log "Snapshotting the installed system as the @factory reset baseline"
+    sudo btrfs subvolume snapshot -r "$top/@" "$top/@factory" >/dev/null
+  fi
+  sudo umount "$top"
+  sudo rmdir "$top"
+}
+
 main() {
   check_preconditions
   ensure_gum
@@ -233,6 +258,7 @@ main() {
   install_default_package_set
   seed_user_defaults
   run_system_setup
+  snapshot_factory_baseline
 
   log "Install complete. Reboot to start Omarchy."
 }

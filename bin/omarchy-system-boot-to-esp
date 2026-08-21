@@ -1,0 +1,184 @@
+#!/bin/bash
+
+# omarchy:summary=Mount the EFI partition at /boot so an encrypted root can still boot
+# omarchy:group=system
+# omarchy:requires-sudo=true
+# omarchy:examples=sudo omarchy-system-boot-to-esp
+
+# Asahi Alarm's btrfs images keep /boot — grub's modules, grub.cfg, the kernel
+# and the initramfs — as a directory on the root filesystem, and mount the EFI
+# partition at /boot/efi. GRUB reads all of that before anything can be
+# unlocked, so encrypting a root laid out that way leaves the machine at a
+# `grub rescue>` prompt with no way back in. omarchy-system-btrfs-migrate
+# refuses to encrypt such a machine.
+#
+# This moves the contents of /boot onto the EFI partition and mounts it there
+# instead. That is the layout encrypted Arch installs normally use, and the
+# Asahi docs list it as supported: the OS ESP is "mounted at /boot/efi or
+# /boot". Firmware updates are unaffected — update-m1n1 locates the system ESP
+# itself rather than reading /boot/efi.
+#
+# Run it on a fresh install, REBOOT to confirm the machine still boots, and
+# only then encrypt. The old directory is kept as /boot.old until you delete
+# it, and grub's prefix ends up on unencrypted vfat, so a bad boot is
+# recoverable from the rescue prompt with:
+#
+#   set prefix=(hd0,gptN)/grub
+#   insmod normal
+#   normal
+
+set -euo pipefail
+
+STAGE=/run/omarchy-boot-to-esp
+# Kept free on the ESP beyond what /boot needs. A kernel update writes a new
+# vmlinuz and regenerates both the default and fallback initramfs, and the
+# fallback alone runs to tens of MiB.
+HEADROOM_MIB=128
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+# Rewrite the ESP's fstab entry to mount at /boot instead of /boot/efi. Reads
+# fstab on stdin and writes the new one on stdout, touching only the line whose
+# mount point is /boot/efi and leaving comments alone.
+rewrite_esp_mountpoint() {
+  awk '
+    /^[[:space:]]*#/ { print; next }
+    NF >= 4 && $2 == "/boot/efi" { $2 = "/boot"; print; next }
+    { print }
+  '
+}
+
+# Size of /boot on the root filesystem, in KiB. -x keeps du out of the ESP
+# mounted underneath it, which would otherwise count the firmware already on
+# the partition we are copying to.
+boot_size_kb() {
+  du -sxk /boot | awk '{print $1}'
+}
+
+esp_avail_kb() {
+  df -Pk "$1" | awk 'NR==2 {print $4}'
+}
+
+# True when /boot fits on the ESP with headroom left for a kernel update.
+boot_fits_esp() {
+  local need_kb="$1" avail_kb="$2"
+  (( need_kb + HEADROOM_MIB * 1024 < avail_kb ))
+}
+
+recovery_note() {
+  warn "Something failed partway through. To put the machine back as it was:"
+  warn "  umount /boot 2>/dev/null; rmdir /boot 2>/dev/null"
+  warn "  mv /boot.old /boot && mount ${esp:-<esp>} /boot/efi"
+  warn "and restore the /boot/efi line in /etc/fstab before rebooting."
+}
+
+main() {
+  local esp esp_fstype boot_kb avail_kb typed assume_yes=0
+
+  while (( $# )); do
+    case $1 in
+      -y | --yes) assume_yes=1 ;;
+      *) fail "unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  (( EUID == 0 )) || fail "run as root"
+  [[ $(uname -m) == "aarch64" ]] || fail "this tool is for Apple Silicon (aarch64) installs"
+
+  if findmnt -no SOURCE /boot >/dev/null 2>&1; then
+    log "/boot is already its own mount -- nothing to do."
+    exit 0
+  fi
+
+  esp=$(findmnt -no SOURCE /boot/efi 2>/dev/null) ||
+    fail "no EFI partition mounted at /boot/efi; nothing to move /boot onto"
+  esp_fstype=$(findmnt -no FSTYPE /boot/efi)
+  [[ $esp_fstype == "vfat" ]] || fail "/boot/efi is $esp_fstype, not vfat; refusing to touch it"
+
+  [[ -d /boot/grub ]] || fail "no /boot/grub; this expects a GRUB install"
+  [[ ! -e /boot.old ]] || fail "/boot.old already exists; move it aside first"
+  command -v grub-install >/dev/null || fail "grub-install not found"
+  command -v mkinitcpio >/dev/null || fail "mkinitcpio not found"
+
+  boot_kb=$(boot_size_kb)
+  avail_kb=$(esp_avail_kb /boot/efi)
+  boot_fits_esp "$boot_kb" "$avail_kb" ||
+    fail "/boot needs $((boot_kb / 1024)) MiB but the ESP has only $((avail_kb / 1024)) MiB free (keeping ${HEADROOM_MIB} MiB spare for kernel updates)"
+
+  echo
+  log "This moves /boot onto the EFI partition and mounts it there."
+  log "ESP: $esp ($((avail_kb / 1024)) MiB free)"
+  log "/boot: $((boot_kb / 1024)) MiB"
+  log "The old directory is kept as /boot.old."
+  warn "Reboot and confirm the machine still boots before encrypting anything."
+  echo
+  if (( assume_yes )); then
+    log "Proceeding without confirmation (--yes)."
+  else
+    read -rp "Type 'move' to continue: " typed
+    if [[ $typed != "move" ]]; then
+      fail "not confirmed"
+    fi
+  fi
+
+  trap recovery_note ERR
+
+  log "Copying /boot onto the ESP"
+  umount /boot/efi
+  rmdir /boot/efi 2>/dev/null || true
+  mkdir -p "$STAGE"
+  mount "$esp" "$STAGE"
+  # cp -r, not -a: vfat carries no ownership or modes to preserve, and -a only
+  # generates errors trying.
+  cp -r /boot/. "$STAGE"/
+  umount "$STAGE"
+  rmdir "$STAGE"
+
+  log "Mounting the ESP at /boot"
+  mv /boot /boot.old
+  mkdir /boot
+  mount "$esp" /boot
+
+  log "Pointing fstab at the new mount point"
+  cp /etc/fstab /etc/fstab.omarchy-bak
+  rewrite_esp_mountpoint </etc/fstab.omarchy-bak >/etc/fstab
+  awk '$1 !~ /^#/ && $2 == "/boot" {found = 1} END {exit !found}' /etc/fstab ||
+    fail "fstab has no /boot line after the rewrite; restore /etc/fstab.omarchy-bak before rebooting"
+  awk '$1 !~ /^#/ && $2 == "/boot/efi" {found = 1} END {exit found}' /etc/fstab ||
+    fail "fstab still mounts something at /boot/efi; restore /etc/fstab.omarchy-bak before rebooting"
+
+  log "Reinstalling GRUB with its prefix on the ESP"
+  # --removable puts the binary at EFI/BOOT/bootaa64.efi, which is what U-Boot
+  # loads on these machines.
+  grub-install --target=arm64-efi --efi-directory=/boot --boot-directory=/boot --removable
+  grub-mkconfig -o /boot/grub/grub.cfg
+
+  log "Rebuilding the initramfs onto the ESP"
+  mkinitcpio -P
+
+  trap - ERR
+
+  echo
+  log "Done. /boot is now $esp, and $(($(esp_avail_kb /boot) / 1024)) MiB is free on it."
+  log "REBOOT NOW and confirm the machine comes up before encrypting."
+  log "Once it does: sudo omarchy-system-btrfs-migrate --encrypt"
+  log "Then delete /boot.old, which is still holding the originals."
+}
+
+# Sourcing the script exposes its functions to the tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

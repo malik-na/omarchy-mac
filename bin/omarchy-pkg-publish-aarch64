@@ -1,0 +1,241 @@
+#!/bin/bash
+
+# omarchy:summary=Build AUR packages for Apple Silicon and publish them to the omarchy-aarch64 repo
+# omarchy:group=pkg
+# omarchy:args=[package...] [--from <dir>] [--dry-run]
+# omarchy:examples=omarchy-pkg-publish-aarch64 quickshell-git | omarchy-pkg-publish-aarch64 --from build-output
+
+# Every Omarchy Mac install compiles quickshell-git from source: half an hour
+# of Qt on a laptop, repeated on every machine, and reachable only while one
+# self-hosted git server is up. It went down mid-install once and took the
+# whole desktop with it, because there is no Quattro shell without quickshell.
+#
+# The fix is the repo that already exists. default/pacman/pacman-stable.conf
+# points pacman at a GitHub release serving a real pacman database, and this
+# publishes into it: build on this machine, add to the database, upload.
+# Installs then fetch a binary instead of building one.
+#
+# Run it on Apple Silicon as your regular user, with gh logged in to the
+# account that owns the package repo.
+#
+# The database is downloaded before it is added to, never recreated — the
+# packages already published are not this script's to drop.
+
+set -euo pipefail
+
+readonly checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The repo's shipped config when run from a checkout; an installed machine's
+# own /etc/pacman.conf otherwise, which carries the same [omarchy-aarch64]
+# section. Curling this one file somewhere and running it should work.
+find_pacman_conf() {
+  local candidate
+  for candidate in \
+    "$checkout/default/pacman/pacman-stable.conf" \
+    "${OMARCHY_PATH:-}/default/pacman/pacman-stable.conf" \
+    "$HOME/.local/share/omarchy/default/pacman/pacman-stable.conf" \
+    /usr/share/omarchy/default/pacman/pacman-stable.conf \
+    /etc/pacman.conf; do
+    [[ -n $candidate && -f $candidate ]] || continue
+    grep -q '^\[omarchy-aarch64\]' "$candidate" || continue
+    printf '%s\n' "$candidate"
+    return 0
+  done
+  return 1
+}
+readonly work_root="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-publish"
+
+log() {
+  printf '\033[32m==>\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[33mWarning:\033[0m %s\n' "$*" >&2
+}
+
+fail() {
+  printf '\033[31mError:\033[0m %s\n' "$*" >&2
+  exit 1
+}
+
+# Pull the GitHub repo and release tag out of the pacman Server line, so the
+# publisher and the machines installing from it can never disagree about where
+# the packages live. Prints "owner/repo tag".
+# The name a file takes once it is a GitHub release asset. GitHub allows no
+# colon in an asset name and substitutes a dot without saying so.
+github_asset_name() {
+  printf '%s\n' "${1//:/.}"
+}
+
+parse_repo_server() {
+  local url="$1" rest
+
+  [[ $url == https://github.com/*/releases/download/* ]] || return 1
+  rest=${url#https://github.com/}
+  local owner_repo=${rest%%/releases/download/*}
+  local tag=${rest##*/releases/download/}
+
+  [[ $owner_repo == */* && -n $tag && $tag != */* ]] || return 1
+  printf '%s %s\n' "$owner_repo" "$tag"
+}
+
+# The database is named after the pacman section: [omarchy-aarch64] serves
+# omarchy-aarch64.db.tar.zst.
+repo_name_from_conf() {
+  sed -n 's/^\[\(omarchy-aarch64\)\]$/\1/p' "$1" | head -1
+}
+
+server_url_from_conf() {
+  sed -n '/^\[omarchy-aarch64\]/,/^\[/p' "$1" |
+    sed -n 's/^Server[[:space:]]*=[[:space:]]*//p' | head -1
+}
+
+build_from_aur() {
+  local package="$1" build_dir="$2"
+
+  log "Building $package from the AUR"
+  rm -rf "$build_dir/$package"
+  git clone --depth 1 "https://aur.archlinux.org/$package.git" "$build_dir/$package" ||
+    fail "could not clone $package from the AUR"
+
+  (
+    cd "$build_dir/$package"
+    # -s installs missing dependencies; this is a real build of a real package,
+    # not the arch=any repackaging build-packages.sh does.
+    makepkg --force --noconfirm --syncdeps
+  ) || fail "$package failed to build"
+
+  local built=("$build_dir/$package"/*.pkg.tar.*)
+  [[ -e ${built[0]} ]] || fail "$package built nothing"
+  mv "${built[@]}" "$build_dir/"
+}
+
+main() {
+  local -a packages=() built=()
+  local from_dir="" dry_run=0 arg
+
+  while (( $# )); do
+    case $1 in
+      --from) from_dir=${2:?--from needs a directory}; shift ;;
+      --dry-run) dry_run=1 ;;
+      -h | --help)
+        sed -n '/^# Every Omarchy Mac/,/^# packages already published/p' "${BASH_SOURCE[0]}" |
+          sed 's/^# \{0,3\}//'
+        exit 0
+        ;;
+      -*) fail "unknown argument: $1" ;;
+      *) packages+=("$1") ;;
+    esac
+    shift
+  done
+
+  (( EUID != 0 )) || fail "run as your regular user, not as root"
+
+  local pacman_conf
+  pacman_conf=$(find_pacman_conf) ||
+    fail "no pacman config with an [omarchy-aarch64] section found"
+  log "Reading the repo target from $pacman_conf"
+
+  local repo_name server owner_repo tag
+  repo_name=$(repo_name_from_conf "$pacman_conf")
+  [[ -n $repo_name ]] || fail "$pacman_conf has no [omarchy-aarch64] section"
+  server=$(server_url_from_conf "$pacman_conf")
+  [[ -n $server ]] || fail "[omarchy-aarch64] in $pacman_conf has no Server"
+  read -r owner_repo tag < <(parse_repo_server "$server") ||
+    fail "cannot read a GitHub release from Server = $server"
+
+  log "Publishing to $owner_repo (release $tag) as $repo_name"
+
+  if [[ -n $from_dir ]]; then
+    mapfile -t built < <(find "$from_dir" -maxdepth 1 -name '*.pkg.tar.*' -print | sort)
+    (( ${#built[@]} )) || fail "no packages in $from_dir"
+  else
+    (( ${#packages[@]} )) || packages=(quickshell-git)
+    [[ $(uname -m) == "aarch64" ]] ||
+      fail "building runs on Apple Silicon; use --from to publish packages built elsewhere"
+    command -v makepkg >/dev/null || fail "makepkg is required (install base-devel)"
+
+    local build_dir="$work_root/build"
+    mkdir -p "$build_dir"
+    local package
+    for package in "${packages[@]}"; do
+      build_from_aur "$package" "$build_dir"
+    done
+    mapfile -t built < <(find "$build_dir" -maxdepth 1 -name '*.pkg.tar.*' -print | sort)
+    (( ${#built[@]} )) || fail "nothing was built"
+  fi
+
+  log "Packages to publish:"
+  printf '  %s\n' "${built[@]##*/}"
+
+  command -v repo-add >/dev/null || fail "repo-add is required (it ships with pacman)"
+  command -v gh >/dev/null || fail "gh is required, logged in to the account owning $owner_repo"
+
+  local db_dir="$work_root/db"
+  rm -rf "$db_dir"
+  mkdir -p "$db_dir"
+
+  # Fetch the live database first. repo-add on a fresh file would publish a
+  # database listing only what this run built, silently unpublishing the rest.
+  log "Fetching the current database"
+  local db_file
+  for db_file in "$repo_name.db.tar.zst" "$repo_name.files.tar.zst"; do
+    if ! gh release download "$tag" --repo "$owner_repo" --pattern "$db_file" \
+      --dir "$db_dir" 2>/dev/null; then
+      warn "$db_file is not published yet; starting a new database"
+    fi
+  done
+
+  # Stage under the name GitHub will actually serve. A release asset cannot hold
+  # a colon, and GitHub silently rewrites it to a dot rather than refusing the
+  # upload -- so an epoch package like brave-origin-bin-1:1.93.136 lands under a
+  # name the database does not name, and pacman 404s on it. Renaming before
+  # repo-add puts the served name in the database instead; pacman reads the
+  # package's own .PKGINFO for its identity, not the file name.
+  for pkg in "${built[@]}"; do
+    cp "$pkg" "$db_dir/$(github_asset_name "$(basename "$pkg")")"
+  done
+  (
+    cd "$db_dir"
+    # No --new: it skips packages already in the database, so a republished
+    # package -- a rebuild, or a correction like the epoch rename above --
+    # would silently keep the old entry. No --remove either: it deletes the
+    # package file once the entry is written, and these staged files are
+    # exactly what gets uploaded next.
+    repo-add "$repo_name.db.tar.zst" ./*.pkg.tar.*
+  )
+
+  # repo-add leaves .db and .files as symlinks to the tarballs; pacman fetches
+  # them by those names, and a GitHub asset cannot be a symlink. The symlink has
+  # to go before the copy, or cp resolves the destination back to its own source
+  # and refuses -- "are the same file".
+  (
+    cd "$db_dir"
+    rm -f "$repo_name.db" "$repo_name.files"
+    cp "$repo_name.db.tar.zst" "$repo_name.db"
+    cp "$repo_name.files.tar.zst" "$repo_name.files"
+  )
+
+  if (( dry_run )); then
+    log "Dry run; built and staged in $db_dir but nothing uploaded:"
+    ls -1 "$db_dir"
+    exit 0
+  fi
+
+  log "Uploading"
+  # Upload the staged copies, not the originals in "${built[@]}": the staged
+  # ones carry the names the database points at.
+  gh release upload "$tag" --repo "$owner_repo" --clobber \
+    "$db_dir"/*.pkg.tar.* \
+    "$db_dir/$repo_name.db" "$db_dir/$repo_name.db.tar.zst" \
+    "$db_dir/$repo_name.files" "$db_dir/$repo_name.files.tar.zst"
+
+  log "Published. Machines get these from pacman now instead of building them."
+  log "Check with: sudo pacman -Sy && pacman -Ss ${packages[0]:-quickshell}"
+}
+
+# Sourcing the script exposes its functions to the tests without running
+# anything; executing it does the work.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
