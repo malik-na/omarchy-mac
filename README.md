@@ -27,6 +27,7 @@ A concise, beginner-friendly guide to install Omarchy Mac (Asahi Alarm + Omarchy
 - [Quick start](#quick-start)
 - [Detailed installation](#detailed-installation)
   - [Run Asahi Alarm](#run-asahi-alarm)
+  - [First boot: connect to the network](#first-boot-connect-to-the-network)
   - [The short version: one command](#the-short-version-one-command)
   - [Optional: btrfs snapshots and disk encryption](#optional-btrfs-snapshots-and-disk-encryption)
   - [Initial Arch setup](#initial-arch-setup)
@@ -67,7 +68,9 @@ Run the Asahi Alarm installer from macOS Terminal and follow the UI.
 curl https://asahi-alarm.org/installer-bootstrap.sh | sh
 ```
 
-Select `Asahi Arch Minimal`. When the installer finishes and you boot into Arch, continue with the detailed instructions below.
+Choose `Asahi Alarm Minimal (BTRFS)`. When the installer finishes and you boot
+into Arch, connect to Wi‑Fi with `nmtui` first, then continue with the detailed
+instructions below.
 
 ---
 
@@ -78,35 +81,52 @@ Follow these steps after the installer has finished and you have booted into the
 ### Run Asahi Alarm
 
 - From macOS Terminal run the quick start command above.
-- In the installer choose `Asahi Arch Minimal` and allocate at least 50 GB for Linux.
-  Its btrfs variant works too — see the next section.
+- In the installer choose `Asahi Alarm Minimal (BTRFS)` and allocate at least
+  50 GB for Linux. The plain `Asahi Alarm Minimal` (ext4) works too — the setup
+  below converts it — but the BTRFS image already has the right shape.
+
+### First boot: connect to the network
+
+Boot into Arch, log in as root, and get online before anything else — every
+path below starts with a download:
+
+```bash
+nmtui
+```
+
+If `nmtui` shows an error right after activating the connection, reboot and try
+again.
 
 ### The short version: one command
 
-On the first boot into Arch, as root:
+On the first boot into Arch, as root and with the network up:
 
 ```bash
-curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-mac-setup | bash
+curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup | bash -s -- --ref quattro
 ```
+
+**Why `quattro` twice?** Omarchy 4 has not been merged into `main` yet, so the
+script only exists on the `quattro` branch (that is the URL) and has to be told
+to install Omarchy from that branch too (that is `--ref quattro`). Without the
+flag it checks the version it is about to install and stops rather than giving
+you Omarchy 3 by accident. Both go away once Quattro lands on `main`.
+
+There is nothing to prepare beyond the network: no pacman update, no locale
+setup, no user creation. The script installs what it needs, creates your user
+and sets up sudo itself, and Omarchy's shell environment falls back to a UTF‑8
+locale on its own. The manual steps further down are the by‑hand alternative,
+not prerequisites.
 
 You are root at this point, so no `sudo` — and on a minimal image `sudo` is not
-installed yet anyway. To read the script before running it, or to pass options:
+installed yet anyway. To read the script before running it, or to pass more
+options:
 
 ```bash
-curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin/omarchy-mac-setup
-bash omarchy-mac-setup --no-encrypt
+curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup
+bash omarchy-mac-setup --ref quattro --no-encrypt
 ```
 
-Options work through the pipe too, after `-s --`:
-
-```bash
-curl -fsSL <url> | bash -s -- --repo <owner/repo> --ref <branch>
-```
-
-(The script installs from the same place by default, so `--repo`/`--ref` are
-only needed to install from a fork or a branch. If Quattro has not landed on
-`main` yet, add `--ref quattro` — the script checks the version it is about to
-install and refuses to give you Omarchy 3 by accident.)
+(`--repo <owner/repo>` installs from a fork the same way.)
 
 It asks whether to encrypt (yes by default), then for a hostname, username and
 password, then carries the machine
@@ -161,7 +181,7 @@ run this on the fresh install, before anything else lands on it. See
 [docs/btrfs.md](docs/btrfs.md).
 
 ```bash
-base=https://codeberg.org/malik-na/omarchy-mac/raw/branch/main/bin
+base=https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin
 curl -LO $base/omarchy-system-boot-to-esp
 curl -LO $base/omarchy-system-btrfs-migrate
 
@@ -187,32 +207,26 @@ The machine reboots once to do the work, then you continue below.
 
 ### Initial Arch setup
 
-Run these commands (replace placeholders where indicated):
+**Skip this and the next two sections if you ran the one command above** — it
+does all of this itself. What follows is the manual path.
+
+As root, with the network already up:
 
 ```bash
-# Configure Wi‑Fi (if required)
-nmtui
-
 # Update packages
 pacman -Syu
 
-# Install essential packages
-pacman -S --needed sudo git base-devel chromium
+# Install what the manual install needs
+pacman -S --needed sudo git base-devel
 
-# Enable en_US.UTF-8 locale
-nano /etc/locale.gen   # uncomment en_US.UTF-8
+# Set the system locale (the minimal image ships without one)
+sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
 locale-gen
 echo 'LANG=en_US.UTF-8' > /etc/locale.conf
-locale
-
-# Reboot to apply changes
-sudo reboot
 ```
 
-Notes
-
-- If `nmtui` shows an error after activation, reboot and try again.
-- Use `--needed` to avoid reinstalling packages that already exist.
+The locale step is belt and braces rather than a requirement — Omarchy's shell
+environment falls back to a UTF‑8 locale when the system sets none.
 
 ### Create a regular user
 
