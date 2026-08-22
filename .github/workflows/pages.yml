@@ -2,7 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [quattro]
+  schedule:
+    # Weekly safety net so the site can never drift far from quattro
+    - cron: "17 4 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -26,23 +29,21 @@ jobs:
 
       - name: Prepare site files
         run: |
-          mkdir -p _site
-          cp index.html _site/
-          cp install.sh _site/
-          cp boot.sh _site/
-          cp bootstrap.sh _site/
-          cp -r bin _site/
-          cp -r config _site/
-          cp -r default _site/
-          cp -r install _site/
-          cp -r migrations _site/
-          cp -r applications _site/
-          cp -r autostart _site/
-          cp version _site/
-          cp .nojekyll _site/
-          # Copy any additional assets
-          [ -f icon.png ] && cp icon.png _site/ || true
-          [ -f logo.svg ] && cp logo.svg _site/ || true
+          mkdir -p _site/bin _site/config _site/default _site/install _site/migrations _site/applications _site/docs
+          cp index.html README.md LICENSE version _site/
+          [[ -f install.sh ]] && cp install.sh _site/
+          [[ -f bootstrap.sh ]] && cp bootstrap.sh _site/
+          cp bin/omarchy-mac-setup _site/bin/
+          cp -r config/. _site/config/
+          cp -r default/. _site/default/
+          cp -r install/. _site/install/
+          cp -r migrations/. _site/migrations/
+          cp -r applications/. _site/applications/
+          [[ -d docs ]] && cp -r docs/. _site/docs/
+          [[ -d autostart ]] && cp -r autostart _site/
+          [[ -f .nojekyll ]] && cp .nojekyll _site/
+          # upload-pages-artifact dereferences symlinks; dangling ones make tar fail.
+          find _site -xtype l -delete
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -50,7 +51,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: "_site"
 
       - name: Deploy to GitHub Pages
         id: deployment
