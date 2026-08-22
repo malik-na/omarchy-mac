@@ -35,8 +35,8 @@ not() {
 echo "=== reading the release out of a Server line ==="
 
 check "owner, repo and tag come back" \
-  [ "$(parse_repo_server https://github.com/scottjones/omarchy-pkgs-aarch64/releases/download/edge)" \
-    = "scottjones/omarchy-pkgs-aarch64 edge" ]
+  [ "$(parse_repo_server https://github.com/omarchy-mac/omarchy-pkgs-aarch64/releases/download/edge)" \
+    = "omarchy-mac/omarchy-pkgs-aarch64 edge" ]
 
 check "a different owner and tag work too" \
   [ "$(parse_repo_server https://github.com/malik-na/pkgs/releases/download/v1.2)" \
@@ -46,10 +46,10 @@ check "a non-GitHub server is refused" \
   not parse_repo_server https://example.com/arch/aarch64
 
 check "a GitHub URL that is not a release is refused" \
-  not parse_repo_server https://github.com/scottjones/omarchy-pkgs-aarch64
+  not parse_repo_server https://github.com/omarchy-mac/omarchy-pkgs-aarch64
 
 check "a missing tag is refused" \
-  not parse_repo_server https://github.com/scottjones/omarchy-pkgs-aarch64/releases/download/
+  not parse_repo_server https://github.com/omarchy-mac/omarchy-pkgs-aarch64/releases/download/
 
 check "a tag with a slash is refused" \
   not parse_repo_server https://github.com/o/r/releases/download/edge/extra
