@@ -49,15 +49,25 @@ again.
 Still as root:
 
 ```bash
-curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup | bash
+wget -qO- https://omarchy-mac.github.io/omarchy-mac/bin/omarchy-mac-setup | bash
 ```
+
+This URL always serves the script from the current `quattro` branch — the site
+redeploys itself on every merge, so there is no separate page to maintain.
 
 There is nothing to prepare beyond the network: no pacman update, no locale
 setup, no user creation. The script installs what it needs, creates your user
-and sets up sudo itself. To read it before running it, or to pass options:
+and sets up sudo itself. If GitHub is unreachable, the same script comes from
+Codeberg:
 
 ```bash
-curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup
+curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup | bash
+```
+
+To read it before running it, or to pass options:
+
+```bash
+wget -q https://omarchy-mac.github.io/omarchy-mac/bin/omarchy-mac-setup
 bash omarchy-mac-setup --no-encrypt
 ```
 
