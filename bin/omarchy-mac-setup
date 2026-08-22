@@ -38,12 +38,11 @@ SRC=/var/lib/omarchy-mac-setup/src
 LOG=/var/log/omarchy-mac-setup.log
 
 # Upstream, on the branch this is published from. The defaults have to name a
-# branch that actually carries this script and the two tools it drives, and the
-# check below refuses to install Omarchy 3 unasked -- so if this runs before
-# the merge that puts Quattro on main, it stops with a message naming the
-# branch to pass instead rather than installing the wrong generation.
+# branch that actually carries this script and the two tools it drives --
+# quattro, the repo's default branch. The check below still refuses to install
+# Omarchy 3 unasked when an older ref is passed explicitly.
 DEFAULT_REPO=malik-na/omarchy-mac
-DEFAULT_REF=main
+DEFAULT_REF=quattro
 # The host the repo is fetched from. Overridable because the same repo is
 # mirrored on more than one forge, and an install should not be stopped by one
 # of them being unreachable -- which has happened: codeberg.org stopped
@@ -680,10 +679,9 @@ require_tools_present() {
   tools_present "$1" || fail "$repo ($ref) does not carry the tools this drives"
 }
 
-# Until quattro is merged into main, main is still the Omarchy 3.x line -- and
-# its install.sh installs Omarchy 3 without ever announcing which generation it
-# is. Say the version out loud, and stop rather than silently deliver 3.x to
-# someone who came here for 4.
+# main still carries the Omarchy 3.x line, and its install.sh installs Omarchy
+# 3 without ever announcing which generation it is. Say the version out loud,
+# and stop rather than silently deliver 3.x to someone who came here for 4.
 omarchy_generation_ok() {
   local version
   version=$(head -1 "$SRC/version" 2>/dev/null || echo unknown)
@@ -695,8 +693,7 @@ omarchy_generation_ok() {
 
   if [[ $version == 3.* ]] && (( ! allow_omarchy3 )); then
     warn "Branch '$ref' of $repo is the Omarchy 3.x line."
-    warn "For Omarchy 4 pass a quattro-line branch: --ref quattro, until that"
-    warn "is merged into $DEFAULT_REF."
+    warn "For Omarchy 4 use a quattro-line branch; the default is --ref $DEFAULT_REF."
     warn "Refusing to install Omarchy 3 unasked; pass --allow-omarchy3 if you meant it."
     return 1
   fi

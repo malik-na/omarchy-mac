@@ -102,14 +102,12 @@ again.
 On the first boot into Arch, as root and with the network up:
 
 ```bash
-curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup | bash -s -- --ref quattro
+curl -fsSL https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup | bash
 ```
 
-**Why `quattro` twice?** Omarchy 4 has not been merged into `main` yet, so the
-script only exists on the `quattro` branch (that is the URL) and has to be told
-to install Omarchy from that branch too (that is `--ref quattro`). Without the
-flag it checks the version it is about to install and stops rather than giving
-you Omarchy 3 by accident. Both go away once Quattro lands on `main`.
+`quattro` is the repository's default branch and the script installs from it by
+default. It also checks the version it is about to install and stops rather
+than giving you Omarchy 3 by accident.
 
 There is nothing to prepare beyond the network: no pacman update, no locale
 setup, no user creation. The script installs what it needs, creates your user
@@ -123,7 +121,7 @@ options:
 
 ```bash
 curl -LO https://codeberg.org/malik-na/omarchy-mac/raw/branch/quattro/bin/omarchy-mac-setup
-bash omarchy-mac-setup --ref quattro --no-encrypt
+bash omarchy-mac-setup --no-encrypt
 ```
 
 (`--repo <owner/repo>` installs from a fork the same way.)
@@ -253,16 +251,16 @@ As the non‑root user (the installer refuses to run as root and uses `sudo`
 where it needs to):
 
 ```bash
-git clone -b quattro https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
+git clone https://codeberg.org/malik-na/omarchy-mac.git ~/.local/share/omarchy
 cd ~/.local/share/omarchy
 cat version    # 4.x — if this says 3.x you are on the wrong branch
 bash install.sh
 ```
 
-**Mind the branch.** `main` is still the Omarchy 3.x line until Quattro is
-merged into it, and its `install.sh` installs Omarchy 3 without saying which
-generation it is putting on the machine — an easy hour to lose. `-b quattro` is
-what makes it 4.x, and `cat version` is how you check before committing to it.
+**Mind the branch.** A plain clone gets `quattro`, the default branch and the
+Omarchy 4 line. `main` still carries Omarchy 3.x, and its `install.sh` installs
+Omarchy 3 without saying which generation it is putting on the machine — an
+easy hour to lose. `cat version` is how you check before committing to it.
 (The guided setup above reads that file and refuses to install 3.x unasked.)
 
 That is the whole install. It takes under ten minutes on a good connection --
